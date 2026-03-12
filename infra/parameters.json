@@ -1,0 +1,42 @@
+[
+  {
+    "ParameterKey": "Env",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "DBUsername",
+    "ParameterValue": "veloquity_user"
+  },
+  {
+    "ParameterKey": "DBPassword",
+    "ParameterValue": "REDACTED_DB_PASSWORD"
+  },
+  {
+    "ParameterKey": "DBInstanceClass",
+    "ParameterValue": "db.t3.micro"
+  },
+  {
+    "ParameterKey": "VpcId",
+    "ParameterValue": "vpc-0f75b2869cdfac688"
+  },
+  {
+    "ParameterKey": "SubnetIds",
+    "ParameterValue": "subnet-0daaa1573bef2d421,subnet-0042fa837a0851246"
+  },
+  {
+    "ParameterKey": "BedrockEmbedModel",
+    "ParameterValue": "amazon.titan-embed-text-v2:0"
+  },
+  {
+    "ParameterKey": "BedrockLLMModel",
+    "ParameterValue": "anthropic.claude-3-sonnet-20240229-v1:0"
+  },
+  {
+    "ParameterKey": "SlackWebhookUrl",
+    "ParameterValue": ""
+  },
+  {
+    "ParameterKey": "SecurityGroupId",
+    "ParameterValue": "sg-0f3ff839a289ca079"
+  }
+]

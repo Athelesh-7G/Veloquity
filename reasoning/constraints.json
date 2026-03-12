@@ -1,0 +1,6 @@
+{
+  "engineering_capacity": "medium",
+  "current_sprint_load": "high",
+  "business_priorities": ["retention", "onboarding", "performance"],
+  "risk_flags": ["no breaking API changes", "GDPR compliance"]
+}
