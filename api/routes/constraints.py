@@ -9,7 +9,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.dependencies import get_db_connection
+from dependencies import get_db_connection
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

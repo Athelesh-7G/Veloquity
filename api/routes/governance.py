@@ -8,7 +8,7 @@ import json
 
 from fastapi import APIRouter, Depends, Query
 
-from api.dependencies import get_db_connection
+from dependencies import get_db_connection
 from api.schemas import GovernanceEvent
 
 router = APIRouter()
