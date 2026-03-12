@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from dependencies import get_db_connection
-from api.schemas import EvidenceItem, EvidenceMapItem
+from schemas import EvidenceItem, EvidenceMapItem
 
 router = APIRouter()
 

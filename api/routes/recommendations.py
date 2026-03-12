@@ -8,7 +8,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 
 from dependencies import get_db_connection
-from api.schemas import Recommendation, ReasoningRun
+from schemas import Recommendation, ReasoningRun
 
 router = APIRouter()
 

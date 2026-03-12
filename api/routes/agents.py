@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from dependencies import get_db_connection, get_lambda_client
-from api.schemas import AgentRunResult, AgentStatus
+from schemas import AgentRunResult, AgentStatus
 
 logger = logging.getLogger(__name__)
 

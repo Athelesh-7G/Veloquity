@@ -9,7 +9,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 
 from dependencies import get_bedrock_client, get_db_connection
-from api.schemas import ChatRequest, ChatResponse
+from schemas import ChatRequest, ChatResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
