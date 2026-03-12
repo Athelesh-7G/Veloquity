@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from api.routes import agents, chat, constraints, evidence, governance, recommendations
+from routes import agents, chat, constraints, evidence, governance, recommendations
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
