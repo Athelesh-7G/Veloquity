@@ -27,9 +27,9 @@ interface EvidenceItem {
   clusterId: string
   title: string
   sources: ('App Store' | 'Zendesk')[]
-  confidence: number                    // 0–100
-  uncertaintyRange: [number, number]    // [lower, upper] % bounds
-  feedbackCount: number                 // total items in cluster
+  confidence: number
+  uncertaintyRange: [number, number]
+  feedbackCount: number
   uniqueUsers: number
   category: EvidenceCategory
   trend: EvidenceTrend
@@ -38,8 +38,7 @@ interface EvidenceItem {
   linkedFeedback: LinkedFeedbackItem[]
 }
 
-// ─── Veloquity-aligned evidence clusters ─────────────────────────────────────
-// 6 clusters, avg confidence = (91+87+86+81+77+72) / 6 = 82.3 ≈ 84% weighted
+// ─── Canonical mock dataset ───────────────────────────────────────────────────
 const EVIDENCE_DATA: EvidenceItem[] = [
   {
     id: 'ev1', clusterId: 'c1',
@@ -169,11 +168,19 @@ const EVIDENCE_DATA: EvidenceItem[] = [
   },
 ]
 
-// ─── Derived stats ────────────────────────────────────────────────────────────
-const TOTAL_CLUSTERS   = EVIDENCE_DATA.length                                          // 6
-const AVG_CONFIDENCE   = Math.round(EVIDENCE_DATA.reduce((s, e) => s + e.confidence, 0) / EVIDENCE_DATA.length) // 82 → display 84 (weighted)
-const TOTAL_FEEDBACK   = EVIDENCE_DATA.reduce((s, e) => s + e.feedbackCount, 0)        // 521 clustered
-const UNIQUE_SOURCES   = 2                                                             // App Store + Zendesk
+const UNIQUE_SOURCES = 2
+
+// ─── Helpers to validate live API response ────────────────────────────────────
+function isValidApiItem(e: any): boolean {
+  // Must have a short, clean title (not a pipe-joined quote dump)
+  return (
+    typeof e.theme === 'string' &&
+    e.theme.length > 0 &&
+    e.theme.length < 120 &&
+    !e.theme.includes('|') &&
+    (e.user_count ?? 0) > 0
+  )
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -212,9 +219,9 @@ function UncertaintyGauge({ confidence, range }: { confidence: number; range: [n
 
 function TrendBadge({ trend }: { trend: EvidenceTrend }) {
   const map = {
-    rising:   { label: 'Rising',   cls: 'bg-red-500/10 text-red-600 dark:text-red-400' },
-    stable:   { label: 'Stable',   cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-    declining:{ label: 'Declining',cls: 'bg-green-500/10 text-green-600 dark:text-green-400' },
+    rising:   { label: 'Rising',    cls: 'bg-red-500/10 text-red-600 dark:text-red-400' },
+    stable:   { label: 'Stable',    cls: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+    declining:{ label: 'Declining', cls: 'bg-green-500/10 text-green-600 dark:text-green-400' },
   }
   return <Badge className={`${map[trend].cls} border-0 text-[10px]`}>{map[trend].label}</Badge>
 }
@@ -401,35 +408,38 @@ export default function EvidenceGrid() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>(EVIDENCE_DATA)
 
-  // Try live API — fall back to local data silently
+  // Only replace mock data if the API returns well-formed evidence clusters.
+  // Guard: items must have a clean short title and non-zero user counts.
+  // If the API is unhealthy or returns raw/malformed data, mock data is preserved.
   useEffect(() => {
     getEvidence()
       .then((r) => {
-        if (r && r.length > 0) {
-          const mapped: EvidenceItem[] = r.map((e: any) => ({
-            id: e.id,
-            clusterId: e.id,
-            title: e.theme,
-            sources: Object.keys(e.source_lineage ?? {}) as any,
-            confidence: Math.round((e.confidence_score ?? 0) * 100),
-            uncertaintyRange: [
-              Math.max(0, Math.round((e.confidence_score ?? 0) * 100) - 8),
-              Math.min(100, Math.round((e.confidence_score ?? 0) * 100) + 5),
-            ] as [number, number],
-            feedbackCount: e.user_count ?? 0,
-            uniqueUsers: e.user_count ?? 0,
-            category: 'Technical' as EvidenceCategory,
-            trend: 'stable' as EvidenceTrend,
-            lastValidated: (e.last_validated_at ?? '').split('T')[0],
-            representativeQuotes: Array.isArray(e.representative_quotes)
-              ? e.representative_quotes.map((q: any) => (typeof q === 'string' ? q : q.text ?? ''))
-              : [],
-            linkedFeedback: [],
-          }))
-          setEvidenceList(mapped)
-        }
+        if (!r || r.length === 0) return
+        const validItems = r.filter(isValidApiItem)
+        if (validItems.length === 0) return   // API data not ready - keep mock
+        const mapped: EvidenceItem[] = validItems.map((e: any) => ({
+          id: e.id,
+          clusterId: e.id,
+          title: e.theme,
+          sources: Object.keys(e.source_lineage ?? {}) as any,
+          confidence: Math.round((e.confidence_score ?? 0) * 100),
+          uncertaintyRange: [
+            Math.max(0,   Math.round((e.confidence_score ?? 0) * 100) - 8),
+            Math.min(100, Math.round((e.confidence_score ?? 0) * 100) + 5),
+          ] as [number, number],
+          feedbackCount: e.user_count ?? 0,
+          uniqueUsers:   e.user_count ?? 0,
+          category: 'Technical' as EvidenceCategory,
+          trend: 'stable' as EvidenceTrend,
+          lastValidated: (e.last_validated_at ?? '').split('T')[0],
+          representativeQuotes: Array.isArray(e.representative_quotes)
+            ? e.representative_quotes.map((q: any) => (typeof q === 'string' ? q : q.text ?? ''))
+            : [],
+          linkedFeedback: [],
+        }))
+        setEvidenceList(mapped)
       })
-      .catch(() => {})
+      .catch(() => {})  // silently keep mock data on any error
   }, [])
 
   const toggleExpand = (id: string) =>
@@ -459,20 +469,20 @@ export default function EvidenceGrid() {
       <div className="grid sm:grid-cols-4 gap-4 mb-8">
         {[
           {
-            icon: Shield, label: 'Evidence Clusters', value: evidenceList.length,
-            gradient: 'from-blue-500/5 to-blue-500/10', iconColor: 'text-blue-600',
+            icon: Shield,       label: 'Evidence Clusters',  value: evidenceList.length,
+            gradient: 'from-blue-500/5 to-blue-500/10',      iconColor: 'text-blue-600',
           },
           {
-            icon: TrendingUp, label: 'Avg Confidence', value: `${avgConf}%`,
-            gradient: 'from-violet-500/5 to-violet-500/10', iconColor: 'text-violet-600',
+            icon: TrendingUp,   label: 'Avg Confidence',     value: `${avgConf}%`,
+            gradient: 'from-violet-500/5 to-violet-500/10',  iconColor: 'text-violet-600',
           },
           {
-            icon: Layers, label: 'Feedback Clustered', value: totalFbClustered.toLocaleString(),
-            gradient: 'from-green-500/5 to-green-500/10', iconColor: 'text-green-600',
+            icon: Layers,       label: 'Feedback Clustered', value: totalFbClustered.toLocaleString(),
+            gradient: 'from-green-500/5 to-green-500/10',    iconColor: 'text-green-600',
           },
           {
-            icon: ExternalLink, label: 'Unique Sources', value: UNIQUE_SOURCES,
-            gradient: 'from-orange-500/5 to-orange-500/10', iconColor: 'text-orange-600',
+            icon: ExternalLink, label: 'Unique Sources',     value: UNIQUE_SOURCES,
+            gradient: 'from-orange-500/5 to-orange-500/10',  iconColor: 'text-orange-600',
           },
         ].map(({ icon: Icon, label, value, gradient, iconColor }) => (
           <div key={label} className={`p-4 bg-gradient-to-br ${gradient} rounded-xl border border-border`}>
