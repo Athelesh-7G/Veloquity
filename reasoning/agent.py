@@ -14,7 +14,7 @@ from reasoning.output_writer import write_results
 
 logger = logging.getLogger(__name__)
 
-_MODEL_ID = "anthropic.claude-3-5-haiku-20241022-v1:0" 
+_MODEL_ID = "deepseek.v3.2" 
 _MAX_TOKENS = 2000
 
 
