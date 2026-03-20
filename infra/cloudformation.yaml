@@ -335,10 +335,6 @@ Resources:
         S3Key: lambda/reasoning.zip
       Timeout: 300
       MemorySize: 512
-      VpcConfig:
-        SecurityGroupIds:
-          - !Ref SecurityGroupId
-        SubnetIds: !Ref SubnetIds
       Environment:
         Variables:
           ENV: !Ref Env
