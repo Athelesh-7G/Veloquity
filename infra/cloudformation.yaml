@@ -328,7 +328,7 @@ Resources:
     Properties:
       FunctionName: !Sub veloquity-reasoning-${Env}
       Runtime: python3.12
-      Handler: reasoning.agent.handler
+      Handler: lambda_reasoning.handler.handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         S3Bucket: !Ref DeployBucket

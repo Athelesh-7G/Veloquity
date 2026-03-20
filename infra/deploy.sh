@@ -22,7 +22,7 @@ mkdir -p .build
 
 zip -r .build/ingestion.zip ingestion/ -x "*.pyc" -x "__pycache__/*"
 zip -r .build/evidence.zip evidence/ -x "*.pyc" -x "__pycache__/*"
-zip -r .build/reasoning.zip reasoning/ -x "*.pyc" -x "__pycache__/*"
+zip -r .build/reasoning.zip reasoning/ lambda_reasoning/ -x "*.pyc" -x "__pycache__/*"
 zip -r .build/governance.zip governance/ -x "*.pyc" -x "__pycache__/*"
 
 # 2. Upload Lambda zips to a deployment S3 bucket
