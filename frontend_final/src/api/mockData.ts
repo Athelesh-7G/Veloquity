@@ -60,7 +60,7 @@ export const MOCK_EVIDENCE = [
 export const MOCK_RECOMMENDATIONS = {
   run_id: "run-demo-001",
   created_at: "2026-03-10T06:00:00Z",
-  model_id: "anthropic.claude-3-haiku-20240307-v1:0",
+  model_id: "us.amazon.nova-pro-v1:0",
   reasoning_summary: "Analysis of 668 feedback signals across 4 evidence clusters reveals mobile performance as the highest-priority issue affecting user retention. Dark mode and export reliability are quick wins with high user satisfaction potential. Enterprise SSO represents a revenue-critical blocker for expansion accounts.",
   cross_cluster_insight: "Mobile performance issues correlate strongly with enterprise churn signals in Zendesk data, suggesting the performance problem disproportionately affects high-value accounts.",
   recommendations: [

@@ -536,7 +536,7 @@ export default function ConfidenceScores() {
           </div>
           <p className="text-xs">
             Clusters scoring ≥ 0.60 are auto-accepted into evidence. 0.40–0.59 triggers LLM validation
-            via <code className="bg-muted px-1 rounded">anthropic.claude-3-haiku-20240307-v1:0</code>.
+            via <code className="bg-muted px-1 rounded">us.amazon.nova-pro-v1:0</code>.
             Below 0.40 goes to staging.
           </p>
         </CardContent>

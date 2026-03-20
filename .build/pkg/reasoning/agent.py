@@ -14,7 +14,7 @@ from reasoning.output_writer import write_results
 
 logger = logging.getLogger(__name__)
 
-_MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0"
+_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
 _MAX_TOKENS = 2000
 
 

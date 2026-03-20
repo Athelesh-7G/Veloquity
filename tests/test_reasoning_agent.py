@@ -255,7 +255,7 @@ class TestWriteResults(unittest.TestCase):
             priority_scores=[{"id": "x", "priority_score": 0.8}],
             llm_response={"recommendations": [], "meta": {}},
             token_usage={"input_tokens": 100, "output_tokens": 200},
-            model_id="anthropic.claude-3-sonnet-20240229-v1:0",
+            model_id="us.amazon.nova-pro-v1:0",
         )
 
         self.assertIsInstance(run_id, str)
@@ -315,8 +315,8 @@ class TestRunReasoningAgent(unittest.TestCase):
     def _make_bedrock_response(self, content: str):
         """Build a mock Bedrock response dict."""
         body_dict = {
-            "content": [{"type": "text", "text": content}],
-            "usage": {"input_tokens": 500, "output_tokens": 300},
+            "output": {"message": {"content": [{"text": content}]}},
+            "usage": {"inputTokens": 500, "outputTokens": 300},
         }
         mock_resp = MagicMock()
         mock_resp.__getitem__ = lambda s, k: {
@@ -378,8 +378,8 @@ class TestRunReasoningAgent(unittest.TestCase):
         conn = self._mock_conn_with_evidence()
         bedrock = MagicMock()
         bad_body = {
-            "content": [{"type": "text", "text": "not json at all"}],
-            "usage": {"input_tokens": 10, "output_tokens": 5},
+            "output": {"message": {"content": [{"text": "not json at all"}]}},
+            "usage": {"inputTokens": 10, "outputTokens": 5},
         }
         bedrock.invoke_model.return_value = {
             "body": MagicMock(read=lambda: json.dumps(bad_body).encode())
@@ -392,8 +392,8 @@ class TestRunReasoningAgent(unittest.TestCase):
         conn = self._mock_conn_with_evidence()
         bedrock = MagicMock()
         llm_body = {
-            "content": [{"type": "text", "text": self._make_llm_json()}],
-            "usage": {"input_tokens": 500, "output_tokens": 300},
+            "output": {"message": {"content": [{"text": self._make_llm_json()}]}},
+            "usage": {"inputTokens": 500, "outputTokens": 300},
         }
         bedrock.invoke_model.return_value = {
             "body": MagicMock(read=lambda: json.dumps(llm_body).encode())
@@ -416,8 +416,8 @@ class TestRunReasoningAgent(unittest.TestCase):
         conn = self._mock_conn_with_evidence()
         bedrock = MagicMock()
         llm_body = {
-            "content": [{"type": "text", "text": self._make_llm_json()}],
-            "usage": {"input_tokens": 100, "output_tokens": 50},
+            "output": {"message": {"content": [{"text": self._make_llm_json()}]}},
+            "usage": {"inputTokens": 100, "outputTokens": 50},
         }
         bedrock.invoke_model.return_value = {
             "body": MagicMock(read=lambda: json.dumps(llm_body).encode())

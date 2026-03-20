@@ -14,7 +14,7 @@ from schemas import ChatRequest, ChatResponse
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-_MODEL_ID = "anthropic.claude-3-5-haiku-20241022-v1:0"
+_MODEL_ID = "us.amazon.nova-pro-v1:0"
 _MAX_TOKENS = 1024
 
 
@@ -141,15 +141,20 @@ def chat(request: ChatRequest, conn=Depends(get_db_connection), bedrock=Depends(
     messages.append({"role": "user", "content": request.message})
 
     try:
+        nova_messages = [
+            {"role": msg["role"], "content": [{"text": msg["content"]}]}
+            for msg in messages
+        ]
         body = json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": _MAX_TOKENS,
-            "system": system_prompt,
-            "messages": messages,
+            "messages": nova_messages,
+            "system": [{"text": system_prompt}],
+            "inferenceConfig": {
+                "maxTokens": _MAX_TOKENS,
+            },
         })
         response = bedrock.invoke_model(modelId=_MODEL_ID, body=body)
         result = json.loads(response["body"].read())
-        reply = result["content"][0]["text"]
+        reply = result["output"]["message"]["content"][0]["text"]
     except Exception as exc:
         logger.warning("Bedrock chat call failed: %s", exc)
         # Graceful fallback when Bedrock is unavailable

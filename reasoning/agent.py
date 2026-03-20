@@ -14,8 +14,8 @@ from reasoning.output_writer import write_results
 
 logger = logging.getLogger(__name__)
 
-# Bedrock DeepSeek model
-_MODEL_ID = "deepseek.v3.2"
+# Bedrock model
+_MODEL_ID = "us.amazon.nova-pro-v1:0"
 _MAX_TOKENS = 2000
 
 
@@ -41,18 +41,20 @@ def run_reasoning_agent(conn, bedrock_client, s3_client, bucket_name: str) -> di
     prompt = build_prompt(scored_evidence)
 
     # ---------------------------------------------------------
-    # 4. Call Bedrock (DeepSeek V3.2)
+    # 4. Call Bedrock (Nova Pro)
     # ---------------------------------------------------------
-    payload = {
+    body = json.dumps({
         "messages": [
             {
                 "role": "user",
-                "content": prompt
+                "content": [{"text": prompt}]
             }
         ],
-        "max_tokens": _MAX_TOKENS,
-        "temperature": 0.2
-    }
+        "inferenceConfig": {
+            "maxTokens": _MAX_TOKENS,
+            "temperature": 0.2,
+        },
+    })
 
     logger.info(
         "Invoking Bedrock model=%s max_tokens=%d",
@@ -65,7 +67,7 @@ def run_reasoning_agent(conn, bedrock_client, s3_client, bucket_name: str) -> di
             modelId=_MODEL_ID,
             contentType="application/json",
             accept="application/json",
-            body=json.dumps(payload)
+            body=body,
         )
 
         raw_body = json.loads(response["body"].read())
@@ -83,7 +85,7 @@ def run_reasoning_agent(conn, bedrock_client, s3_client, bucket_name: str) -> di
     except (KeyError, IndexError) as exc:
         logger.error("Unexpected Bedrock response structure: %s", raw_body)
         raise ValueError(
-            f"Bedrock response missing expected output.message.content field: {exc}"
+            f"Bedrock response missing expected content field: {exc}"
         ) from exc
 
     # ---------------------------------------------------------
@@ -105,8 +107,8 @@ def run_reasoning_agent(conn, bedrock_client, s3_client, bucket_name: str) -> di
     usage = raw_body.get("usage", {})
 
     token_usage = {
-        "input_tokens": usage.get("input_tokens", 0),
-        "output_tokens": usage.get("output_tokens", 0)
+        "input_tokens": usage.get("inputTokens", 0),
+        "output_tokens": usage.get("outputTokens", 0)
     }
 
     # ---------------------------------------------------------

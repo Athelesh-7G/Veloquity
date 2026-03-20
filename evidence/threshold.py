@@ -80,14 +80,18 @@ def validate_with_llm(cluster: dict[str, Any]) -> dict[str, Any]:
     numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(sample_texts))
     user_prompt = f"Feedback items:\n{numbered}"
 
-    # Bedrock Claude Messages API payload.
+    # Bedrock Nova Pro Messages API payload.
     payload = json.dumps({
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 256,
-        "system": _SYSTEM_PROMPT,
         "messages": [
-            {"role": "user", "content": user_prompt}
+            {
+                "role": "user",
+                "content": [{"text": user_prompt}]
+            }
         ],
+        "system": [{"text": _SYSTEM_PROMPT}],
+        "inferenceConfig": {
+            "maxTokens": 1024,
+        },
     })
 
     try:
@@ -99,13 +103,11 @@ def validate_with_llm(cluster: dict[str, Any]) -> dict[str, Any]:
         )
         body = json.loads(response["body"].read())
 
-        # Claude returns content as a list of content blocks.
-        content_blocks = body.get("content", [])
-        raw_text = ""
-        for block in content_blocks:
-            if block.get("type") == "text":
-                raw_text = block.get("text", "")
-                break
+        # Nova Pro returns content at output.message.content[0].text
+        try:
+            raw_text = body["output"]["message"]["content"][0]["text"]
+        except (KeyError, IndexError):
+            raw_text = ""
 
         if not raw_text:
             raise ValueError(f"No text content block in Bedrock response: {body}")
