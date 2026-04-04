@@ -566,12 +566,13 @@ function LiveClusterCard({
   cluster: EvidenceItem
   onViewRaw: (id: string, theme: string, count: number) => void
 }) {
+  const conf = cluster.confidence ?? cluster.confidence_score ?? 0
   const confColor =
-    cluster.confidence >= 0.8 ? 'text-emerald-400' :
-    cluster.confidence >= 0.6 ? 'text-amber-400' : 'text-red-400'
+    conf >= 0.8 ? 'text-emerald-400' :
+    conf >= 0.6 ? 'text-amber-400' : 'text-red-400'
   const confBg =
-    cluster.confidence >= 0.8 ? 'bg-emerald-500/10 border-emerald-500/20' :
-    cluster.confidence >= 0.6 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20'
+    conf >= 0.8 ? 'bg-emerald-500/10 border-emerald-500/20' :
+    conf >= 0.6 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20'
 
   return (
     <motion.div
@@ -587,7 +588,7 @@ function LiveClusterCard({
             <Layers className="w-3.5 h-3.5 text-violet-400" />
           </div>
           <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full border', confBg, confColor)}>
-            {Math.round(cluster.confidence * 100)}% conf.
+            {Math.round(conf * 100)}% conf.
           </span>
         </div>
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -600,7 +601,7 @@ function LiveClusterCard({
 
       {cluster.keywords && cluster.keywords.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-3">
-          {cluster.keywords.slice(0, 4).map((kw) => (
+          {cluster.keywords.slice(0, 4).map((kw: string) => (
             <Badge key={kw} variant="secondary" className="text-[10px] font-normal">{kw}</Badge>
           ))}
           {cluster.keywords.length > 4 && (
@@ -614,7 +615,7 @@ function LiveClusterCard({
           <TrendingUp className="w-3 h-3 text-muted-foreground" />
           {Object.entries(cluster.source_distribution).map(([src, n]) => (
             <span key={src} className="text-xs text-muted-foreground">
-              {src}: <span className="text-foreground font-medium">{n}</span>
+              {src}: <span className="text-foreground font-medium">{String(n)}</span>
             </span>
           ))}
         </div>
@@ -675,7 +676,7 @@ export default function DataStudio() {
     downloadCSV('veloquity_clusters.csv',
       liveClusters.map((c) => [
         c.id, c.theme,
-        String(Math.round(c.confidence * 100)),
+        String(Math.round((c.confidence ?? c.confidence_score ?? 0) * 100)),
         String(c.feedback_item_count ?? 0),
         (c.keywords ?? []).join('; '),
       ]),
@@ -816,7 +817,7 @@ export default function DataStudio() {
         <div className="flex flex-wrap gap-2 mb-5">
           {[
             { label: `${liveClusters.length} Clusters`, color: 'bg-muted text-foreground' },
-            { label: `${liveClusters.filter((c) => c.confidence >= 0.8).length} High Confidence`, color: 'bg-green-500/10 text-green-600' },
+            { label: `${liveClusters.filter((c) => (c.confidence ?? c.confidence_score ?? 0) >= 0.8).length} High Confidence`, color: 'bg-green-500/10 text-green-600' },
             { label: `${liveClusters.reduce((s, c) => s + (c.feedback_item_count ?? 0), 0)} Total Items`, color: 'bg-violet-500/10 text-violet-600' },
           ].map(({ label, color }) => (
             <span key={label} className={cn('px-3 py-1 rounded-full text-xs font-medium', color)}>{label}</span>

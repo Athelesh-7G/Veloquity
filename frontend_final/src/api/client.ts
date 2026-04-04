@@ -18,6 +18,9 @@ export interface EvidenceItem {
   representative_quotes: Array<{ text: string; source: string }>
   status: string
   last_validated_at: string | null
+  confidence?: number
+  keywords?: string[]
+  source_distribution?: Record<string, number>
 }
 
 export interface EvidenceMapItem {
