@@ -66,7 +66,12 @@ def _build_system_prompt(evidence_clusters: list, recommendations: list, governa
         + "\n\n".join(context_parts)
         + "\n\nAnswer the user's question based on this context. Be specific, "
         "cite evidence themes and recommendation ranks when relevant. "
-        "If the answer cannot be found in the context, say so clearly."
+        "If the answer cannot be found in the context, say so clearly. "
+        "Respond in plain conversational text only. Do not use markdown "
+        "formatting of any kind. No headers (## or ###), no bullet points "
+        "(- or *), no bold (**text**), no italic (*text*), no code blocks, "
+        "no horizontal rules. Write in natural flowing sentences and "
+        "paragraphs only. Keep responses concise and direct."
     )
 
     return system_prompt, context_labels

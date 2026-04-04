@@ -1,18 +1,18 @@
 import type React from 'react'
-import { useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import {
-  FileUp, LinkIcon, Database, MessageSquare, Mail, FileSpreadsheet,
+  FileUp, Database, MessageSquare, FileSpreadsheet,
   CheckCircle2, Clock, AlertCircle, Plus, RefreshCw, Settings, Trash2,
   Smartphone, Ticket, Webhook, Copy, Check, ChevronDown, ChevronUp,
-  ShieldCheck, Layers, X
+  ShieldCheck, Layers, X, Download, Loader2, Play,
 } from 'lucide-react'
+import { type UploadResult, runAgent, uploadFeedback } from '@/api/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type SourceStatus = 'connected' | 'pending' | 'error'
@@ -73,13 +73,29 @@ const INITIAL_SOURCES: ImportSource[] = [
 
 // ─── Available source types to add ───────────────────────────────────────────
 const AVAILABLE_SOURCES = [
-  { id: 'appstore',   name: 'App Store',     icon: Smartphone,    description: 'Import App Store reviews via Apple API' },
-  { id: 'zendesk',    name: 'Zendesk',       icon: Ticket,        description: 'Sync support tickets and customer requests' },
-  { id: 'intercom',   name: 'Intercom',      icon: MessageSquare, description: 'Import customer conversations and feedback' },
-  { id: 'csv',        name: 'CSV / XLSX',    icon: FileSpreadsheet,description: 'Upload spreadsheets with feedback data' },
-  { id: 'api',        name: 'REST API',      icon: Database,      description: 'Connect via custom API integration' },
-  { id: 'webhook',    name: 'Webhook',       icon: LinkIcon,      description: 'Receive real-time data via webhooks' },
+  { id: 'appstore',   name: 'App Store',     icon: Smartphone,     description: 'Import App Store reviews via Apple API' },
+  { id: 'zendesk',    name: 'Zendesk',       icon: Ticket,         description: 'Sync support tickets and customer requests' },
+  { id: 'intercom',   name: 'Intercom',      icon: MessageSquare,  description: 'Import customer conversations and feedback' },
+  { id: 'csv',        name: 'CSV / XLSX',    icon: FileSpreadsheet, description: 'Upload spreadsheets with feedback data' },
+  { id: 'api',        name: 'REST API',      icon: Database,       description: 'Connect via custom API integration' },
+  { id: 'webhook',    name: 'Webhook',       icon: Webhook,        description: 'Receive real-time data via webhooks' },
 ]
+
+// ─── Pipeline step config ─────────────────────────────────────────────────────
+const PIPELINE_STEPS = [
+  { key: 'ingestion', label: 'Ingestion Agent',   msg: 'Normalising, deduplicating and writing to S3...' },
+  { key: 'evidence',  label: 'Evidence Agent',    msg: 'Embedding and clustering feedback...' },
+  { key: 'reasoning', label: 'Reasoning Agent',   msg: 'Scoring and ranking evidence...' },
+] as const
+
+type PipelineKey = typeof PIPELINE_STEPS[number]['key']
+type StepState   = 'pending' | 'running' | 'done' | 'error'
+
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -150,10 +166,7 @@ function SourceRow({
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost" size="icon" className="h-8 w-8"
-            onClick={handleSync} disabled={syncing}
-          >
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSync} disabled={syncing}>
             <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin text-violet-500' : ''}`} />
           </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -183,8 +196,6 @@ function SourceRow({
           >
             <div className="px-4 pb-4 border-t border-border pt-4 grid sm:grid-cols-3 gap-4">
               <div className="sm:col-span-3 text-sm text-muted-foreground mb-1">{source.description}</div>
-
-              {/* Stats */}
               <div className="p-3 bg-muted/40 rounded-lg">
                 <p className="text-xs text-muted-foreground mb-1">Items Ingested</p>
                 <p className="text-xl font-bold text-foreground">{source.itemsImported.toLocaleString()}</p>
@@ -206,8 +217,6 @@ function SourceRow({
                 <p className="text-xl font-bold text-foreground">{source.deduped}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">duplicates suppressed</p>
               </div>
-
-              {/* S3 destination */}
               <div className="sm:col-span-3 flex items-center gap-2 p-3 bg-gradient-to-r from-blue-500/5 to-violet-500/5 border border-border rounded-lg">
                 <Database className="w-4 h-4 text-violet-500 shrink-0" />
                 <div className="min-w-0">
@@ -276,10 +285,10 @@ function AddSourceModal({ isOpen, onClose, onAdd }: {
               <Button variant="ghost" size="icon" onClick={onClose}><X className="w-4 h-4" /></Button>
             </div>
 
-            {/* Source type grid */}
             <div className="grid grid-cols-2 gap-3 mb-5">
               {AVAILABLE_SOURCES.map((src) => (
                 <button
+                  type="button"
                   key={src.id}
                   onClick={() => setSelected(src.id)}
                   className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all ${
@@ -328,13 +337,283 @@ function AddSourceModal({ isOpen, onClose, onAdd }: {
   )
 }
 
+// ─── CSV Upload Card ──────────────────────────────────────────────────────────
+function UploadCard({
+  sourceKey,
+  label,
+  icon: Icon,
+  accent,
+  onSuccess,
+}: {
+  sourceKey: 'appstore' | 'zendesk'
+  label: string
+  icon: React.ElementType
+  accent: string
+  onSuccess: (result: UploadResult) => void
+}) {
+  const [file, setFile]           = useState<File | null>(null)
+  const [dragging, setDragging]   = useState(false)
+  const [phase, setPhase]         = useState<'idle' | 'uploading' | 'pipeline' | 'done' | 'error'>('idle')
+  const [errorText, setErrorText] = useState('')
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
+
+  // Pipeline step tracking
+  const [stepStates, setStepStates] = useState<Record<PipelineKey, StepState>>({
+    ingestion: 'pending', evidence: 'pending', reasoning: 'pending',
+  })
+  const [stepStartedAt, setStepStartedAt] = useState<Record<PipelineKey, number>>({
+    ingestion: 0, evidence: 0, reasoning: 0,
+  })
+  const [stepElapsed, setStepElapsed] = useState<Record<PipelineKey, number>>({
+    ingestion: 0, evidence: 0, reasoning: 0,
+  })
+  const [, forceRender] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const isRunning = phase === 'uploading' || phase === 'pipeline'
+
+  function startTimer() {
+    if (!timerRef.current) {
+      timerRef.current = setInterval(() => forceRender((n) => n + 1), 1000)
+    }
+  }
+  function stopTimer() {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+  }
+
+  function setStep(key: PipelineKey, state: StepState) {
+    setStepStates((s) => ({ ...s, [key]: state }))
+    if (state === 'running') {
+      const now = Date.now()
+      setStepStartedAt((s) => ({ ...s, [key]: now }))
+    }
+    if (state === 'done' || state === 'error') {
+      setStepElapsed((prev) => ({
+        ...prev,
+        [key]: Math.round((Date.now() - stepStartedAt[key]) / 1000),
+      }))
+    }
+  }
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setDragging(false)
+    const f = e.dataTransfer.files[0]
+    if (f && f.name.toLowerCase().endsWith('.csv')) setFile(f)
+  }, [])
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (f) setFile(f)
+  }
+
+  function reset() {
+    setFile(null); setPhase('idle'); setErrorText(''); setUploadResult(null)
+    setStepStates({ ingestion: 'pending', evidence: 'pending', reasoning: 'pending' })
+    setStepStartedAt({ ingestion: 0, evidence: 0, reasoning: 0 })
+    setStepElapsed({ ingestion: 0, evidence: 0, reasoning: 0 })
+    stopTimer()
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function handleUpload() {
+    if (!file || isRunning) return
+    setPhase('uploading')
+    setErrorText('')
+    startTimer()
+
+    let result: UploadResult
+    try {
+      result = await uploadFeedback(file, sourceKey)
+      setUploadResult(result)
+      onSuccess(result)
+    } catch (err: unknown) {
+      stopTimer()
+      setPhase('error')
+      setErrorText(err instanceof Error ? err.message : 'Upload failed')
+      return
+    }
+
+    // ── Run pipeline: ingestion → evidence → reasoning ──────────────────────
+    setPhase('pipeline')
+
+    for (const step of PIPELINE_STEPS) {
+      const key = step.key as PipelineKey
+      setStep(key, 'running')
+      try {
+        await runAgent(key)
+        setStep(key, 'done')
+      } catch (err: unknown) {
+        setStep(key, 'error')
+        stopTimer()
+        setPhase('error')
+        setErrorText(
+          `Pipeline failed at ${step.label}: ${err instanceof Error ? err.message : 'unknown error'}`
+        )
+        return
+      }
+    }
+
+    stopTimer()
+    setPhase('done')
+  }
+
+  const currentElapsed = (key: PipelineKey): number => {
+    if (stepStates[key] === 'running' && stepStartedAt[key]) {
+      return Math.max(0, Math.round((Date.now() - stepStartedAt[key]) / 1000))
+    }
+    return stepElapsed[key]
+  }
+
+  return (
+    <div
+      className={`rounded-2xl border flex flex-col gap-4 p-5 transition-all ${
+        dragging ? 'border-violet-500 bg-violet-500/5' : 'border-border bg-card'
+      }`}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-xl shrink-0" style={{ background: `${accent}18` }}>
+          <Icon className="w-5 h-5" style={{ color: accent }} />
+        </div>
+        <div>
+          <h3 className="font-semibold text-sm text-foreground">{label}</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {sourceKey === 'appstore'
+              ? 'Columns: review_id, rating, title, review, date, version, author'
+              : 'Columns: ticket_id, subject, description, status, priority, created_at, requester'}
+          </p>
+        </div>
+      </div>
+
+      {/* Drop zone */}
+      {phase === 'idle' && (
+        <div
+          className={`border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
+            dragging
+              ? 'border-violet-500 bg-violet-500/5'
+              : 'border-border hover:border-violet-400 hover:bg-violet-500/5'
+          }`}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <FileUp className="w-7 h-7 mx-auto text-muted-foreground mb-2" />
+          {file ? (
+            <p className="text-sm font-medium text-foreground">{file.name}</p>
+          ) : (
+            <>
+              <p className="text-sm text-foreground font-medium">Drop CSV here</p>
+              <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
+            </>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            aria-label={`Upload ${label} CSV file`}
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+      )}
+
+      {/* Upload / pipeline progress */}
+      {(phase === 'uploading' || phase === 'pipeline') && (
+        <div className="space-y-3">
+          {/* Upload step */}
+          <div className="flex items-center gap-2 text-xs">
+            {phase === 'uploading'
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-500 shrink-0" />
+              : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+            <span className={phase === 'uploading' ? 'text-foreground' : 'text-emerald-500'}>
+              {phase === 'uploading' ? 'Uploading...' : `${uploadResult?.items_submitted ?? 0} items uploaded`}
+            </span>
+          </div>
+
+          {/* Pipeline steps */}
+          {phase === 'pipeline' && PIPELINE_STEPS.map((step) => {
+            const key = step.key as PipelineKey
+            const ss = stepStates[key]
+            const elapsed = currentElapsed(key)
+            return (
+              <div key={key} className="flex items-center gap-2 text-xs">
+                {ss === 'pending' && <div className="w-3.5 h-3.5 rounded-full border border-border shrink-0" />}
+                {ss === 'running' && <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500 shrink-0" />}
+                {ss === 'done'    && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                {ss === 'error'   && <AlertCircle  className="w-3.5 h-3.5 text-red-500 shrink-0" />}
+                <span className={
+                  ss === 'done'    ? 'text-emerald-500' :
+                  ss === 'running' ? 'text-foreground'  :
+                  ss === 'error'   ? 'text-red-500'     : 'text-muted-foreground'
+                }>
+                  {ss === 'running' ? step.msg : step.label}
+                </span>
+                {(ss === 'running' || ss === 'done') && elapsed > 0 && (
+                  <span className="ml-auto tabular-nums text-muted-foreground">
+                    {ss === 'done' ? `done in ${formatElapsed(elapsed)}` : formatElapsed(elapsed)}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Done state */}
+      {phase === 'done' && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 space-y-1">
+          <div className="flex items-center gap-2 text-emerald-500 text-sm font-medium">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            {uploadResult?.items_submitted ?? 0} items submitted to pipeline successfully
+          </div>
+          <p className="text-xs text-muted-foreground pl-6">
+            Pipeline complete. Visit Evidence Grid to see your results.
+          </p>
+        </div>
+      )}
+
+      {/* Error state */}
+      {phase === 'error' && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-2 text-red-400 text-xs">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span className="break-words">{errorText}</span>
+          </div>
+          <button
+            type="button"
+            onClick={reset}
+            className="text-xs text-violet-500 hover:underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Upload button */}
+      {(phase === 'idle' || phase === 'done') && (
+        <Button
+          onClick={phase === 'done' ? reset : handleUpload}
+          disabled={phase === 'idle' && !file}
+          className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white disabled:opacity-40 rounded-xl"
+        >
+          {phase === 'done' ? (
+            <span className="flex items-center gap-2"><Plus className="w-4 h-4" />Upload Another</span>
+          ) : (
+            <span className="flex items-center gap-2"><Play className="w-4 h-4" />Upload & Process</span>
+          )}
+        </Button>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ImportSources() {
-  const [sources, setSources]       = useState<ImportSource[]>(INITIAL_SOURCES)
+  const [sources, setSources]         = useState<ImportSource[]>(INITIAL_SOURCES)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [uploading, setUploading]   = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadDone, setUploadDone] = useState(false)
+  const [uploadedOnce, setUploadedOnce] = useState(false)
 
   const totalItems     = sources.reduce((s, src) => s + src.itemsImported, 0)
   const totalPii       = sources.reduce((s, src) => s + src.piiRedacted, 0)
@@ -353,32 +632,31 @@ export default function ImportSources() {
     setSources((prev) => [...prev, source])
   }
 
-  const handleFileUpload = () => {
-    if (uploading) return
-    setUploading(true); setUploadDone(false); setUploadProgress(0)
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval)
-          setUploading(false); setUploadDone(true)
-          // Add as a connected CSV source
-          setSources((s) => [...s, {
-            id: `csv-${Date.now()}`,
-            name: 'CSV Upload',
-            type: 'file',
-            icon: FileSpreadsheet,
-            status: 'connected',
-            lastSync: 'Just now',
-            itemsImported: Math.floor(Math.random() * 80) + 20,
-            piiRedacted: Math.floor(Math.random() * 10),
-            deduped: Math.floor(Math.random() * 5),
-            description: 'Manually uploaded CSV feedback dataset',
-          }])
-          return 100
-        }
-        return prev + 8
-      })
-    }, 150)
+  const handleUploadSuccess = (result: UploadResult, sourceKey: 'appstore' | 'zendesk') => {
+    setUploadedOnce(true)
+    setSources((prev) => {
+      // Update or append a source entry reflecting the upload
+      const exists = prev.find((s) => s.id === `upload-${sourceKey}`)
+      if (exists) {
+        return prev.map((s) =>
+          s.id === `upload-${sourceKey}`
+            ? { ...s, itemsImported: s.itemsImported + result.items_submitted, lastSync: 'Just now', status: 'connected' }
+            : s
+        )
+      }
+      return [...prev, {
+        id: `upload-${sourceKey}`,
+        name: sourceKey === 'appstore' ? 'CSV — App Store' : 'CSV — Zendesk',
+        type: 'file' as SourceType,
+        icon: FileSpreadsheet,
+        status: 'connected' as SourceStatus,
+        lastSync: 'Just now',
+        itemsImported: result.items_submitted,
+        piiRedacted: 0,
+        deduped: 0,
+        description: `Manually uploaded CSV (${sourceKey})`,
+      }]
+    })
   }
 
   return (
@@ -397,13 +675,29 @@ export default function ImportSources() {
         </Button>
       </div>
 
+      {/* ── Demo data notice ────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {!uploadedOnce && (
+          <motion.div
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5"
+          >
+            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-500">
+              No data uploaded yet — showing demo data across all pages. Upload your feedback files below to see real results.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Pipeline summary pills ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Ingested',    value: totalItems.toLocaleString(), sub: 'across all sources',     color: 'from-blue-500/5 to-blue-500/10'    },
+          { label: 'Total Ingested',    value: totalItems.toLocaleString(), sub: 'across all sources',          color: 'from-blue-500/5 to-blue-500/10'    },
           { label: 'Sources Connected', value: connectedCount,              sub: `of ${sources.length} configured`, color: 'from-green-500/5 to-green-500/10'  },
-          { label: 'PII Redacted',      value: totalPii,                    sub: 'regex patterns applied',  color: 'from-violet-500/5 to-violet-500/10' },
-          { label: 'SHA-256 Deduped',   value: totalDeduped,                sub: 'duplicates suppressed',   color: 'from-orange-500/5 to-orange-500/10' },
+          { label: 'PII Redacted',      value: totalPii,                    sub: 'regex patterns applied',       color: 'from-violet-500/5 to-violet-500/10' },
+          { label: 'SHA-256 Deduped',   value: totalDeduped,                sub: 'duplicates suppressed',        color: 'from-orange-500/5 to-orange-500/10' },
         ].map(({ label, value, sub, color }) => (
           <div key={label} className={`p-4 rounded-xl border border-border bg-gradient-to-br ${color}`}>
             <p className="text-2xl font-bold text-foreground">{value}</p>
@@ -412,6 +706,69 @@ export default function ImportSources() {
           </div>
         ))}
       </div>
+
+      {/* ── CSV Upload ──────────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <FileUp className="w-5 h-5 text-violet-600" />Upload Feedback CSV
+          </CardTitle>
+          <CardDescription>
+            Upload a CSV file to run the full evidence pipeline — ingestion, embedding, clustering, and reasoning.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <UploadCard
+              sourceKey="appstore"
+              label="App Store Reviews"
+              icon={Smartphone}
+              accent="#6366f1"
+              onSuccess={(r) => handleUploadSuccess(r, 'appstore')}
+            />
+            <UploadCard
+              sourceKey="zendesk"
+              label="Zendesk Tickets"
+              icon={Ticket}
+              accent="#8b5cf6"
+              onSuccess={(r) => handleUploadSuccess(r, 'zendesk')}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Download Sample Files ───────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Download className="w-5 h-5 text-violet-600" />Download Sample Files
+          </CardTitle>
+          <CardDescription>
+            Use these sample CSVs to test the upload pipeline or as a template for your own data.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <a href="/samples/appstore_sample.csv" download>
+              <Button variant="outline" className="bg-transparent gap-2">
+                <Smartphone className="w-4 h-4 text-indigo-500" />
+                Download App Store Sample CSV
+              </Button>
+            </a>
+            <a href="/samples/zendesk_sample.csv" download>
+              <Button variant="outline" className="bg-transparent gap-2">
+                <Ticket className="w-4 h-4 text-violet-500" />
+                Download Zendesk Sample CSV
+              </Button>
+            </a>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            App Store: 20 rows · columns: review_id, rating, title, review, date, version, author
+            <span className="mx-2">·</span>
+            Zendesk: 20 rows · columns: ticket_id, subject, description, status, priority, created_at, requester
+          </p>
+        </CardContent>
+      </Card>
 
       {/* ── Connected Sources ───────────────────────────────────────────────── */}
       <Card>
@@ -435,50 +792,6 @@ export default function ImportSources() {
         </CardContent>
       </Card>
 
-      {/* ── Quick Upload ────────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <FileUp className="w-5 h-5 text-violet-600" />Quick Upload
-          </CardTitle>
-          <CardDescription>
-            Upload CSV, JSON, or XLSX — routed through the Lambda ingestion agent with PII redaction and SHA-256 dedup
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div
-            className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
-              uploading || uploadDone
-                ? 'border-violet-500/40 bg-violet-500/5'
-                : 'border-border hover:border-violet-500/50 hover:bg-violet-500/5'
-            }`}
-            onClick={handleFileUpload}
-          >
-            {uploading ? (
-              <div className="space-y-4 max-w-xs mx-auto">
-                <RefreshCw className="w-8 h-8 mx-auto text-violet-600 animate-spin" />
-                <Progress value={uploadProgress} className="h-2" />
-                <p className="text-sm text-muted-foreground">
-                  Normalizing → PII redaction → SHA-256 dedup → S3... {uploadProgress}%
-                </p>
-              </div>
-            ) : uploadDone ? (
-              <div className="space-y-2">
-                <CheckCircle2 className="w-8 h-8 mx-auto text-green-500" />
-                <p className="text-sm font-medium text-foreground">Upload complete — added to connected sources</p>
-                <p className="text-xs text-muted-foreground">Click to upload another file</p>
-              </div>
-            ) : (
-              <>
-                <FileUp className="w-8 h-8 mx-auto text-muted-foreground mb-4" />
-                <p className="text-foreground font-medium">Drop files here or click to browse</p>
-                <p className="text-sm text-muted-foreground mt-1">Supports CSV, JSON, XLSX — up to 10 MB</p>
-              </>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* ── API Configuration ───────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
@@ -493,12 +806,7 @@ export default function ImportSources() {
           <div className="space-y-2">
             <Label htmlFor="api-key">API Key</Label>
             <div className="flex gap-2">
-              <Input
-                id="api-key"
-                value="vlq_sk_live_082228066878_xk9mTqPzWvNrLdYe"
-                readOnly
-                className="font-mono text-sm bg-muted"
-              />
+              <Input id="api-key" value="vlq_sk_live_082228066878_xk9mTqPzWvNrLdYe" readOnly className="font-mono text-sm bg-muted" />
               <CopyButton value="vlq_sk_live_082228066878_xk9mTqPzWvNrLdYe" />
             </div>
             <p className="text-xs text-muted-foreground">
@@ -509,12 +817,7 @@ export default function ImportSources() {
           <div className="space-y-2">
             <Label htmlFor="ingestion-endpoint">Ingestion Endpoint</Label>
             <div className="flex gap-2">
-              <Input
-                id="ingestion-endpoint"
-                value="https://api.veloquity.io/v1/ingest"
-                readOnly
-                className="font-mono text-sm bg-muted"
-              />
+              <Input id="ingestion-endpoint" value="https://api.veloquity.io/v1/ingest" readOnly className="font-mono text-sm bg-muted" />
               <CopyButton value="https://api.veloquity.io/v1/ingest" />
             </div>
             <p className="text-xs text-muted-foreground">
@@ -525,12 +828,7 @@ export default function ImportSources() {
           <div className="space-y-2">
             <Label htmlFor="webhook-url">Webhook URL</Label>
             <div className="flex gap-2">
-              <Input
-                id="webhook-url"
-                value="https://api.veloquity.io/v1/webhooks/feedback"
-                readOnly
-                className="font-mono text-sm bg-muted"
-              />
+              <Input id="webhook-url" value="https://api.veloquity.io/v1/webhooks/feedback" readOnly className="font-mono text-sm bg-muted" />
               <CopyButton value="https://api.veloquity.io/v1/webhooks/feedback" />
             </div>
             <p className="text-xs text-muted-foreground">
@@ -538,7 +836,6 @@ export default function ImportSources() {
             </p>
           </div>
 
-          {/* S3 bucket reference */}
           <div className="flex items-start gap-3 p-3 bg-gradient-to-r from-blue-500/5 to-violet-500/5 border border-border rounded-lg mt-2">
             <Database className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
             <div>

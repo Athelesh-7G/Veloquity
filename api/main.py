@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from routes import agents, chat, constraints, evidence, governance, recommendations
+from routes import agents, chat, constraints, evidence, governance, recommendations, upload
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,6 +41,7 @@ app.include_router(agents.router,          prefix=f"{_PREFIX}/agents",          
 app.include_router(governance.router,      prefix=f"{_PREFIX}/governance",       tags=["Governance"])
 app.include_router(chat.router,            prefix=f"{_PREFIX}/chat",             tags=["Chat"])
 app.include_router(constraints.router,     prefix=f"{_PREFIX}/constraints",      tags=["Constraints"])
+app.include_router(upload.router,          prefix=f"{_PREFIX}/upload",            tags=["Upload"])
 
 
 @app.get("/health", tags=["Health"])

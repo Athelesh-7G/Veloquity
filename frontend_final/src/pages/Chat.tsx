@@ -78,24 +78,26 @@ function TypingDots() {
   )
 }
 
-// ─── Render markdown-lite (bold + line breaks) ────────────────────────────────
+// ─── Strip markdown from AI responses (safety net) ───────────────────────────
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/`{1,3}(.*?)`{1,3}/g, '$1')
+    .replace(/^\s*[-*]\s+/gm, '• ')
+    .replace(/---+/g, '')
+    .trim()
+}
+
+// ─── Render plain text with line breaks ───────────────────────────────────────
 function MessageText({ content }: { content: string }) {
-  const parts = content.split('\n')
+  const parts = stripMarkdown(content).split('\n')
   return (
     <div className="space-y-1.5">
       {parts.map((line, i) => {
         if (!line.trim()) return <div key={i} className="h-1" />
-        // Handle **bold**
-        const segments = line.split(/(\*\*[^*]+\*\*)/)
-        return (
-          <p key={i} className="text-sm leading-relaxed">
-            {segments.map((seg, j) =>
-              seg.startsWith('**') && seg.endsWith('**')
-                ? <strong key={j} className="font-semibold text-foreground">{seg.slice(2, -2)}</strong>
-                : <span key={j}>{seg}</span>
-            )}
-          </p>
-        )
+        return <p key={i} className="text-sm leading-relaxed">{line}</p>
       })}
     </div>
   )

@@ -157,6 +157,32 @@ export const updateConstraints = (updates: Record<string, unknown>) =>
 // Aliases used in some pages
 export const sendChat = sendChatMessage
 
+// ── Upload ───────────────────────────────────────────────────
+
+export interface UploadResult {
+  status: string
+  items_submitted: number
+  source: string
+  message: string
+}
+
+export const uploadFeedback = async (
+  file: File,
+  source: 'appstore' | 'zendesk',
+): Promise<UploadResult> => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('source', source)
+  // No Content-Type header — browser sets multipart boundary automatically
+  const res = await fetch(`${V1}/upload/feedback`, { method: 'POST', body: form })
+  if (!res.ok) {
+    let msg = `Upload error ${res.status}`
+    try { const b = await res.json(); msg = b?.detail ?? msg } catch {}
+    throw new Error(msg)
+  }
+  return res.json() as Promise<UploadResult>
+}
+
 // ── Health / wake-up ─────────────────────────────────────────
 export const checkHealth = (): Promise<{ status: string; service: string }> =>
   fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) }).then((r) => {
