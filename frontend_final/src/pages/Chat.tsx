@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bot, Send, Sparkles, Database, Shield, BarChart3, Activity, Layers, Hash } from 'lucide-react'
+import { Bot, Loader2, Send, Sparkles, Database, Shield, BarChart3, Activity, Layers, Hash } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { type ChatMessage, getAgentStatus, getEvidence, getRecommendations, sendChatMessage } from '@/api/client'
+import { type ChatMessage, checkHealth, getAgentStatus, getEvidence, getRecommendations, sendChatMessage } from '@/api/client'
 
 // ─── Veloquity-aligned starter questions ─────────────────────────────────────
 const STARTERS = [
@@ -111,6 +111,14 @@ export default function Chat() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
 
+  // Cold-start wake-up state
+  const backendReadyRef   = useRef(false)
+  const [warmingUp, setWarmingUp] = useState(false)
+
+  // Progressive status during slow responses
+  const [chatStatus, setChatStatus]   = useState('')
+  const statusTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
   // Load live context (falls back to Veloquity defaults)
   useEffect(() => {
     Promise.allSettled([getEvidence(), getRecommendations(), getAgentStatus()]).then(([ev, rec]) => {
@@ -126,8 +134,41 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  async function ensureBackendAwake(): Promise<void> {
+    if (backendReadyRef.current) return
+    setWarmingUp(true)
+    let attempt = 0
+    while (attempt < 10) {
+      try {
+        await checkHealth()
+        backendReadyRef.current = true
+        setWarmingUp(false)
+        return
+      } catch {
+        attempt++
+        if (attempt < 10) {
+          await new Promise<void>((r) => setTimeout(r, 3000))
+        }
+      }
+    }
+    // Give up — proceed anyway so the user isn't permanently blocked
+    backendReadyRef.current = true
+    setWarmingUp(false)
+  }
+
+  function clearStatusTimers() {
+    statusTimersRef.current.forEach((t) => clearTimeout(t))
+    statusTimersRef.current = []
+    setChatStatus('')
+  }
+
   async function send(text: string) {
     if (!text.trim() || sending) return
+
+    if (!backendReadyRef.current) {
+      await ensureBackendAwake()
+    }
+
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
     const userMsg: Message = { role: 'user', content: text, timestamp: now }
@@ -135,12 +176,19 @@ export default function Chat() {
     setInput('')
     setSending(true)
 
+    // Progressive status messages
+    statusTimersRef.current = [
+      setTimeout(() => setChatStatus('Querying evidence clusters...'), 3000),
+      setTimeout(() => setChatStatus('Nova Pro is analyzing your question...'), 8000),
+    ]
+
     const pendingMsg: Message = { role: 'assistant', content: '', pending: true }
     setMessages((m) => [...m, pendingMsg])
 
     try {
       const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }))
       const res = await sendChatMessage(text, history)
+      clearStatusTimers()
       const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       setMessages((m) => [
         ...m.slice(0, -1),
@@ -152,6 +200,7 @@ export default function Chat() {
         },
       ])
     } catch {
+      clearStatusTimers()
       // Intelligent fallback using Veloquity data
       const fallback = getSmartFallback(text)
       const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -357,7 +406,12 @@ export default function Chat() {
                     }`}
                   >
                     {m.pending ? (
-                      <TypingDots />
+                      <div>
+                        <TypingDots />
+                        {chatStatus && (
+                          <p className="text-xs text-muted-foreground mt-1.5">{chatStatus}</p>
+                        )}
+                      </div>
                     ) : m.role === 'user' ? (
                       <p className="text-sm leading-relaxed">{m.content}</p>
                     ) : (
@@ -389,6 +443,14 @@ export default function Chat() {
           </AnimatePresence>
           <div ref={bottomRef} />
         </div>
+
+        {/* Warming-up banner */}
+        {warmingUp && (
+          <div className="flex items-center gap-2 px-4 py-2 mb-2 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-500 text-xs">
+            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+            <span>Warming up AI engine... this takes ~30 seconds on first load</span>
+          </div>
+        )}
 
         {/* Input bar */}
         <div className="flex gap-2">

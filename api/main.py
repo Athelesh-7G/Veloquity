@@ -45,8 +45,14 @@ app.include_router(constraints.router,     prefix=f"{_PREFIX}/constraints",     
 
 @app.get("/health", tags=["Health"])
 def health():
-    """Health check."""
-    return {"status": "ok", "version": "1.0.0"}
+    """Instant health check — no DB calls, used for Render cold-start wake-up."""
+    return {"status": "ok", "service": "veloquity-api"}
+
+
+@app.get("/", tags=["Health"])
+def root():
+    """Root endpoint."""
+    return {"service": "veloquity-api", "status": "running"}
 
 
 @app.exception_handler(Exception)

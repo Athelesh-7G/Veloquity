@@ -156,3 +156,10 @@ export const updateConstraints = (updates: Record<string, unknown>) =>
 
 // Aliases used in some pages
 export const sendChat = sendChatMessage
+
+// ── Health / wake-up ─────────────────────────────────────────
+export const checkHealth = (): Promise<{ status: string; service: string }> =>
+  fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) }).then((r) => {
+    if (!r.ok) throw new Error(`Health check failed: ${r.status}`)
+    return r.json() as Promise<{ status: string; service: string }>
+  })
