@@ -1,5 +1,5 @@
 import type React from 'react'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,12 @@ import {
   ShieldCheck, Layers, X, Download, Loader2, Play,
 } from 'lucide-react'
 import { type UploadResult, runAgent, uploadFeedback } from '@/api/client'
+import {
+  addUploadedSource,
+  getUploadedSources,
+  hasUploadedData,
+  removeUploadedSource,
+} from '@/utils/uploadState'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type SourceStatus = 'connected' | 'pending' | 'error'
@@ -349,7 +355,7 @@ function UploadCard({
   label: string
   icon: React.ElementType
   accent: string
-  onSuccess: (result: UploadResult) => void
+  onSuccess: (result: UploadResult, filename: string) => void
 }) {
   const [file, setFile]           = useState<File | null>(null)
   const [dragging, setDragging]   = useState(false)
@@ -426,7 +432,7 @@ function UploadCard({
     try {
       result = await uploadFeedback(file, sourceKey)
       setUploadResult(result)
-      onSuccess(result)
+      onSuccess(result, file.name)
     } catch (err: unknown) {
       stopTimer()
       setPhase('error')
@@ -456,6 +462,14 @@ function UploadCard({
 
     stopTimer()
     setPhase('done')
+
+    // Persist to localStorage after full pipeline success
+    addUploadedSource({
+      source: sourceKey,
+      filename: file.name,
+      itemCount: result.items_submitted,
+      uploadedAt: new Date().toISOString(),
+    })
   }
 
   const currentElapsed = (key: PipelineKey): number => {
@@ -611,9 +625,35 @@ function UploadCard({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ImportSources() {
-  const [sources, setSources]         = useState<ImportSource[]>(INITIAL_SOURCES)
+  const [sources, setSources]           = useState<ImportSource[]>(INITIAL_SOURCES)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [uploadedOnce, setUploadedOnce] = useState(false)
+  const [uploadedOnce, setUploadedOnce] = useState(() => hasUploadedData())
+
+  // Restore persisted upload entries into the sources list on mount
+  useEffect(() => {
+    const persisted = getUploadedSources()
+    if (persisted.length === 0) return
+    setSources((prev) => {
+      const existingIds = new Set(prev.map((s) => s.id))
+      const restored: ImportSource[] = persisted
+        .filter((u) => !existingIds.has(`upload-${u.source}`))
+        .map((u) => ({
+          id: `upload-${u.source}`,
+          name: u.source === 'appstore'
+            ? `CSV — App Store (${u.filename})`
+            : `CSV — Zendesk (${u.filename})`,
+          type: 'file' as SourceType,
+          icon: FileSpreadsheet,
+          status: 'connected' as SourceStatus,
+          lastSync: new Date(u.uploadedAt).toLocaleString(),
+          itemsImported: u.itemCount,
+          piiRedacted: 0,
+          deduped: 0,
+          description: `Uploaded CSV: ${u.filename}`,
+        }))
+      return [...prev, ...restored]
+    })
+  }, [])
 
   const totalItems     = sources.reduce((s, src) => s + src.itemsImported, 0)
   const totalPii       = sources.reduce((s, src) => s + src.piiRedacted, 0)
@@ -625,6 +665,12 @@ export default function ImportSources() {
   }
 
   const handleDelete = (id: string) => {
+    // If it's a persisted CSV upload, remove it from localStorage too
+    if (id.startsWith('upload-')) {
+      const sourceType = id.replace('upload-', '')
+      removeUploadedSource(sourceType)
+      if (!hasUploadedData()) setUploadedOnce(false)
+    }
     setSources((prev) => prev.filter((s) => s.id !== id))
   }
 
@@ -632,21 +678,20 @@ export default function ImportSources() {
     setSources((prev) => [...prev, source])
   }
 
-  const handleUploadSuccess = (result: UploadResult, sourceKey: 'appstore' | 'zendesk') => {
+  const handleUploadSuccess = (result: UploadResult, filename: string, sourceKey: 'appstore' | 'zendesk') => {
     setUploadedOnce(true)
     setSources((prev) => {
-      // Update or append a source entry reflecting the upload
       const exists = prev.find((s) => s.id === `upload-${sourceKey}`)
       if (exists) {
         return prev.map((s) =>
           s.id === `upload-${sourceKey}`
-            ? { ...s, itemsImported: s.itemsImported + result.items_submitted, lastSync: 'Just now', status: 'connected' }
+            ? { ...s, name: `CSV — ${sourceKey === 'appstore' ? 'App Store' : 'Zendesk'} (${filename})`, itemsImported: result.items_submitted, lastSync: 'Just now', status: 'connected' }
             : s
         )
       }
       return [...prev, {
         id: `upload-${sourceKey}`,
-        name: sourceKey === 'appstore' ? 'CSV — App Store' : 'CSV — Zendesk',
+        name: sourceKey === 'appstore' ? `CSV — App Store (${filename})` : `CSV — Zendesk (${filename})`,
         type: 'file' as SourceType,
         icon: FileSpreadsheet,
         status: 'connected' as SourceStatus,
@@ -654,7 +699,7 @@ export default function ImportSources() {
         itemsImported: result.items_submitted,
         piiRedacted: 0,
         deduped: 0,
-        description: `Manually uploaded CSV (${sourceKey})`,
+        description: `Uploaded CSV: ${filename}`,
       }]
     })
   }
@@ -724,14 +769,14 @@ export default function ImportSources() {
               label="App Store Reviews"
               icon={Smartphone}
               accent="#6366f1"
-              onSuccess={(r) => handleUploadSuccess(r, 'appstore')}
+              onSuccess={(r, filename) => handleUploadSuccess(r, filename, 'appstore')}
             />
             <UploadCard
               sourceKey="zendesk"
               label="Zendesk Tickets"
               icon={Ticket}
               accent="#8b5cf6"
-              onSuccess={(r) => handleUploadSuccess(r, 'zendesk')}
+              onSuccess={(r, filename) => handleUploadSuccess(r, filename, 'zendesk')}
             />
           </div>
         </CardContent>

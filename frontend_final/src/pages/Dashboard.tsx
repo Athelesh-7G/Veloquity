@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { mockEvidence } from '@/lib/mock-data'
 import { MOCK_EVIDENCE, MOCK_RECOMMENDATIONS, MOCK_AGENTS, MOCK_STATS } from '@/api/mockData'
 import { getEvidence, getRecommendations, getAgentStatus, getGovernanceStats } from '@/api/client'
+import { hasUploadedData } from '@/utils/uploadState'
 
 // ─── Veloquity-scale numbers (all internally consistent) ─────────────────────
 const TOTAL_FEEDBACK    = 547
@@ -72,9 +73,11 @@ function StatCard({
 }
 
 export default function Dashboard() {
-  const [evidence, setEvidence] = useState(MOCK_EVIDENCE)
+  const [evidence, setEvidence]   = useState(MOCK_EVIDENCE)
+  const [hasUploads, setHasUploads] = useState(false)
 
   useEffect(() => {
+    setHasUploads(hasUploadedData())
     getEvidence()
       .then((r) => { if (r && r.length > 0) setEvidence(r as any) })
       .catch(() => {})
@@ -90,6 +93,14 @@ export default function Dashboard() {
           Overview of your feedback, evidence, and decision metrics
         </p>
       </div>
+
+      {/* ── Upload data notice ───────────────────────────────────────────── */}
+      {hasUploads && (
+        <div className="flex items-center gap-2 px-4 py-3 mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 text-sm">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          Showing results from your uploaded data
+        </div>
+      )}
 
       {/* ── Top 4 Stat Cards ──────────────────────────────────────────────── */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
