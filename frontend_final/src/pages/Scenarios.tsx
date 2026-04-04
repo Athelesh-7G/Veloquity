@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   FlaskConical, Plus, Play, Copy, Trash2, ArrowRight,
   CheckCircle2, Clock, XCircle, TrendingUp, TrendingDown,
   Minus, ChevronDown, ChevronUp, BarChart3, Zap, X,
-  Shield, Users, Hash, Target, Wifi, List, RefreshCw, AlertCircle,
+  Shield, Users, Hash, Target
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,9 +12,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
-import { getEvidence } from '@/api/client'
-import { useDataMode } from '@/context/DataModeContext'
-import { EvidenceItemsPanel } from '@/components/EvidenceItemsPanel'
 
 // ─── Shared cluster data (mirrors DecisionPlayground + EvidenceGrid) ──────────
 const CLUSTERS = [
@@ -687,88 +684,11 @@ function ComparisonTable({ scenarios }: { scenarios: Scenario[] }) {
   </div>
 )}
 
-// ─── Live evidence cluster card ───────────────────────────────────────────────
-interface LiveCluster {
-  id: string; name: string; confidence: number; feedbackCount: number
-  uniqueUsers: number; status: string
-}
-
-function LiveClusterCard({
-  cluster, rank, onViewDetails,
-}: {
-  cluster: LiveCluster; rank: number; onViewDetails: () => void
-}) {
-  const conf = Math.round(cluster.confidence * 100)
-  const color = conf >= 80 ? 'text-emerald-500' : conf >= 60 ? 'text-amber-500' : 'text-red-500'
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-[#0F1729] rounded-2xl border border-white/5 p-5 hover:border-violet-500/20 transition-colors"
-    >
-      <div className="flex items-start gap-4 mb-4">
-        <div className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center shrink-0">
-          <span className="text-xs font-bold text-slate-400">#{rank}</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-white text-sm leading-snug truncate">{cluster.name}</h3>
-          <div className="flex items-center gap-3 mt-1 flex-wrap">
-            <span className={`text-sm font-bold ${color}`}>{conf}%</span>
-            <span className="text-xs text-slate-500">{cluster.feedbackCount} users</span>
-            <Badge className="text-[10px] bg-white/5 text-slate-300 border-0">{cluster.status}</Badge>
-          </div>
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          size="sm"
-          className="flex-1 h-8 text-xs bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
-          onClick={onViewDetails}
-        >
-          <List className="w-3.5 h-3.5 mr-1.5" />View Details
-        </Button>
-      </div>
-    </motion.div>
-  )
-}
-
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Scenarios() {
-  const { isLive }    = useDataMode()
   const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS)
   const [showForm, setShowForm]   = useState(false)
   const [appliedId, setAppliedId] = useState<string | null>(null)
-
-  // Live data state
-  const [liveClusters, setLiveClusters] = useState<LiveCluster[]>([])
-  const [liveLoading, setLiveLoading]   = useState(false)
-  const [liveError, setLiveError]       = useState<string | null>(null)
-
-  // Panel state
-  const [panelOpen, setPanelOpen]           = useState(false)
-  const [panelClusterId, setPanelClusterId] = useState<string | null>(null)
-  const [panelTheme, setPanelTheme]         = useState('')
-  const [panelTotal, setPanelTotal]         = useState(0)
-
-  useEffect(() => {
-    if (!isLive) return
-    setLiveLoading(true)
-    setLiveError(null)
-    getEvidence()
-      .then((ev) => {
-        if (!ev || ev.length === 0) { setLiveError('No active evidence clusters found.'); return }
-        setLiveClusters(ev.map((e) => ({
-          id: e.id, name: e.theme,
-          confidence: e.confidence_score,
-          feedbackCount: e.unique_user_count,
-          uniqueUsers: e.unique_user_count,
-          status: e.status,
-        })))
-      })
-      .catch((e) => setLiveError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLiveLoading(false))
-  }, [isLive])
 
   const handleClone = (s: Scenario) => {
     setScenarios((prev) => [
@@ -790,77 +710,36 @@ export default function Scenarios() {
     setScenarios((prev) => [s, ...prev])
   }
 
-  const openPanel = (c: LiveCluster) => {
-    setPanelClusterId(c.id)
-    setPanelTheme(c.name)
-    setPanelTotal(c.feedbackCount)
-    setPanelOpen(true)
-  }
-
  return (
   <div className="p-6 min-h-screen bg-gray-50 dark:bg-[#080D1A] space-y-6 transition-colors">
 
     {/* Header */}
     <div className="flex items-center justify-between">
       <div>
-        <div className="flex items-center gap-2 mb-1">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Scenarios</h1>
-          {isLive && (
-            <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1.5">
-              <Wifi className="w-3 h-3" />Live Data
-            </Badge>
-          )}
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Scenarios
+        </h1>
+
         <p className="text-gray-600 dark:text-slate-400 mt-1 text-sm">
-          {isLive
-            ? 'Live evidence clusters from your uploaded data'
-            : 'Model different prioritization strategies · compare outcomes across all 6 evidence clusters'}
+          Model different prioritization strategies · compare outcomes across all 6 evidence clusters
         </p>
       </div>
 
-      {!isLive && (
-        <Button
-          type="button"
-          onClick={() => setShowForm((p) => !p)}
-          className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 gap-2"
-        >
-          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          {showForm ? 'Cancel' : 'New Scenario'}
-        </Button>
-      )}
+      <Button
+        onClick={() => setShowForm((p) => !p)}
+        className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 gap-2"
+      >
+        {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+        {showForm ? 'Cancel' : 'New Scenario'}
+      </Button>
     </div>
 
-    {/* Live cluster cards */}
-    {isLive && (
-      <div>
-        {liveLoading && (
-          <div className="flex items-center gap-3 py-8 text-slate-400">
-            <RefreshCw className="w-4 h-4 animate-spin" /><span className="text-sm">Loading clusters…</span>
-          </div>
-        )}
-        {liveError && (
-          <div className="flex items-center gap-3 py-8 text-red-400">
-            <AlertCircle className="w-4 h-4" /><span className="text-sm">{liveError}</span>
-          </div>
-        )}
-        {!liveLoading && !liveError && liveClusters.length > 0 && (
-          <div className="grid lg:grid-cols-2 gap-4">
-            {liveClusters.map((c, i) => (
-              <LiveClusterCard key={c.id} cluster={c} rank={i + 1} onViewDetails={() => openPanel(c)} />
-            ))}
-          </div>
-        )}
-      </div>
-    )}
-
-    {/* New scenario form (demo only) */}
-    {!isLive && (
-      <AnimatePresence>
-        {showForm && (
-          <NewScenarioForm onAdd={handleAdd} onClose={() => setShowForm(false)} />
-        )}
-      </AnimatePresence>
-    )}
+    {/* New scenario form */}
+    <AnimatePresence>
+      {showForm && (
+        <NewScenarioForm onAdd={handleAdd} onClose={() => setShowForm(false)} />
+      )}
+    </AnimatePresence>
 
     {/* Applied toast */}
     <AnimatePresence>
@@ -879,58 +758,59 @@ export default function Scenarios() {
       )}
     </AnimatePresence>
 
-    {/* Saved scenarios (demo only) */}
-    {!isLive && (
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <Shield className="w-4 h-4 text-gray-500 dark:text-slate-400" />
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Saved Scenarios</h2>
-          <span className="text-xs text-gray-500 dark:text-slate-600">({scenarios.length})</span>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-4">
-          <AnimatePresence>
-            {scenarios.map((scenario, i) => (
-              <motion.div
-                key={scenario.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: i * 0.04 }}
-              >
-                <ScenarioCard
-                  scenario={scenario}
-                  onClone={handleClone}
-                  onDelete={handleDelete}
-                  onApply={handleApply}
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-
-        {scenarios.length === 0 && (
-          <div className="text-center py-12 text-gray-500 dark:text-slate-500">
-            <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No scenarios yet. Create one to start modelling.</p>
-          </div>
-        )}
+    {/* Saved scenarios */}
+    <div>
+      <div className="flex items-center gap-2 mb-4">
+        <Shield className="w-4 h-4 text-gray-500 dark:text-slate-400" />
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+          Saved Scenarios
+        </h2>
+        <span className="text-xs text-gray-500 dark:text-slate-600">
+          ({scenarios.length})
+        </span>
       </div>
-    )}
 
-    {/* Comparison table (demo only) */}
-    {!isLive && scenarios.length > 1 && (
+      <div className="grid lg:grid-cols-2 gap-4">
+
+        <AnimatePresence>
+          {scenarios.map((scenario, i) => (
+
+            <motion.div
+              key={scenario.id}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ delay: i * 0.04 }}
+            >
+              <ScenarioCard
+                scenario={scenario}
+                onClone={handleClone}
+                onDelete={handleDelete}
+                onApply={handleApply}
+              />
+            </motion.div>
+
+          ))}
+        </AnimatePresence>
+
+      </div>
+
+      {scenarios.length === 0 && (
+        <div className="text-center py-12 text-gray-500 dark:text-slate-500">
+          <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">
+            No scenarios yet. Create one to start modelling.
+          </p>
+        </div>
+      )}
+
+    </div>
+
+    {/* Comparison table */}
+    {scenarios.length > 1 && (
       <ComparisonTable scenarios={scenarios} />
     )}
 
-    {/* Evidence items panel */}
-    <EvidenceItemsPanel
-      isOpen={panelOpen}
-      onClose={() => setPanelOpen(false)}
-      clusterId={panelClusterId}
-      clusterTheme={panelTheme}
-      totalItems={panelTotal}
-    />
   </div>
  )
 }

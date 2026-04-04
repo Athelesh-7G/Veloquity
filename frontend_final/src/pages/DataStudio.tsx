@@ -1,10 +1,9 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Filter, Plus, Calendar, Tag, ExternalLink,
   ChevronDown, X, Check, Archive, Layers, AlertCircle,
-  CheckCircle2, Clock, RefreshCw, Wifi, Download, Loader2,
-  Hash, TrendingUp,
+  CheckCircle2, Clock, RefreshCw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,10 +17,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useApp } from '@/lib/app-context'
 import { cn } from '@/lib/utils'
-import { getEvidence } from '@/api/client'
-import type { EvidenceItem } from '@/api/client'
-import { useDataMode } from '@/context/DataModeContext'
-import { EvidenceItemsPanel } from '@/components/EvidenceItemsPanel'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FeedbackStatus = 'new' | 'processing' | 'analyzed' | 'archived'
@@ -285,7 +280,6 @@ function FeedbackCard({
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <button
-            type="button"
             onClick={(e) => { e.stopPropagation(); onSelect() }}
             className={cn(
               'w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors',
@@ -509,7 +503,6 @@ function AddFeedbackModal({ isOpen, onClose, onAdd }: {
                 <div className="flex gap-2">
                   {ALL_SOURCES.map((s) => (
                     <button
-                      type="button"
                       key={s}
                       onClick={() => setSource(s)}
                       className={cn(
@@ -558,133 +551,9 @@ function AddFeedbackModal({ isOpen, onClose, onAdd }: {
   )
 }
 
-// ─── Live Cluster Card ────────────────────────────────────────────────────────
-function LiveClusterCard({
-  cluster,
-  onViewRaw,
-}: {
-  cluster: EvidenceItem
-  onViewRaw: (id: string, theme: string, count: number) => void
-}) {
-  const conf = cluster.confidence ?? cluster.confidence_score ?? 0
-  const confColor =
-    conf >= 0.8 ? 'text-emerald-400' :
-    conf >= 0.6 ? 'text-amber-400' : 'text-red-400'
-  const confBg =
-    conf >= 0.8 ? 'bg-emerald-500/10 border-emerald-500/20' :
-    conf >= 0.6 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-red-500/10 border-red-500/20'
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="p-4 bg-card border border-border rounded-xl"
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-violet-500/10">
-            <Layers className="w-3.5 h-3.5 text-violet-400" />
-          </div>
-          <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full border', confBg, confColor)}>
-            {Math.round(conf * 100)}% conf.
-          </span>
-        </div>
-        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Hash className="w-3 h-3" />
-          {cluster.feedback_item_count ?? 0} items
-        </span>
-      </div>
-
-      <h3 className="font-medium text-foreground text-sm leading-snug mb-2">{cluster.theme}</h3>
-
-      {cluster.keywords && cluster.keywords.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {cluster.keywords.slice(0, 4).map((kw: string) => (
-            <Badge key={kw} variant="secondary" className="text-[10px] font-normal">{kw}</Badge>
-          ))}
-          {cluster.keywords.length > 4 && (
-            <Badge variant="secondary" className="text-[10px] font-normal">+{cluster.keywords.length - 4}</Badge>
-          )}
-        </div>
-      )}
-
-      {cluster.source_distribution && Object.keys(cluster.source_distribution).length > 0 && (
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp className="w-3 h-3 text-muted-foreground" />
-          {Object.entries(cluster.source_distribution).map(([src, n]) => (
-            <span key={src} className="text-xs text-muted-foreground">
-              {src}: <span className="text-foreground font-medium">{String(n)}</span>
-            </span>
-          ))}
-        </div>
-      )}
-
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="w-full bg-transparent text-xs"
-        onClick={() => onViewRaw(cluster.id, cluster.theme, cluster.feedback_item_count ?? 0)}
-      >
-        <ExternalLink className="w-3 h-3 mr-1.5" />
-        View Raw Items
-      </Button>
-    </motion.div>
-  )
-}
-
-// ─── CSV helpers ──────────────────────────────────────────────────────────────
-function downloadCSV(filename: string, rows: string[][], headers: string[]) {
-  const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`
-  const lines = [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))]
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = filename; a.click()
-  URL.revokeObjectURL(url)
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DataStudio() {
   const { searchQuery } = useApp()
-  const { isLive } = useDataMode()
-
-  // Live mode state
-  const [liveClusters, setLiveClusters]   = useState<EvidenceItem[]>([])
-  const [liveLoading, setLiveLoading]     = useState(false)
-  const [liveError, setLiveError]         = useState<string | null>(null)
-  const [panelOpen, setPanelOpen]         = useState(false)
-  const [panelCluster, setPanelCluster]   = useState<{ id: string; theme: string; count: number } | null>(null)
-
-  useEffect(() => {
-    if (!isLive) return
-    setLiveLoading(true); setLiveError(null)
-    getEvidence()
-      .then((data) => setLiveClusters(data))
-      .catch((e) => setLiveError(e instanceof Error ? e.message : 'Failed to load clusters'))
-      .finally(() => setLiveLoading(false))
-  }, [isLive])
-
-  const openPanel = (id: string, theme: string, count: number) => {
-    setPanelCluster({ id, theme, count })
-    setPanelOpen(true)
-  }
-
-  const handleExportLiveCSV = () => {
-    downloadCSV('veloquity_clusters.csv',
-      liveClusters.map((c) => [
-        c.id, c.theme,
-        String(Math.round((c.confidence ?? c.confidence_score ?? 0) * 100)),
-        String(c.feedback_item_count ?? 0),
-        (c.keywords ?? []).join('; '),
-      ]),
-      ['ID', 'Theme', 'Confidence (%)', 'Feedback Items', 'Keywords'],
-    )
-  }
-
-  // Demo mode state
   const [localSearch, setLocalSearch]       = useState('')
   const [selectedSources, setSelectedSources] = useState<FeedbackSource[]>([])
   const [selectedStatuses, setSelectedStatuses] = useState<FeedbackStatus[]>([])
@@ -707,13 +576,6 @@ export default function DataStudio() {
       return matchesSearch && matchesSource && matchesStatus
     })
   }, [effectiveSearch, selectedSources, selectedStatuses, feedbackList])
-
-  const handleExportDemoCSV = () => {
-    downloadCSV('veloquity_feedback.csv',
-      filteredFeedback.map((f) => [f.id, f.source, f.date, f.status, String(f.confidenceScore), f.title, f.content, f.tags.join('; ')]),
-      ['ID', 'Source', 'Date', 'Status', 'Confidence (%)', 'Title', 'Content', 'Tags'],
-    )
-  }
 
   const toggleSource = (s: FeedbackSource) =>
     setSelectedSources((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s])
@@ -764,80 +626,33 @@ export default function DataStudio() {
       {/* ── Page header ────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-foreground">Data Studio</h1>
-            {isLive && (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                <Wifi className="w-3 h-3" />
-                Live
-              </span>
-            )}
-          </div>
+          <h1 className="text-2xl font-bold text-foreground">Data Studio</h1>
           <p className="text-muted-foreground mt-1">
-            {isLive ? 'Evidence clusters from your live data' : 'Manage and analyze feedback from all sources'}
+            Manage and analyze feedback from all sources
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {isLive ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2 bg-transparent"
-              onClick={handleExportLiveCSV}
-              disabled={liveClusters.length === 0}
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </Button>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2 bg-transparent"
-                onClick={handleExportDemoCSV}
-              >
-                <Download className="w-4 h-4" />
-                Export CSV
-              </Button>
-              <Button
-                type="button"
-                className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
-                onClick={() => setShowAddModal(true)}
-              >
-                <Plus className="w-4 h-4 mr-2" />New Feedback
-              </Button>
-            </>
-          )}
-        </div>
+        <Button
+          className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
+          onClick={() => setShowAddModal(true)}
+        >
+          <Plus className="w-4 h-4 mr-2" />New Feedback
+        </Button>
       </div>
 
       {/* ── Quick-stat pills ───────────────────────────────────────────────── */}
-      {isLive ? (
-        <div className="flex flex-wrap gap-2 mb-5">
-          {[
-            { label: `${liveClusters.length} Clusters`, color: 'bg-muted text-foreground' },
-            { label: `${liveClusters.filter((c) => (c.confidence ?? c.confidence_score ?? 0) >= 0.8).length} High Confidence`, color: 'bg-green-500/10 text-green-600' },
-            { label: `${liveClusters.reduce((s, c) => s + (c.feedback_item_count ?? 0), 0)} Total Items`, color: 'bg-violet-500/10 text-violet-600' },
-          ].map(({ label, color }) => (
-            <span key={label} className={cn('px-3 py-1 rounded-full text-xs font-medium', color)}>{label}</span>
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2 mb-5">
-          {[
-            { label: `${feedbackList.length} Total`,   color: 'bg-muted text-foreground' },
-            { label: `${analyzedCount} Analyzed`,      color: 'bg-green-500/10 text-green-600' },
-            { label: `${newCount} New`,                color: 'bg-blue-500/10 text-blue-600' },
-            { label: `6 Evidence Clusters`,            color: 'bg-violet-500/10 text-violet-600' },
-          ].map(({ label, color }) => (
-            <span key={label} className={cn('px-3 py-1 rounded-full text-xs font-medium', color)}>{label}</span>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-2 mb-5">
+        {[
+          { label: `${feedbackList.length} Total`,   color: 'bg-muted text-foreground' },
+          { label: `${analyzedCount} Analyzed`,      color: 'bg-green-500/10 text-green-600' },
+          { label: `${newCount} New`,                color: 'bg-blue-500/10 text-blue-600' },
+          { label: `6 Evidence Clusters`,            color: 'bg-violet-500/10 text-violet-600' },
+        ].map(({ label, color }) => (
+          <span key={label} className={cn('px-3 py-1 rounded-full text-xs font-medium', color)}>{label}</span>
+        ))}
+      </div>
 
-      {/* ── Search + Filters (demo only) ──────────────────────────────────── */}
-      {!isLive && <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      {/* ── Search + Filters ───────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -924,10 +739,10 @@ export default function DataStudio() {
             </Button>
           )}
         </div>
-      </div>}
+      </div>
 
-      {/* ── Bulk action bar (demo only) ────────────────────────────────────── */}
-      {!isLive && <AnimatePresence>
+      {/* ── Bulk action bar ────────────────────────────────────────────────── */}
+      <AnimatePresence>
         {selectedItems.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
@@ -950,104 +765,53 @@ export default function DataStudio() {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>}
+      </AnimatePresence>
 
-      {isLive ? (
-        /* ── Live cluster grid ──────────────────────────────────────────────── */
-        <>
-          {liveLoading && (
-            <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span className="text-sm">Loading clusters…</span>
-            </div>
-          )}
-          {liveError && (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              {liveError}
-              <Button type="button" size="sm" variant="ghost" className="ml-auto text-red-400" onClick={() => {
-                setLiveLoading(true); setLiveError(null)
-                getEvidence().then(setLiveClusters).catch((e) => setLiveError(e instanceof Error ? e.message : 'Error')).finally(() => setLiveLoading(false))
-              }}>
-                <RefreshCw className="w-3.5 h-3.5 mr-1" />Retry
-              </Button>
-            </div>
-          )}
-          {!liveLoading && !liveError && liveClusters.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                <Layers className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="font-medium text-foreground mb-2">No clusters yet</h3>
-              <p className="text-sm text-muted-foreground">Run the ingestion pipeline to generate evidence clusters</p>
-            </div>
-          )}
-          {!liveLoading && liveClusters.length > 0 && (
-            <>
-              <p className="text-sm text-muted-foreground mb-4">{liveClusters.length} evidence clusters</p>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <AnimatePresence>
-                  {liveClusters.map((cluster) => (
-                    <LiveClusterCard
-                      key={cluster.id}
-                      cluster={cluster}
-                      onViewRaw={openPanel}
-                    />
-                  ))}
-                </AnimatePresence>
-              </div>
-            </>
-          )}
-          <EvidenceItemsPanel
-            isOpen={panelOpen}
-            onClose={() => setPanelOpen(false)}
-            clusterId={panelCluster?.id ?? null}
-            clusterTheme={panelCluster?.theme ?? ''}
-            totalItems={panelCluster?.count ?? 0}
-          />
-        </>
-      ) : (
-        /* ── Demo feedback grid ─────────────────────────────────────────────── */
-        <>
-          <p className="text-sm text-muted-foreground mb-4">
-            Showing {filteredFeedback.length} of {feedbackList.length} items
-          </p>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <AnimatePresence>
-              {filteredFeedback.map((item) => (
-                <FeedbackCard
-                  key={item.id}
-                  item={item}
-                  isSelected={selectedItems.includes(item.id)}
-                  onSelect={() => toggleItemSelection(item.id)}
-                  onClick={() => setActiveItem(item)}
-                />
-              ))}
-            </AnimatePresence>
+      <p className="text-sm text-muted-foreground mb-4">
+        Showing {filteredFeedback.length} of {feedbackList.length} items
+      </p>
+
+      {/* ── Cards grid ────────────────────────────────────────────────────── */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <AnimatePresence>
+          {filteredFeedback.map((item) => (
+            <FeedbackCard
+              key={item.id}
+              item={item}
+              isSelected={selectedItems.includes(item.id)}
+              onSelect={() => toggleItemSelection(item.id)}
+              onClick={() => setActiveItem(item)}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* ── Empty state ────────────────────────────────────────────────────── */}
+      {filteredFeedback.length === 0 && (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+            <Search className="w-8 h-8 text-muted-foreground" />
           </div>
-          {filteredFeedback.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                <Search className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="font-medium text-foreground mb-2">No feedback found</h3>
-              <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
-            </div>
-          )}
-          <FeedbackDetailSlideOver
-            item={activeItem}
-            isOpen={!!activeItem}
-            onClose={() => setActiveItem(null)}
-            onArchive={handleArchiveSingle}
-            onLinkEvidence={handleLinkEvidence}
-          />
-          <AddFeedbackModal
-            isOpen={showAddModal}
-            onClose={() => setShowAddModal(false)}
-            onAdd={handleAddFeedback}
-          />
-        </>
+          <h3 className="font-medium text-foreground mb-2">No feedback found</h3>
+          <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
+        </div>
       )}
+
+      {/* ── Detail slide-over ──────────────────────────────────────────────── */}
+      <FeedbackDetailSlideOver
+        item={activeItem}
+        isOpen={!!activeItem}
+        onClose={() => setActiveItem(null)}
+        onArchive={handleArchiveSingle}
+        onLinkEvidence={handleLinkEvidence}
+      />
+
+      {/* ── Add feedback modal ─────────────────────────────────────────────── */}
+      <AddFeedbackModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={handleAddFeedback}
+      />
     </div>
   )
 }

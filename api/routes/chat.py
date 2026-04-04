@@ -66,12 +66,7 @@ def _build_system_prompt(evidence_clusters: list, recommendations: list, governa
         + "\n\n".join(context_parts)
         + "\n\nAnswer the user's question based on this context. Be specific, "
         "cite evidence themes and recommendation ranks when relevant. "
-        "If the answer cannot be found in the context, say so clearly. "
-        "Respond in plain conversational text only. Do not use markdown "
-        "formatting of any kind. No headers (## or ###), no bullet points "
-        "(- or *), no bold (**text**), no italic (*text*), no code blocks, "
-        "no horizontal rules. Write in natural flowing sentences and "
-        "paragraphs only. Keep responses concise and direct."
+        "If the answer cannot be found in the context, say so clearly."
     )
 
     return system_prompt, context_labels
@@ -169,5 +164,4 @@ def chat(request: ChatRequest, conn=Depends(get_db_connection), bedrock=Depends(
             "In production, I would answer using your live evidence clusters and recommendations."
         )
 
-    evidence_ids = [str(e["id"]) for e in evidence_clusters]
-    return ChatResponse(response=reply, context_used=context_labels, evidence_used=evidence_ids)
+    return ChatResponse(response=reply, context_used=context_labels)

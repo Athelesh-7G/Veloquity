@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from routes import agents, chat, constraints, evidence, governance, metrics, recommendations, upload
+from routes import agents, chat, constraints, evidence, governance, recommendations
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,20 +41,12 @@ app.include_router(agents.router,          prefix=f"{_PREFIX}/agents",          
 app.include_router(governance.router,      prefix=f"{_PREFIX}/governance",       tags=["Governance"])
 app.include_router(chat.router,            prefix=f"{_PREFIX}/chat",             tags=["Chat"])
 app.include_router(constraints.router,     prefix=f"{_PREFIX}/constraints",      tags=["Constraints"])
-app.include_router(upload.router,          prefix=f"{_PREFIX}/upload",            tags=["Upload"])
-app.include_router(metrics.router,         prefix=f"{_PREFIX}/metrics",            tags=["Metrics"])
 
 
 @app.get("/health", tags=["Health"])
 def health():
-    """Instant health check — no DB calls, used for Render cold-start wake-up."""
-    return {"status": "ok", "service": "veloquity-api"}
-
-
-@app.get("/", tags=["Health"])
-def root():
-    """Root endpoint."""
-    return {"service": "veloquity-api", "status": "running"}
+    """Health check."""
+    return {"status": "ok", "version": "1.0.0"}
 
 
 @app.exception_handler(Exception)

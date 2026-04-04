@@ -13,23 +13,19 @@ export interface EvidenceItem {
   theme: string
   confidence_score: number
   unique_user_count: number
-  feedback_item_count: number
   source_lineage: Record<string, number>
   representative_quotes: Array<{ text: string; source: string }>
   status: string
   last_validated_at: string | null
-  confidence?: number
-  keywords?: string[]
-  source_distribution?: Record<string, number>
 }
 
 export interface EvidenceMapItem {
   id: string
-  source: string
-  text: string
-  timestamp: string | null
-  metadata: Record<string, unknown>
+  dedup_hash: string
   s3_key: string
+  source: string
+  item_id: string
+  item_timestamp: string | null
 }
 
 export interface Recommendation {
@@ -96,7 +92,6 @@ export interface ChatMessage {
 export interface ChatResponse {
   response: string
   context_used: string[]
-  evidence_used: string[]
 }
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -161,78 +156,3 @@ export const updateConstraints = (updates: Record<string, unknown>) =>
 
 // Aliases used in some pages
 export const sendChat = sendChatMessage
-export const postConstraints = updateConstraints
-
-// ── Upload ───────────────────────────────────────────────────
-
-export interface UploadResult {
-  status: string
-  items_submitted: number
-  source: string
-  message: string
-}
-
-export const uploadFeedback = async (
-  file: File,
-  source: 'appstore' | 'zendesk',
-): Promise<UploadResult> => {
-  const form = new FormData()
-  form.append('file', file)
-  form.append('source', source)
-  // No Content-Type header — browser sets multipart boundary automatically
-  const res = await fetch(`${V1}/upload/feedback`, { method: 'POST', body: form })
-  if (!res.ok) {
-    let msg = `Upload error ${res.status}`
-    try { const b = await res.json(); msg = b?.detail ?? msg } catch {}
-    throw new Error(msg)
-  }
-  return res.json() as Promise<UploadResult>
-}
-
-// ── Metrics ──────────────────────────────────────────────────
-
-export interface PlatformMetrics {
-  generated_at: string
-  data_pipeline: {
-    evidence_clusters: { total: number; active: number; stale: number; rejected: number }
-    feedback_items: { total_mapped: number; unique_hashes: number; sources: string[] }
-    embedding_cache: { total_entries: number; total_hits: number }
-    staging: { total: number; pending: number }
-  }
-  model_performance: {
-    confidence: { avg: number; max: number; min: number }
-    cluster_size: { avg: number; max: number }
-    thresholds: { auto_accepted: number; llm_validated: number; auto_rejected: number }
-  }
-  agent_activity: {
-    reasoning_runs: {
-      total: number
-      total_tokens_used: number
-      latest_run_at: string | null
-      latest_priority_theme: string | null
-    }
-    governance: { total_events: number; by_type: Record<string, number> }
-    agents: Array<{
-      name: string
-      display_name: string
-      last_run_at: string | null
-      last_run_status: string
-      total_runs: number | null
-    }>
-  }
-  cost_estimates: {
-    embedding_cost_usd: number
-    reasoning_cost_usd: number
-    total_cost_usd: number
-    basis: Record<string, number>
-  }
-}
-
-export const getMetrics = () => apiFetch<PlatformMetrics>(`${V1}/metrics/`)
-
-// ── Health / wake-up ─────────────────────────────────────────
-export const checkHealth = (): Promise<{ status: string; service: string }> =>
-  fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) }).then((r) => {
-    if (!r.ok) throw new Error(`Health check failed: ${r.status}`)
-    return r.json() as Promise<{ status: string; service: string }>
-  })

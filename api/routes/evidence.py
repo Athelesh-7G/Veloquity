@@ -108,11 +108,11 @@ def get_evidence_items(evidence_id: str, conn=Depends(get_db_connection)):
     return [
         EvidenceMapItem(
             id=str(r["id"]),
-            source=r["source"],
-            text="",  # raw text lives in S3; populate via ingestion pipeline
-            timestamp=r.get("item_timestamp"),
-            metadata={"item_id": r["item_id"], "dedup_hash": r["dedup_hash"]},
+            dedup_hash=r["dedup_hash"],
             s3_key=r["s3_key"],
+            source=r["source"],
+            item_id=r["item_id"],
+            item_timestamp=r.get("item_timestamp"),
         )
         for r in rows
     ]
