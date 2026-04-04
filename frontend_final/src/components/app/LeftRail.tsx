@@ -18,6 +18,7 @@ import {
   FlaskConical,
   Bot,
   MessageSquare,
+  BarChart2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/lib/app-context'
@@ -59,6 +60,7 @@ const navSections: NavSection[] = [
     items: [
       { icon: Bot, label: 'Agents', href: '/app/agents' },
       { icon: MessageSquare, label: 'Chat', href: '/app/chat' },
+      { icon: BarChart2, label: 'Metrics', href: '/app/metrics' },
     ],
   },
   {

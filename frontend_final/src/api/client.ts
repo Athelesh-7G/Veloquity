@@ -13,6 +13,7 @@ export interface EvidenceItem {
   theme: string
   confidence_score: number
   unique_user_count: number
+  feedback_item_count: number
   source_lineage: Record<string, number>
   representative_quotes: Array<{ text: string; source: string }>
   status: string
@@ -21,11 +22,11 @@ export interface EvidenceItem {
 
 export interface EvidenceMapItem {
   id: string
-  dedup_hash: string
-  s3_key: string
   source: string
-  item_id: string
-  item_timestamp: string | null
+  text: string
+  timestamp: string | null
+  metadata: Record<string, unknown>
+  s3_key: string
 }
 
 export interface Recommendation {
@@ -92,6 +93,7 @@ export interface ChatMessage {
 export interface ChatResponse {
   response: string
   context_used: string[]
+  evidence_used: string[]
 }
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -156,6 +158,7 @@ export const updateConstraints = (updates: Record<string, unknown>) =>
 
 // Aliases used in some pages
 export const sendChat = sendChatMessage
+export const postConstraints = updateConstraints
 
 // ── Upload ───────────────────────────────────────────────────
 
@@ -182,6 +185,47 @@ export const uploadFeedback = async (
   }
   return res.json() as Promise<UploadResult>
 }
+
+// ── Metrics ──────────────────────────────────────────────────
+
+export interface PlatformMetrics {
+  generated_at: string
+  data_pipeline: {
+    evidence_clusters: { total: number; active: number; stale: number; rejected: number }
+    feedback_items: { total_mapped: number; unique_hashes: number; sources: string[] }
+    embedding_cache: { total_entries: number; total_hits: number }
+    staging: { total: number; pending: number }
+  }
+  model_performance: {
+    confidence: { avg: number; max: number; min: number }
+    cluster_size: { avg: number; max: number }
+    thresholds: { auto_accepted: number; llm_validated: number; auto_rejected: number }
+  }
+  agent_activity: {
+    reasoning_runs: {
+      total: number
+      total_tokens_used: number
+      latest_run_at: string | null
+      latest_priority_theme: string | null
+    }
+    governance: { total_events: number; by_type: Record<string, number> }
+    agents: Array<{
+      name: string
+      display_name: string
+      last_run_at: string | null
+      last_run_status: string
+      total_runs: number | null
+    }>
+  }
+  cost_estimates: {
+    embedding_cost_usd: number
+    reasoning_cost_usd: number
+    total_cost_usd: number
+    basis: Record<string, number>
+  }
+}
+
+export const getMetrics = () => apiFetch<PlatformMetrics>(`${V1}/metrics/`)
 
 // ── Health / wake-up ─────────────────────────────────────────
 export const checkHealth = (): Promise<{ status: string; service: string }> =>

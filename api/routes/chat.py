@@ -169,4 +169,5 @@ def chat(request: ChatRequest, conn=Depends(get_db_connection), bedrock=Depends(
             "In production, I would answer using your live evidence clusters and recommendations."
         )
 
-    return ChatResponse(response=reply, context_used=context_labels)
+    evidence_ids = [str(e["id"]) for e in evidence_clusters]
+    return ChatResponse(response=reply, context_used=context_labels, evidence_used=evidence_ids)

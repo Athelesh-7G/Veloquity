@@ -1,11 +1,14 @@
 # =============================================================
 # api/routes/upload.py
 # POST /api/v1/upload/feedback
-# Accepts a CSV file + source type, normalises rows, invokes
-# the ingestion Lambda, returns submission summary.
+# Accepts a CSV file + source type, normalises rows, deduplicates
+# within the payload (SHA-256), batches into groups of 50, invokes
+# the ingestion Lambda per batch, returns submission summary with
+# cost estimate.
 # =============================================================
 
 import csv
+import hashlib
 import io
 import json
 import logging
@@ -19,10 +22,17 @@ from dependencies import get_lambda_client
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-_INGESTION_LAMBDA = "veloquity-ingestion-dev"
+_INGESTION_LAMBDA  = "veloquity-ingestion-dev"
+_BATCH_SIZE        = 50
+_LAMBDA_TIMEOUT_MS = 120_000  # passed to Lambda; actual HTTP timeout set in get_lambda_client
 
 _APPSTORE_REQUIRED = {"review_id", "rating", "title", "review", "date", "version", "author"}
 _ZENDESK_REQUIRED  = {"ticket_id", "subject", "description", "status", "priority", "created_at", "requester"}
+
+# Titan Embed V2 cost estimate: avg 150 tokens/item, $0.0002 per 1 000 tokens
+_COST_PER_ITEM_USD = 150 * 0.0002 / 1_000  # = 0.00000003 per item… spec says N*150*0.0000002
+# Use spec formula exactly: estimated_cost = N * 150 * 0.0000002
+_TITAN_RATE = 0.0000002  # per token
 
 
 def _normalize_appstore(row: dict) -> dict:
@@ -57,6 +67,30 @@ def _normalize_zendesk(row: dict) -> dict:
     }
 
 
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _deduplicate(items: list[dict]) -> tuple[list[dict], int]:
+    """Remove duplicate items within the payload by SHA-256 of their text.
+    Returns (deduplicated_items, duplicates_removed_count).
+    """
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for item in items:
+        h = _sha256(item["text"])
+        if h not in seen:
+            seen.add(h)
+            item["dedup_hash"] = h
+            unique.append(item)
+    return unique, len(items) - len(unique)
+
+
+def _batches(items: list, size: int):
+    for i in range(0, len(items), size):
+        yield items[i : i + size]
+
+
 @router.post("/feedback")
 def upload_feedback(
     file: UploadFile = File(...),
@@ -64,8 +98,10 @@ def upload_feedback(
     lambda_client=Depends(get_lambda_client),
 ):
     """
-    Accept a CSV file and source label, normalise rows into the
-    standard ingestion format, then invoke the ingestion Lambda.
+    Accept a CSV file and source label, normalise rows, deduplicate
+    within the payload, then invoke the ingestion Lambda in batches of
+    50 items.  Returns a submission summary including an estimated
+    embedding cost.
     """
     # Validate source
     if source not in ("appstore", "zendesk"):
@@ -123,32 +159,75 @@ def upload_feedback(
             detail="No non-empty feedback rows found in file",
         )
 
-    # Invoke ingestion Lambda
-    try:
-        payload = json.dumps({"trigger": "upload", "source": source, "items": items})
-        response = lambda_client.invoke(
-            FunctionName=_INGESTION_LAMBDA,
-            InvocationType="RequestResponse",
-            Payload=payload,
-        )
-        if response.get("FunctionError"):
-            error_body = json.loads(response["Payload"].read())
-            raise HTTPException(
-                status_code=500,
-                detail=f"Ingestion Lambda error: {error_body}",
+    # Within-payload SHA-256 deduplication
+    items, duplicates_removed = _deduplicate(items)
+
+    # Invoke ingestion Lambda in batches of 50
+    batch_results: list[dict] = []
+    failed_batches = 0
+
+    for batch_num, batch in enumerate(_batches(items, _BATCH_SIZE), start=1):
+        try:
+            payload = json.dumps({
+                "trigger":    "upload",
+                "source":     source,
+                "items":      batch,
+                "timeout_ms": _LAMBDA_TIMEOUT_MS,
+            })
+            response = lambda_client.invoke(
+                FunctionName=_INGESTION_LAMBDA,
+                InvocationType="RequestResponse",
+                Payload=payload,
             )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("Lambda invoke failed for upload (source=%s): %s", source, exc)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Lambda invocation failed: {exc}",
-        )
+            if response.get("FunctionError"):
+                error_body = json.loads(response["Payload"].read())
+                logger.error(
+                    "Batch %d Lambda error (source=%s): %s", batch_num, source, error_body
+                )
+                failed_batches += 1
+                batch_results.append({
+                    "batch": batch_num,
+                    "items": len(batch),
+                    "status": "error",
+                    "detail": str(error_body),
+                })
+            else:
+                batch_results.append({
+                    "batch": batch_num,
+                    "items": len(batch),
+                    "status": "submitted",
+                })
+        except Exception as exc:
+            logger.error(
+                "Lambda invoke failed for batch %d (source=%s): %s", batch_num, source, exc
+            )
+            failed_batches += 1
+            batch_results.append({
+                "batch": batch_num,
+                "items": len(batch),
+                "status": "error",
+                "detail": str(exc),
+            })
+
+    submitted = sum(b["items"] for b in batch_results if b["status"] == "submitted")
+    overall_status = "success" if failed_batches == 0 else "partial" if submitted > 0 else "error"
+
+    # Cost estimate: N * 150 avg tokens * $0.0000002 per token
+    estimated_cost = len(items) * 150 * _TITAN_RATE
 
     return {
-        "status": "success",
-        "items_submitted": len(items),
+        "status": overall_status,
+        "items_submitted": submitted,
+        "items_deduplicated": duplicates_removed,
+        "total_unique_items": len(items),
+        "batches_total": len(batch_results),
+        "batches_failed": failed_batches,
         "source": source,
-        "message": f"{len(items)} feedback items submitted to ingestion pipeline",
+        "estimated_embedding_cost_usd": round(estimated_cost, 8),
+        "batch_results": batch_results,
+        "message": (
+            f"{submitted} feedback items submitted across {len(batch_results)} batch(es). "
+            f"{duplicates_removed} duplicate(s) removed. "
+            f"Estimated embedding cost: ${estimated_cost:.6f}"
+        ),
     }

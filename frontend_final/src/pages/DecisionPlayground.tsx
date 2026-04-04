@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sliders, RotateCcw, Download, CheckCircle2, Clock, XCircle, Zap, Shield, TrendingUp, TrendingDown, Minus, Users, Hash, Layers, ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Target } from 'lucide-react'
+import { Sliders, RotateCcw, Download, CheckCircle2, Clock, XCircle, Zap, Shield, TrendingUp, TrendingDown, Minus, Users, Hash, Layers, ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Target, Wifi, Save, Brain, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
+import { getEvidence, getConstraints, postConstraints, sendChatMessage } from '@/api/client'
+import { useDataMode } from '@/context/DataModeContext'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Decision = 'prioritize' | 'consider' | 'defer'
@@ -253,6 +255,7 @@ function ScenarioCard({
     >
       {/* ── Collapsed row ──────────────────────────────────────────────────── */}
       <button
+        type="button"
         className="w-full text-left p-5 hover:bg-white/[0.02] transition-colors"
         onClick={() => setExpanded((p) => !p)}
       >
@@ -446,20 +449,68 @@ const DEFAULT_UNC  = 15
 const DEFAULT_EV   = 40
 
 export default function DecisionPlayground() {
+  const { isLive }   = useDataMode()
   const [confThreshold,  setConfThreshold]  = useState(DEFAULT_CONF)
   const [uncTolerance,   setUncTolerance]   = useState(DEFAULT_UNC)
   const [minEvidence,    setMinEvidence]    = useState(DEFAULT_EV)
   const [exported,       setExported]       = useState(false)
+  const [saving,         setSaving]         = useState(false)
+  const [savedOk,        setSavedOk]        = useState(false)
+  const [generating,     setGenerating]     = useState(false)
+  const [recommendation, setRecommendation] = useState<string | null>(null)
+
+  // Load real clusters when live
+  const [liveLoaded, setLiveLoaded] = useState(false)
+  useEffect(() => {
+    if (!isLive || liveLoaded) return
+    Promise.allSettled([getEvidence(), getConstraints()]).then(([ev, con]) => {
+      if (con.status === 'fulfilled') {
+        const c = con.value as any
+        if (typeof c.confidence_threshold === 'number') setConfThreshold(Math.round(c.confidence_threshold * 100))
+        if (typeof c.uncertainty_tolerance === 'number') setUncTolerance(Math.round(c.uncertainty_tolerance * 100))
+        if (typeof c.min_evidence         === 'number') setMinEvidence(c.min_evidence)
+      }
+      setLiveLoaded(true)
+    })
+  }, [isLive]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const reset = () => {
     setConfThreshold(DEFAULT_CONF)
     setUncTolerance(DEFAULT_UNC)
     setMinEvidence(DEFAULT_EV)
+    setRecommendation(null)
   }
 
   const handleExport = () => {
     setExported(true)
     setTimeout(() => setExported(false), 2500)
+  }
+
+  const handleSaveDecision = async () => {
+    setSaving(true)
+    try {
+      await postConstraints({
+        confidence_threshold: confThreshold / 100,
+        uncertainty_tolerance: uncTolerance / 100,
+        min_evidence: minEvidence,
+      })
+      setSavedOk(true)
+      setTimeout(() => setSavedOk(false), 2500)
+    } catch { /* silently ignore */ }
+    finally { setSaving(false) }
+  }
+
+  const handleGenerateRecommendation = async () => {
+    setGenerating(true)
+    setRecommendation(null)
+    try {
+      const prompt = `Given confidence threshold ${confThreshold}%, uncertainty tolerance ±${uncTolerance}%, and minimum ${minEvidence} evidence items, which clusters should we prioritize this sprint? Be concise.`
+      const res = await sendChatMessage(prompt, [])
+      setRecommendation(res.response)
+    } catch {
+      setRecommendation('Unable to reach the reasoning engine. Check your connection and try again.')
+    }
+    finally { setGenerating(false) }
   }
 
   // Compute decisions for all clusters
@@ -487,9 +538,17 @@ export default function DecisionPlayground() {
     {/* Header */}
     <div className="flex items-start justify-between mb-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Decision Playground
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Decision Playground
+          </h1>
+          {isLive && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+              <Wifi className="w-3 h-3" />
+              Live
+            </span>
+          )}
+        </div>
 
         <p className="text-gray-600 dark:text-slate-400 mt-1 text-sm">
           Adjust thresholds to see how confidence levels reshape your roadmap priorities
@@ -498,6 +557,7 @@ export default function DecisionPlayground() {
 
       <div className="flex items-center gap-2">
         <Button
+          type="button"
           variant="ghost"
           className="text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white gap-2"
           onClick={reset}
@@ -506,22 +566,58 @@ export default function DecisionPlayground() {
           Reset
         </Button>
 
-        <Button
-          className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 gap-2"
-          onClick={handleExport}
-        >
-          {exported ? (
-            <>
-              <CheckCircle2 className="w-4 h-4" />
-              Exported!
-            </>
-          ) : (
-            <>
-              <Download className="w-4 h-4" />
-              Export Scenario
-            </>
-          )}
-        </Button>
+        {isLive ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5 gap-2"
+              onClick={handleSaveDecision}
+              disabled={saving}
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : savedOk ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              {savedOk ? 'Saved!' : 'Save Decision'}
+            </Button>
+
+            <Button
+              type="button"
+              className="bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 gap-2"
+              onClick={handleGenerateRecommendation}
+              disabled={generating}
+            >
+              {generating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Brain className="w-4 h-4" />
+              )}
+              Generate Recommendation
+            </Button>
+          </>
+        ) : (
+          <Button
+            type="button"
+            className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 gap-2"
+            onClick={handleExport}
+          >
+            {exported ? (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                Exported!
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                Export Scenario
+              </>
+            )}
+          </Button>
+        )}
       </div>
     </div>
 
@@ -706,6 +802,31 @@ export default function DecisionPlayground() {
 
           ))}
 
+        </AnimatePresence>
+
+        {/* Recommendation output */}
+        <AnimatePresence>
+          {recommendation && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3 }}
+              className="bg-[#0F1729] rounded-2xl p-5 border border-violet-500/20"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 rounded-lg bg-violet-500/15">
+                  <Brain className="w-4 h-4 text-violet-400" />
+                </div>
+                <span className="text-sm font-semibold text-violet-300">
+                  Reasoning Agent Recommendation
+                </span>
+              </div>
+              <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                {recommendation}
+              </p>
+            </motion.div>
+          )}
         </AnimatePresence>
 
       </div>

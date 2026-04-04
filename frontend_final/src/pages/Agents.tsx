@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bot, CheckCircle2, XCircle, Play, RefreshCw, Loader2, Zap, Database, Brain, Shield } from 'lucide-react'
+import { Bot, CheckCircle2, XCircle, Play, RefreshCw, Loader2, Zap, Database, Brain, Shield, Wifi } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
 import { type AgentRunResult, type AgentStatus, checkHealth, getAgentStatus, runAgent } from '@/api/client'
 import { MOCK_AGENTS } from '@/api/mockData'
+import { type AgentKey, getAgentState, setAgentStatus as persistAgentStatus } from '@/utils/agentState'
+import { useDataMode } from '@/context/DataModeContext'
 
 type RunStatus = 'idle' | 'running' | 'success' | 'error'
 type WakeStatus = 'pending' | 'waking' | 'ready' | 'failed'
@@ -223,6 +225,7 @@ function AgentOutputBox({ lines, shortKey, accent }: { lines: string[]; shortKey
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Agents() {
+  const { isLive, refresh: refreshData } = useDataMode()
   const [agents, setAgents]         = useState<AgentStatus[]>([])
   const [runStatus, setRunStatus]   = useState<Record<string, RunStatus>>({})
   const [lastResult, setLastResult] = useState<Record<string, AgentRunResult>>({})
@@ -260,6 +263,34 @@ export default function Agents() {
       if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     }
   }, [anyRunning])
+
+  // ── Restore persisted agent state on mount ───────────────────────────────
+  useEffect(() => {
+    const stored = getAgentState()
+    const restoredStatus: Record<string, RunStatus> = {}
+    const restoredFlash:  Record<string, number>    = {}
+    const restoredStartedAt: Record<string, number> = {}
+    const restoredError:  Record<string, string>    = {}
+
+    for (const key of Object.keys(stored) as AgentKey[]) {
+      const entry = stored[key]
+      if (entry.status === 'done') {
+        restoredStatus[key] = 'success'
+        if (entry.duration != null) restoredFlash[key] = entry.duration
+      } else if (entry.status === 'error') {
+        restoredStatus[key] = 'error'
+        if (entry.error) restoredError[key] = entry.error
+      } else if (entry.status === 'running' && entry.startedAt != null) {
+        restoredStatus[key] = 'running'
+        restoredStartedAt[key] = entry.startedAt
+      }
+    }
+
+    if (Object.keys(restoredStatus).length)   setRunStatus((s)    => ({ ...s, ...restoredStatus }))
+    if (Object.keys(restoredFlash).length)    setDoneFlash(restoredFlash)
+    if (Object.keys(restoredStartedAt).length) setRunStartedAt((s) => ({ ...s, ...restoredStartedAt }))
+    if (Object.keys(restoredError).length)    setErrorMsg(restoredError)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cold-start wake-up on mount ───────────────────────────────────────────
   useEffect(() => {
@@ -311,6 +342,7 @@ export default function Agents() {
     setRunStartedAt((s) => ({ ...s, [shortKey]: startedAt }))
     setDoneFlash((f) => { const n = { ...f }; delete n[shortKey]; return n })
     setErrorMsg((e) => { const n = { ...e }; delete n[shortKey]; return n })
+    persistAgentStatus(shortKey as AgentKey, 'running', { startedAt })
     try {
       const result = await runAgent(shortKey)
       const elapsed = Math.round((Date.now() - startedAt) / 1000)
@@ -318,13 +350,15 @@ export default function Agents() {
       setLastResult((r) => ({ ...r, [shortKey]: result }))
       setLastRanAt((r) => ({ ...r, [shortKey]: new Date() }))
       setDoneFlash((f) => ({ ...f, [shortKey]: elapsed }))
-      setTimeout(() => setDoneFlash((f) => { const n = { ...f }; delete n[shortKey]; return n }), 3000)
+      persistAgentStatus(shortKey as AgentKey, 'done', { duration: elapsed, lastRun: new Date().toISOString(), startedAt: null })
       addToast(`${displayName} completed successfully`, true)
       getAgentStatus().then((d) => { if (d.length) setAgents(d) }).catch(() => {})
+      if (isLive) refreshData()
     } catch (err: unknown) {
       setRunStatus((s) => ({ ...s, [shortKey]: 'error' }))
       const msg = err instanceof Error ? err.message : 'Agent unavailable'
       setErrorMsg((e) => ({ ...e, [shortKey]: msg }))
+      persistAgentStatus(shortKey as AgentKey, 'error', { error: msg })
       addToast(`${displayName}: ${msg}`, false)
     }
   }
@@ -439,7 +473,14 @@ export default function Agents() {
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Intelligence Engine</h1>
+        <div className="flex items-center gap-2 mb-1">
+          <h1 className="text-2xl font-bold text-foreground">Intelligence Engine</h1>
+          {isLive && (
+            <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 gap-1.5">
+              <Wifi className="w-3 h-3" />Live Data
+            </Badge>
+          )}
+        </div>
         <p className="text-muted-foreground mt-1 text-sm">
           Four autonomous AWS Lambda agents forming a closed-loop evidence pipeline.
           Each agent is independently invokable and observable.

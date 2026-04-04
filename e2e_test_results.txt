@@ -1,0 +1,40 @@
++------------------------------------------------------------------------+
+|            Veloquity API -- End-to-End Pipeline Test Results           |
+| Run at: 2026-04-04 22:18:49 UTC                                        |
+| Target: https://veloquity-api.onrender.com                             |
++------------------------------------------------------------------------+
+|  Test                                   Status      Time  Detail       |
++------------------------------------------------------------------------+
+|  1. Health check                        [PASS]     0.38s  status=ok  service=veloquity...|
+|  2. Upload CSV (batched)                [FAIL]     0.59s  missing cost field: {'status...|
+|    150, 'source': 'appstore', 'message': '150 feedback items           |
+|    submitted to ingestion pipeline'}                                   |
+|  3. Agent run — ingestion               [PASS]     0.55s  agent=ingestion  status=succ...|
+|  4. Agent run — evidence                [PASS]     0.52s  agent=evidence  status=succe...|
+|  5. Agent run — reasoning               [PASS]     0.47s  agent=reasoning  status=succ...|
+|  6. Evidence fetch                      [PASS]     0.56s  clusters=4  avg_confidence=0...|
+|  7. Evidence items (trace)              [PASS]     1.24s  cluster_id=2012416e…  items=...|
+|  8. Chat endpoint                       [FAIL]     2.45s  missing evidence_used: {'res...|
+|    follows: \n\n1. The app crashes whenever users switch between       |
+|    projects. This issue is highly reproducible and happens every       |
+|    single time. It has a confidence score of 0.90 and has been         |
+|    reported by 6 users, with sources from Zendesk and the App          |
+|    Store.\n\n2. The app is broken after the latest update,             |
+|    resulting in a black screen on launch. Users are requesting a       |
+|    rollback or a fix. This issue has a confidence score of 0.88 and    |
+|    has been reported by 6 users, with sources from Zendesk and the     |
+|    App Store.\n\n3. Since the v2.4 release, dashboard load times       |
+|    have significantly increased from under 2 seconds to over 12        |
+|    seconds. This regression has been reported by 6 users, with all     |
+|    sources coming from Zendesk.\n\n4. Users are expressing             |
+|    frustration over the absence of an onboarding checklist. They       |
+|    believe that every other SaaS tool they use has one, and            |
+|    starting from scratch with zero guidance is frustrating. This       |
+|    issue has a confidence score of 0.87 and has been reported by 6     |
+|    users, with sources from Zendesk and the App Store.',               |
+|    'context_used': ['4 evidence clusters', '4 recommendations']}       |
+|  9. Metrics endpoint                    [FAIL]     0.36s  404 Client Error: Not Found ...|
+|    api.onrender.com/api/v1/metrics/                                    |
++------------------------------------------------------------------------+
+|  PASSED: 6/9   FAILED: 3/9                                             |
++------------------------------------------------------------------------+

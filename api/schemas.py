@@ -24,11 +24,11 @@ class EvidenceItem(BaseModel):
 
 class EvidenceMapItem(BaseModel):
     id: str
-    dedup_hash: str
-    s3_key: str
     source: str
-    item_id: str
-    item_timestamp: Optional[datetime]
+    text: str
+    timestamp: Optional[datetime]
+    metadata: dict[str, Any]
+    s3_key: str
 
 
 class Recommendation(BaseModel):
@@ -95,3 +95,4 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     context_used: list[str]
+    evidence_used: list[str] = []

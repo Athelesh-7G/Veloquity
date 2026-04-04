@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { DataModeProvider } from '@/context/DataModeContext'
 import AppLayout from '@/components/app/AppLayout'
 import Landing from '@/pages/Landing'
 import Dashboard from '@/pages/Dashboard'
@@ -13,9 +14,11 @@ import ImportSources from '@/pages/ImportSources'
 import Agents from '@/pages/Agents'
 import Chat from '@/pages/Chat'
 import Settings from '@/pages/Settings'
+import Metrics from '@/pages/Metrics'
 
 export default function App() {
   return (
+    <DataModeProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
@@ -33,9 +36,11 @@ export default function App() {
           <Route path="agents" element={<Agents />} />
           <Route path="chat" element={<Chat />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="metrics" element={<Metrics />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
+    </DataModeProvider>
   )
 }

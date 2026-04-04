@@ -46,3 +46,13 @@ export function clearAllUploadedSources(): void {
     localStorage.removeItem(STORAGE_KEY)
   } catch {}
 }
+
+/** Total feedback items across all uploaded sources. */
+export function getUploadSummary(): number {
+  return getUploadedSources().reduce((sum, s) => sum + s.itemCount, 0)
+}
+
+/** Human-readable source names for all uploaded sources. */
+export function getSourceNames(): string[] {
+  return getUploadedSources().map((s) => (s.source === 'appstore' ? 'App Store' : 'Zendesk'))
+}
