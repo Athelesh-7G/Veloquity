@@ -6,6 +6,7 @@ import {
   CheckCircle2, Clock, RefreshCw
 } from 'lucide-react'
 import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { APP_PRODUCT_ITEMS, HOSPITAL_ITEMS, type FeedbackDataItem } from '@/api/mockData'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -21,7 +22,7 @@ import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FeedbackStatus = 'new' | 'processing' | 'analyzed' | 'archived'
-type FeedbackSource = 'App Store' | 'Zendesk'
+type FeedbackSource = 'App Store' | 'Zendesk' | 'Patient Portal' | 'Hospital Survey'
 
 interface FeedbackItem {
   id: string
@@ -34,6 +35,7 @@ interface FeedbackItem {
   confidenceScore: number
   clusterId?: string
   clusterName?: string
+  rating?: number
 }
 
 // ─── Veloquity-aligned mock feedback (547 items represented via 24 rich cards) ─
@@ -326,7 +328,85 @@ const HOSPITAL_MOCK_FEEDBACK: FeedbackItem[] = [
   },
 ]
 
-const ALL_SOURCES: FeedbackSource[] = ['App Store', 'Zendesk']
+// ─── Adapter: FeedbackDataItem → FeedbackItem ─────────────────────────────────
+const SOURCE_DISPLAY: Record<string, FeedbackSource> = {
+  appstore:        'App Store',
+  zendesk:         'Zendesk',
+  patient_portal:  'Patient Portal',
+  hospital_survey: 'Hospital Survey',
+}
+
+const CLUSTER_CONFIDENCE: Record<string, number> = {
+  'App crashes on project switch':         91,
+  'Black screen after latest update':      87,
+  'Dashboard load regression':             86,
+  'No onboarding checklist':               81,
+  'Export to CSV silently fails':          77,
+  'Positive feedback':                     75,
+  'Extended Emergency Wait Times':         91,
+  'Online Appointment Booking Failures':   84,
+  'Medical Records Portal Access Issues':  72,
+  'Billing Statement Errors and Confusion': 78,
+  'Staff Praise':                          75,
+  'Parking and Facility Issues':           45,
+}
+
+const CLUSTER_ID: Record<string, string> = {
+  'App crashes on project switch':         'c1',
+  'Black screen after latest update':      'c2',
+  'Dashboard load regression':             'c3',
+  'No onboarding checklist':               'c4',
+  'Export to CSV silently fails':          'c5',
+  'Positive feedback':                     'c6',
+  'Extended Emergency Wait Times':         'hc1',
+  'Online Appointment Booking Failures':   'hc2',
+  'Medical Records Portal Access Issues':  'hc3',
+  'Billing Statement Errors and Confusion': 'hc4',
+  'Staff Praise':                          'hc5',
+  'Parking and Facility Issues':           'hc6',
+}
+
+const CLUSTER_TAGS: Record<string, string[]> = {
+  'App crashes on project switch':         ['crash', 'project-switch', 'v2.4'],
+  'Black screen after latest update':      ['black-screen', 'cold-start', 'v2.4'],
+  'Dashboard load regression':             ['performance', 'dashboard', 'load-time'],
+  'No onboarding checklist':               ['onboarding', 'ux', 'new-user'],
+  'Export to CSV silently fails':          ['export', 'csv', 'silent-failure'],
+  'Positive feedback':                     ['positive', 'praise'],
+  'Extended Emergency Wait Times':         ['er-wait', 'triage', 'urgent'],
+  'Online Appointment Booking Failures':   ['booking', 'portal', 'bug'],
+  'Medical Records Portal Access Issues':  ['mychart', 'login', 'access'],
+  'Billing Statement Errors and Confusion': ['billing-error', 'dispute', 'insurance'],
+  'Staff Praise':                          ['positive', 'staff-praise'],
+  'Parking and Facility Issues':           ['parking', 'facility', 'accessibility'],
+}
+
+function deriveTitle(text: string): string {
+  const sentence = text.split(/[.!?]/)[0].trim()
+  return sentence.length > 70 ? sentence.slice(0, 67) + '…' : sentence
+}
+
+function adaptItem(item: FeedbackDataItem): FeedbackItem {
+  const conf = CLUSTER_CONFIDENCE[item.cluster] ?? 60
+  return {
+    id:              item.id,
+    title:           deriveTitle(item.text),
+    content:         item.text,
+    source:          SOURCE_DISPLAY[item.source] ?? 'App Store',
+    date:            item.date,
+    status:          conf >= 60 ? 'analyzed' : 'new',
+    tags:            CLUSTER_TAGS[item.cluster] ?? [],
+    confidenceScore: conf,
+    clusterId:       CLUSTER_ID[item.cluster],
+    clusterName:     item.cluster,
+    rating:          item.rating,
+  }
+}
+
+const APP_FEEDBACK_LIST: FeedbackItem[]      = APP_PRODUCT_ITEMS.map(adaptItem)
+const HOSPITAL_FEEDBACK_LIST: FeedbackItem[] = HOSPITAL_ITEMS.map(adaptItem)
+
+const ALL_SOURCES: FeedbackSource[] = ['App Store', 'Zendesk', 'Patient Portal', 'Hospital Survey']
 const ALL_STATUSES: FeedbackStatus[] = ['new', 'processing', 'analyzed', 'archived']
 
 const CLUSTER_MAP: Record<string, string> = {
@@ -411,6 +491,12 @@ function FeedbackCard({
               <span className="text-xs text-muted-foreground">{item.source}</span>
               <span className="text-muted-foreground">•</span>
               <span className="text-xs text-muted-foreground">{item.date}</span>
+              {item.rating != null && (
+                <>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-xs text-amber-500">{'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)}</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -572,12 +658,12 @@ function FeedbackDetailSlideOver({
 }
 
 // ─── Add Feedback Modal ────────────────────────────────────────────────────────
-function AddFeedbackModal({ isOpen, onClose, onAdd }: {
-  isOpen: boolean; onClose: () => void; onAdd: (item: FeedbackItem) => void
+function AddFeedbackModal({ isOpen, onClose, onAdd, sources }: {
+  isOpen: boolean; onClose: () => void; onAdd: (item: FeedbackItem) => void; sources: FeedbackSource[]
 }) {
   const [title, setTitle]     = useState('')
   const [content, setContent] = useState('')
-  const [source, setSource]   = useState<FeedbackSource>('App Store')
+  const [source, setSource]   = useState<FeedbackSource>(sources[0] ?? 'App Store')
 
   const handleSubmit = () => {
     if (!title.trim() || !content.trim()) return
@@ -618,7 +704,7 @@ function AddFeedbackModal({ isOpen, onClose, onAdd }: {
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">Source</label>
                 <div className="flex gap-2">
-                  {ALL_SOURCES.map((s) => (
+                  {sources.map((s) => (
                     <button
                       key={s}
                       onClick={() => setSource(s)}
@@ -673,6 +759,10 @@ export default function DataStudio() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
   const { searchQuery } = useApp()
+  const activeSources: FeedbackSource[] = dataset === 'hospital_survey'
+    ? ['Patient Portal', 'Hospital Survey']
+    : ['App Store', 'Zendesk']
+  const clusterCount = dataset === 'hospital_survey' ? 4 : 6
   const [localSearch, setLocalSearch]       = useState('')
   const [selectedSources, setSelectedSources] = useState<FeedbackSource[]>([])
   const [selectedStatuses, setSelectedStatuses] = useState<FeedbackStatus[]>([])
@@ -680,7 +770,7 @@ export default function DataStudio() {
   const [activeItem, setActiveItem]         = useState<FeedbackItem | null>(null)
   const [showAddModal, setShowAddModal]     = useState(false)
   const [feedbackList, setFeedbackList]     = useState<FeedbackItem[]>(
-    dataset === 'hospital_survey' ? HOSPITAL_MOCK_FEEDBACK : MOCK_FEEDBACK
+    dataset === 'hospital_survey' ? HOSPITAL_FEEDBACK_LIST : APP_FEEDBACK_LIST
   )
 
   const effectiveSearch = searchQuery || localSearch
@@ -778,7 +868,7 @@ export default function DataStudio() {
           { label: `${hasData ? feedbackList.length : 0} Total`,   color: 'bg-muted text-foreground' },
           { label: `${hasData ? analyzedCount : 0} Analyzed`,      color: 'bg-green-500/10 text-green-600' },
           { label: `${hasData ? newCount : 0} New`,                color: 'bg-blue-500/10 text-blue-600' },
-          { label: `${hasData ? 6 : 0} Evidence Clusters`,         color: 'bg-violet-500/10 text-violet-600' },
+          { label: `${hasData ? clusterCount : 0} Evidence Clusters`, color: 'bg-violet-500/10 text-violet-600' },
         ].map(({ label, color }) => (
           <span key={label} className={cn('px-3 py-1 rounded-full text-xs font-medium', color)}>{label}</span>
         ))}
@@ -811,7 +901,7 @@ export default function DataStudio() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {ALL_SOURCES.map((source) => (
+              {activeSources.map((source) => (
                 <DropdownMenuItem key={source} onClick={() => toggleSource(source)}>
                   <div className="flex items-center gap-2 w-full">
                     <div className={cn('w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0',
@@ -951,6 +1041,7 @@ export default function DataStudio() {
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddFeedback}
+        sources={activeSources}
       />
     </div>
   )

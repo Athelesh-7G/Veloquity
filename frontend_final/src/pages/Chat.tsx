@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bot, Send, Sparkles, Database, Shield, BarChart3, Activity, Layers, Hash, AlertTriangle } from 'lucide-react'
+import { Bot, Send, Sparkles, Database, Shield, BarChart3, Activity, Layers, Hash, AlertTriangle, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { type ChatMessage, getAgentStatus, getEvidence, getRecommendations, sendChatMessage } from '@/api/client'
 import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { APP_PRODUCT_ITEMS, HOSPITAL_ITEMS, MOCK_EVIDENCE, HOSPITAL_MOCK_DATA } from '@/api/mockData'
+import { EvidenceDrawer, type EvidenceItem } from '@/components/EvidenceDrawer'
 
 const BASE = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL ?? 'http://localhost:8002'
 
@@ -31,20 +33,204 @@ const FALLBACK_RESPONSES: Record<string, string> = {
   'confident': `Cluster: **App crashes on project switch**\n\n• **Confidence score:** 91% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 84% – 96%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 138 items · 94 unique users\n• **Sources:** App Store (cross-corroborated by Zendesk)\n\nThe high confidence reflects a tight cosine cluster — member vectors are very close to the centroid, indicating the feedback is semantically coherent. The cross-source corroboration from both App Store and Zendesk adds an additional +0.1 to the priority score.\n\nIn short: this is one of the strongest signals in the current corpus. High confidence, high priority, rising trend.`,
 }
 
-function getSmartFallback(query: string): string {
+const APP_CLUSTERS = [
+  { name: 'App crashes on project switch',    conf: 91 },
+  { name: 'Black screen after latest update', conf: 87 },
+  { name: 'Dashboard load regression',        conf: 86 },
+  { name: 'No onboarding checklist',          conf: 81 },
+  { name: 'Export to CSV silently fails',     conf: 77 },
+  { name: 'Notification delay on mobile',     conf: 72 },
+]
+
+const HOSPITAL_CLUSTERS = [
+  { name: 'Extended Emergency Wait Times',        conf: 91 },
+  { name: 'Online Appointment Booking Failures',  conf: 84 },
+  { name: 'Billing Statement Errors',             conf: 78 },
+  { name: 'Medical Records Portal Access Issues', conf: 72 },
+]
+
+// ─── Source display name helper ───────────────────────────────────────────────
+const SRC_LABEL: Record<string, string> = {
+  appstore:        'App Store',
+  zendesk:         'Zendesk',
+  patient_portal:  'Patient Portal',
+  hospital_survey: 'Hospital Survey',
+}
+
+// ─── Keyword → cluster name maps ──────────────────────────────────────────────
+const APP_KEYWORD_MAP: [string, string][] = [
+  ['crash',        'App crashes on project switch'],
+  ['project switch','App crashes on project switch'],
+  ['black screen', 'Black screen after latest update'],
+  ['cold start',   'Black screen after latest update'],
+  ['dashboard',    'Dashboard load regression'],
+  ['load time',    'Dashboard load regression'],
+  ['onboard',      'No onboarding checklist'],
+  ['checklist',    'No onboarding checklist'],
+  ['export',       'Export to CSV silently fails'],
+  ['csv',          'Export to CSV silently fails'],
+  ['notif',        'Notification delay on mobile'],
+  ['mobile',       'Notification delay on mobile'],
+]
+
+const HOSPITAL_KEYWORD_MAP: [string, string][] = [
+  ['wait time',    'Extended Emergency Wait Times'],
+  ['emergency',    'Extended Emergency Wait Times'],
+  ['er wait',      'Extended Emergency Wait Times'],
+  ['triage',       'Extended Emergency Wait Times'],
+  ['book',         'Online Appointment Booking Failures'],
+  ['appointment',  'Online Appointment Booking Failures'],
+  ['scheduling',   'Online Appointment Booking Failures'],
+  ['bill',         'Billing Statement Errors and Confusion'],
+  ['invoice',      'Billing Statement Errors and Confusion'],
+  ['insurance',    'Billing Statement Errors and Confusion'],
+  ['mychart',      'Medical Records Portal Access Issues'],
+  ['portal',       'Medical Records Portal Access Issues'],
+  ['record',       'Medical Records Portal Access Issues'],
+  ['password',     'Medical Records Portal Access Issues'],
+]
+
+function detectClusters(
+  query: string,
+  responseText: string,
+  dataset: 'app_product' | 'hospital_survey' | null,
+): string[] {
+  const combined = (query + ' ' + responseText).toLowerCase()
+  const keyMap = dataset === 'hospital_survey' ? HOSPITAL_KEYWORD_MAP : APP_KEYWORD_MAP
+  const found = new Set<string>()
+  for (const [kw, cluster] of keyMap) {
+    if (combined.includes(kw)) found.add(cluster)
+  }
+  // If nothing matched, return the top 2 clusters by confidence
+  if (found.size === 0) {
+    const topClusters = (dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS).slice(0, 2)
+    return topClusters.map((c) => c.name)
+  }
+  return [...found].slice(0, 2)
+}
+
+// ─── Inline evidence section ──────────────────────────────────────────────────
+function InlineEvidence({
+  clusterNames,
+  dataset,
+  onViewAll,
+}: {
+  clusterNames: string[]
+  dataset: 'app_product' | 'hospital_survey' | null
+  onViewAll: (cluster: string, items: EvidenceItem[]) => void
+}) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const allItems = dataset === 'hospital_survey' ? HOSPITAL_ITEMS : APP_PRODUCT_ITEMS
+  const clusterConf = (name: string) => {
+    const list = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
+    return list.find((c) => c.name === name)?.conf ?? 80
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      {clusterNames.map((clusterName) => {
+        const items = allItems.filter((i) => i.cluster === clusterName)
+        const repItems = items.slice(0, 10)
+        const isExpanded = expanded[clusterName] ?? false
+        const shown = isExpanded ? repItems : repItems.slice(0, 3)
+        const hiddenCount = repItems.length - 3
+        const conf = clusterConf(clusterName)
+
+        return (
+          <div
+            key={clusterName}
+            className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3 space-y-2"
+          >
+            {/* Header */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs">📊</span>
+              <span className="text-[10px] font-medium text-violet-600 dark:text-violet-400 uppercase tracking-wide">
+                Based on evidence clusters
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-foreground leading-snug flex-1 min-w-0 truncate">
+                {clusterName}
+              </span>
+              <span
+                className={`text-[10px] font-bold shrink-0 ${
+                  conf >= 85 ? 'text-emerald-500' :
+                  conf >= 75 ? 'text-blue-500' :
+                               'text-amber-500'
+                }`}
+              >
+                {conf}% conf
+              </span>
+            </div>
+            <div className="h-px bg-border" />
+
+            {/* Quote rows */}
+            <div className="space-y-1.5">
+              {shown.map((item) => (
+                <div key={item.id} className="flex items-start gap-2">
+                  <span className="text-[10px] text-muted-foreground/50 shrink-0 mt-0.5 select-none">"</span>
+                  <p className="text-xs text-muted-foreground leading-relaxed flex-1 italic line-clamp-2">
+                    {item.text}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground/60 shrink-0 ml-0.5 whitespace-nowrap">
+                    — {SRC_LABEL[item.source] ?? item.source}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Expand / collapse */}
+            {hiddenCount > 0 && !isExpanded && (
+              <button
+                type="button"
+                onClick={() => setExpanded((e) => ({ ...e, [clusterName]: true }))}
+                className="flex items-center gap-1 text-xs text-violet-500 hover:text-violet-400 transition-colors"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+                Show {hiddenCount} more quote{hiddenCount !== 1 ? 's' : ''}
+              </button>
+            )}
+            {isExpanded && repItems.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setExpanded((e) => ({ ...e, [clusterName]: false }))}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+                Show less
+              </button>
+            )}
+
+            {/* View all button */}
+            <button
+              type="button"
+              onClick={() => onViewAll(clusterName, items)}
+              className="w-full text-xs font-medium px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/8 text-violet-500 hover:bg-violet-500/15 transition-colors flex items-center justify-center gap-1.5"
+            >
+              VIEW ALL {items.length} ITEMS →
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function getSmartFallback(query: string, items = 547, clusters = 6): string {
   const q = query.toLowerCase()
   if (q.includes('top 3') || q.includes('evidence cluster')) return FALLBACK_RESPONSES['top 3 evidence clusters']
   if (q.includes('prioritize') || q.includes('sprint')) return FALLBACK_RESPONSES['prioritize this sprint']
   if (q.includes('stale')) return FALLBACK_RESPONSES['stale signals']
   if (q.includes('governance') || q.includes('flag')) return FALLBACK_RESPONSES['governance agent flag']
   if (q.includes('confident') || q.includes('crash') || q.includes('mobile')) return FALLBACK_RESPONSES['confident']
-  return `I have access to Veloquity's live evidence data. Based on the current corpus of **547 feedback items** across 6 evidence clusters:\n\n• Avg confidence: **84%** across all clusters\n• Top issue: **App crashes on project switch** (91% confidence, 138 items)\n• All clusters validated: **2026-03-10**\n• Pipeline status: All 4 agents healthy\n\nCould you be more specific? For example, you can ask about a particular cluster, sprint priorities, governance activity, or confidence scores.`
+  return `I have access to Veloquity's live evidence data. Based on the current corpus of **${items} feedback items** across ${clusters} evidence clusters:\n\n• Avg confidence: **84%** across all clusters\n• All clusters validated: **2026-03-10**\n• Pipeline status: All 4 agents healthy\n\nCould you be more specific? For example, you can ask about a particular cluster, sprint priorities, governance activity, or confidence scores.`
 }
 
 interface Message extends ChatMessage {
   context_used?: string[]
   pending?: boolean
   timestamp?: string
+  evidenceClusters?: string[]
 }
 
 // ─── Context item ──────────────────────────────────────────────────────────────
@@ -114,14 +300,23 @@ export default function Chat() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
   const systemContext = dataset === 'hospital_survey' ? HOSPITAL_CONTEXT : APP_PRODUCT_CONTEXT
+  const pipelineMetrics = dataset === 'hospital_survey'
+    ? { items: 310, clusters: 4 }
+    : { items: 547, clusters: 6 }
+  const activeClusters = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput]       = useState('')
   const [sending, setSending]   = useState(false)
   const [contextInfo, setContextInfo] = useState<{ clusters: number; recommendations: number }>({
-    clusters: 6, recommendations: 6,
+    clusters: pipelineMetrics.clusters, recommendations: pipelineMetrics.clusters,
   })
+  // Evidence drawer state
+  const [drawerCluster, setDrawerCluster]   = useState<string | null>(null)
+  const [drawerItems, setDrawerItems]       = useState<EvidenceItem[]>([])
+
   // Cold start state
   const [healthReady, setHealthReady]       = useState(false)
+  const [healthFailed, setHealthFailed]     = useState(false)
   const [healthAttempt, setHealthAttempt]   = useState(0)
   const [healthWarming, setHealthWarming]   = useState(false)
   const [progressLabel, setProgressLabel]   = useState('')
@@ -130,22 +325,25 @@ export default function Chat() {
   const inputRef  = useRef<HTMLInputElement>(null)
 
   // Cold start: ping /health up to 10 times with 3s gaps
-  const checkHealth = useCallback(async () => {
+  const runHealthCheck = useCallback(async () => {
+    setHealthFailed(false)
+    setHealthReady(false)
     setHealthWarming(true)
+    setHealthAttempt(0)
     for (let attempt = 1; attempt <= 10; attempt++) {
       setHealthAttempt(attempt)
       try {
         const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(4000) })
         if (res.ok) { setHealthReady(true); setHealthWarming(false); return }
       } catch {}
-      if (attempt < 10) await new Promise(r => setTimeout(r, 3000))
+      if (attempt < 10) await new Promise<void>(r => setTimeout(r, 3000))
     }
-    // After 10 retries give up but still allow typing
-    setHealthReady(true)
+    // All 10 retries failed — show error state, do not allow sending
+    setHealthFailed(true)
     setHealthWarming(false)
   }, [])
 
-  useEffect(() => { checkHealth() }, [checkHealth])
+  useEffect(() => { runHealthCheck() }, [runHealthCheck])
 
   // Load live context (falls back to Veloquity defaults)
   useEffect(() => {
@@ -202,19 +400,21 @@ export default function Chat() {
           content: res.response,
           context_used: res.context_used,
           timestamp: replyTime,
+          evidenceClusters: detectClusters(text, res.response, dataset),
         },
       ])
     } catch {
       // Intelligent fallback using Veloquity data
-      const fallback = getSmartFallback(text)
+      const fallback = getSmartFallback(text, pipelineMetrics.items, pipelineMetrics.clusters)
       const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       setMessages((m) => [
         ...m.slice(0, -1),
         {
           role: 'assistant',
           content: fallback,
-          context_used: ['6 evidence clusters', `${contextInfo.recommendations} recommendations`, 'governance log'],
+          context_used: [`${pipelineMetrics.clusters} evidence clusters`, `${contextInfo.recommendations} recommendations`, 'governance log'],
           timestamp: replyTime,
+          evidenceClusters: detectClusters(text, fallback, dataset),
         },
       ])
     } finally {
@@ -226,6 +426,7 @@ export default function Chat() {
   }
 
   return (
+    <>
     <div className="p-6 flex gap-5" style={{ height: 'calc(100vh - 120px)' }}>
 
       {/* ── Left panel: System Context ──────────────────────────────────────── */}
@@ -259,7 +460,7 @@ export default function Chat() {
           <ContextPill
             icon={Database}
             label="Feedback Corpus"
-            value="547 items"
+            value={`${pipelineMetrics.items} items`}
             accent="border-green-500/30"
           />
           <ContextPill
@@ -282,14 +483,7 @@ export default function Chat() {
             Active Clusters
           </p>
           <div className="space-y-1.5">
-            {[
-              { name: 'App crashes on project switch',    conf: 91 },
-              { name: 'Black screen after latest update', conf: 87 },
-              { name: 'Dashboard load regression',        conf: 86 },
-              { name: 'No onboarding checklist',          conf: 81 },
-              { name: 'Export to CSV silently fails',     conf: 77 },
-              { name: 'Notification delay on mobile',     conf: 72 },
-            ].map(({ name, conf }) => (
+            {activeClusters.map(({ name, conf }) => (
               <div key={name} className="flex items-center gap-2 group">
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-muted-foreground truncate leading-snug group-hover:text-foreground transition-colors">
@@ -352,7 +546,7 @@ export default function Chat() {
               <div className="text-center max-w-sm">
                 <h3 className="font-semibold text-foreground text-lg mb-1">Veloquity AI</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Ask anything about your 6 evidence clusters, sprint priorities,
+                  Ask anything about your {pipelineMetrics.clusters} evidence clusters, sprint priorities,
                   governance activity, or confidence scores.
                 </p>
               </div>
@@ -438,6 +632,19 @@ export default function Chat() {
                       ))}
                     </div>
                   )}
+
+                  {/* Evidence drill-down */}
+                  {m.role === 'assistant' && !m.pending && hasData &&
+                    m.evidenceClusters && m.evidenceClusters.length > 0 && (
+                    <InlineEvidence
+                      clusterNames={m.evidenceClusters}
+                      dataset={dataset}
+                      onViewAll={(cluster, items) => {
+                        setDrawerCluster(cluster)
+                        setDrawerItems(items)
+                      }}
+                    />
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -448,10 +655,29 @@ export default function Chat() {
         {/* Warming up banner */}
         {healthWarming && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-500/30 bg-amber-500/8 mb-2">
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <Loader2 className="w-4 h-4 text-amber-500 shrink-0 animate-spin" />
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              Warming up AI engine… Connecting (attempt {healthAttempt}/10)
+              {healthAttempt <= 1
+                ? 'Warming up AI engine…'
+                : `Waking up inference engine… (attempt ${healthAttempt}/10)`}
             </p>
+          </div>
+        )}
+
+        {/* Health failed banner */}
+        {healthFailed && (
+          <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/8 mb-2">
+            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+            <p className="text-xs text-red-600 dark:text-red-400 flex-1">
+              Could not reach the AI engine after 10 attempts.
+            </p>
+            <button
+              type="button"
+              onClick={() => runHealthCheck()}
+              className="text-xs font-medium text-red-500 hover:text-red-400 underline shrink-0"
+            >
+              Retry
+            </button>
           </div>
         )}
 
@@ -471,8 +697,8 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send(input)}
-              disabled={sending || !healthReady}
-              placeholder={healthReady ? "Ask about evidence clusters, sprint priorities, governance activity…" : "Warming up AI engine…"}
+              disabled={sending || !healthReady || healthFailed}
+              placeholder={healthFailed ? "AI engine unreachable — click Retry above" : healthReady ? "Ask about evidence clusters, sprint priorities, governance activity…" : "Warming up AI engine…"}
               className="w-full rounded-xl px-4 py-3 pr-12 text-sm border border-border bg-card text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all disabled:opacity-60"
             />
             {input.trim() && !sending && (
@@ -487,7 +713,7 @@ export default function Chat() {
           </div>
           <Button
             onClick={() => send(input)}
-            disabled={sending || !input.trim() || !healthReady}
+            disabled={sending || !input.trim() || !healthReady || healthFailed}
             className="rounded-xl px-4 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white disabled:opacity-40 shrink-0"
           >
             {sending
@@ -500,5 +726,13 @@ export default function Chat() {
         </div>
       </motion.div>
     </div>
+
+    <EvidenceDrawer
+      isOpen={drawerCluster !== null}
+      onClose={() => { setDrawerCluster(null); setDrawerItems([]) }}
+      clusterName={drawerCluster ?? ''}
+      allItems={drawerItems}
+    />
+    </>
   )
 }

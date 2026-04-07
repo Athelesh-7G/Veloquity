@@ -5,10 +5,11 @@ import { getAgentRunState, hasAgentsRun } from '@/utils/agentRunState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
-import { type AgentRunResult, type AgentStatus, getAgentStatus, runAgent } from '@/api/client'
+import { type AgentRunResult, type AgentStatus, checkHealth, getAgentStatus, runAgent } from '@/api/client'
 import { MOCK_AGENTS, HOSPITAL_MOCK_AGENTS } from '@/api/mockData'
 
 type RunStatus = 'idle' | 'running' | 'success' | 'error'
+type HealthStatus = 'checking' | 'ready' | 'failed'
 
 const AGENT_CONFIG = [
   {
@@ -90,8 +91,47 @@ const AGENT_FALLBACKS: Record<string, string> = {
   governance: 'Pipeline health checked · no stale signals detected',
 }
 
+const HOSPITAL_FALLBACK_LINES: Record<string, string[]> = {
+  ingestion: [
+    '310 feedback items ingested  (Patient Portal: 155 · Hospital Survey: 155)',
+    '38 PII fields redacted via Amazon Comprehend',
+    '15 SHA-256 duplicates removed',
+    '295 records landed to s3://veloquity-raw-dev-082228066878',
+  ],
+  evidence: [
+    '310 feedback items embedded via Titan Embed V2 (1024-dim)',
+    '298 vectors clustered in pgvector · 12 below similarity floor',
+    '4 cosine clusters formed at confidence >= 0.60',
+    'Embedding cache hit rate: 89%',
+  ],
+  reasoning: [
+    '#1 · Extended Emergency Wait Times — conf 91% · priority 88',
+    '#2 · Online Appointment Booking Failures — conf 84% · priority 81',
+    '#3 · Billing Statement Errors and Confusion — conf 78% · priority 74',
+    '#4 · Medical Records Portal Access Issues — conf 72% · priority 67',
+  ],
+  governance: [
+    '4 evidence clusters reviewed · all within 90-day recency window',
+    'No stale signals detected',
+    'Embedding cache rate: 89% · above 80% healthy threshold',
+    'All systems healthy · next run 06:00 UTC',
+  ],
+}
+
+const HOSPITAL_FALLBACKS: Record<string, string> = {
+  ingestion:  '310 feedback items ingested, PII redacted and stored to S3',
+  evidence:   '310 items embedded · 4 clusters formed at cosine >= 0.60',
+  reasoning:  '4 evidence clusters scored and ranked by priority formula',
+  governance: 'Pipeline health checked · no stale signals detected',
+}
+
 // ─── Payload parser ───────────────────────────────────────────────────────────
-function parsePayloadLines(result: AgentRunResult, shortKey: string): string[] {
+function parsePayloadLines(
+  result: AgentRunResult,
+  shortKey: string,
+  fallbackLines: Record<string, string[]> = AGENT_FALLBACK_LINES,
+  fallbacks: Record<string, string> = AGENT_FALLBACKS,
+): string[] {
   try {
     const payload = result.response_payload
     let body: any = payload
@@ -141,9 +181,9 @@ function parsePayloadLines(result: AgentRunResult, shortKey: string): string[] {
       lines.push(`${body.landed_count} records landed to S3`)
     return lines.length > 0
       ? lines
-      : (AGENT_FALLBACK_LINES[shortKey] ?? [AGENT_FALLBACKS[shortKey] ?? 'Agent completed successfully'])
+      : (fallbackLines[shortKey] ?? [fallbacks[shortKey] ?? 'Agent completed successfully'])
   } catch {
-    return AGENT_FALLBACK_LINES[shortKey] ?? [AGENT_FALLBACKS[shortKey] ?? 'Agent completed successfully']
+    return fallbackLines[shortKey] ?? [fallbacks[shortKey] ?? 'Agent completed successfully']
   }
 }
 
@@ -212,35 +252,73 @@ export default function Agents() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
   const activeMockAgents = dataset === 'hospital_survey' ? HOSPITAL_MOCK_AGENTS : MOCK_AGENTS
+  const pipelineMetrics = dataset === 'hospital_survey'
+    ? { items: 310, clusters: 4, sourceNodes: [{ label: 'Patient Portal · 155', icon: '🏥' }, { label: 'Hospital Survey · 155', icon: '📋' }] }
+    : { items: 547, clusters: 6, sourceNodes: [{ label: 'App Store Reviews · 275', icon: '📱' }, { label: 'Zendesk Tickets · 272', icon: '🎫' }] }
+  const activeFallbackLines = dataset === 'hospital_survey' ? HOSPITAL_FALLBACK_LINES : AGENT_FALLBACK_LINES
+  const activeFallbacks     = dataset === 'hospital_survey' ? HOSPITAL_FALLBACKS : AGENT_FALLBACKS
   const [agents, setAgents]         = useState<AgentStatus[]>([])
   const [runStatus, setRunStatus]   = useState<Record<string, RunStatus>>({})
   const [lastResult, setLastResult] = useState<Record<string, AgentRunResult>>({})
   const [lastRanAt, setLastRanAt]   = useState<Record<string, Date>>({})
   const [toasts, setToasts]         = useState<{ id: number; msg: string; ok: boolean }[]>([])
   const [loading, setLoading]       = useState(true)
+  const [healthStatus, setHealthStatus] = useState<HealthStatus>('checking')
+  const [healthAttempt, setHealthAttempt] = useState(0)
+  const [retryKey, setRetryKey]     = useState(0)
 
   const anyRunning = Object.values(runStatus).includes('running')
 
   useEffect(() => {
-    // Pre-populate run state from localStorage if agents have already been triggered
-    if (hasAgentsRun()) {
-      const stored = getAgentRunState()
-      const statusMap: Record<string, RunStatus> = {}
-      const ranAtMap: Record<string, Date> = {}
-      for (const a of stored) {
-        if (a.status === 'done' && a.ranAt) {
-          statusMap[a.name] = 'success'
-          ranAtMap[a.name] = new Date(a.ranAt)
+    let cancelled = false
+
+    async function init() {
+      setHealthStatus('checking')
+      setHealthAttempt(0)
+      setLoading(true)
+
+      // Pre-populate run state from localStorage if agents have already been triggered
+      if (hasAgentsRun()) {
+        const stored = getAgentRunState()
+        const statusMap: Record<string, RunStatus> = {}
+        const ranAtMap: Record<string, Date> = {}
+        for (const a of stored) {
+          if (a.status === 'done' && a.ranAt) {
+            statusMap[a.name] = 'success'
+            ranAtMap[a.name] = new Date(a.ranAt)
+          }
         }
+        setRunStatus(statusMap)
+        setLastRanAt(ranAtMap)
       }
-      setRunStatus(statusMap)
-      setLastRanAt(ranAtMap)
+
+      // Health check with up to 10 retries, 3s apart
+      let healthy = false
+      for (let attempt = 1; attempt <= 10; attempt++) {
+        if (cancelled) return
+        setHealthAttempt(attempt)
+        healthy = await checkHealth()
+        if (healthy) break
+        if (attempt < 10) await new Promise<void>(r => setTimeout(r, 3000))
+      }
+
+      if (cancelled) return
+
+      if (!healthy) {
+        setHealthStatus('failed')
+        setLoading(false)
+        return
+      }
+
+      setHealthStatus('ready')
+      getAgentStatus()
+        .then((d) => { if (!cancelled) { setAgents(d.length ? d : activeMockAgents); setLoading(false) } })
+        .catch(() => { if (!cancelled) { setAgents(activeMockAgents); setLoading(false) } })
     }
 
-    getAgentStatus()
-      .then((d) => { setAgents(d.length ? d : activeMockAgents); setLoading(false) })
-      .catch(() => { setAgents(activeMockAgents); setLoading(false) })
-  }, [])
+    init()
+    return () => { cancelled = true }
+  }, [retryKey])
 
   function addToast(msg: string, ok: boolean) {
     const id = Date.now()
@@ -275,13 +353,42 @@ export default function Agents() {
 
   const agentMap = buildAgentMap(agents)
 
+  // Health check failed — show error state with Retry button
+  if (healthStatus === 'failed') {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center h-64 gap-4 bg-background">
+        <XCircle className="w-8 h-8 text-red-500" />
+        <div className="text-center">
+          <p className="text-foreground font-medium">Could not reach the intelligence engine</p>
+          <p className="text-muted-foreground text-sm mt-1">Backend did not respond after 10 attempts.</p>
+        </div>
+        <Button
+          onClick={() => setRetryKey(k => k + 1)}
+          className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white"
+        >
+          <RefreshCw className="w-4 h-4 mr-2" />Retry
+        </Button>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
-      // FIX: bg-background instead of bg-[#080D1A]
-      <div className="p-6 flex items-center justify-center h-64 bg-background">
-        <Loader2 className="w-6 h-6 animate-spin text-violet-500 mr-2" />
-        {/* FIX: text-muted-foreground instead of text-slate-400 */}
-        <span className="text-muted-foreground">Loading agents…</span>
+      <div className="p-6 space-y-6 bg-background">
+        {healthStatus === 'checking' && (
+          <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
+            <Loader2 className="w-4 h-4 text-amber-500 shrink-0 animate-spin" />
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              {healthAttempt <= 1
+                ? 'Connecting to intelligence engine…'
+                : `Waking up inference engine… (attempt ${healthAttempt}/10)`}
+            </p>
+          </div>
+        )}
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="w-6 h-6 animate-spin text-violet-500 mr-2" />
+          <span className="text-muted-foreground">Loading agents…</span>
+        </div>
       </div>
     )
   }
@@ -337,10 +444,7 @@ export default function Agents() {
         <div className="flex flex-col items-center">
           {/* Source nodes */}
           <div className="flex items-center gap-3 mb-1">
-            {[
-              { label: 'App Store Reviews · 275', icon: '📱' },
-              { label: 'Zendesk Tickets · 272',   icon: '🎫' },
-            ].map((src) => (
+            {pipelineMetrics.sourceNodes.map((src) => (
               // FIX: bg-muted border-border text-muted-foreground instead of hardcoded dark values
               <div key={src.label}
                 className="rounded-xl px-4 py-2 border border-border text-xs font-medium text-muted-foreground bg-muted flex items-center gap-1.5">
@@ -431,8 +535,8 @@ export default function Agents() {
           const AgentIcon = cfg.Icon
 
           const outputLines = result
-            ? parsePayloadLines(result, cfg.shortKey)
-            : rs === 'success' ? AGENT_FALLBACK_LINES[cfg.shortKey] : null
+            ? parsePayloadLines(result, cfg.shortKey, activeFallbackLines, activeFallbacks)
+            : rs === 'success' ? activeFallbackLines[cfg.shortKey] : null
 
           return (
             // FIX: bg-card border-border instead of bg-[#0F1729] with hardcoded border
