@@ -133,7 +133,7 @@ export const MOCK_AGENTS = [
   {
     name: "reasoning",
     display_name: "Reasoning Agent",
-    description: "Scores evidence clusters on confidence, user count, source corroboration and recency. Invokes Claude 3 Haiku for structured recommendations.",
+    description: "Scores evidence clusters on confidence, user count, source corroboration and recency. Invokes Amazon Nova Pro for structured recommendations.",
     last_run_status: "success",
     last_run_at: "2026-03-10T06:15:00Z",
     total_runs: 38,

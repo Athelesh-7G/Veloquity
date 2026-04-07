@@ -5,6 +5,7 @@ import {
   ChevronDown, X, Check, Archive, Layers, AlertCircle,
   CheckCircle2, Clock, RefreshCw
 } from 'lucide-react'
+import { hasUploadedData } from '@/utils/uploadState'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -553,6 +554,7 @@ function AddFeedbackModal({ isOpen, onClose, onAdd }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DataStudio() {
+  const hasData = hasUploadedData()
   const { searchQuery } = useApp()
   const [localSearch, setLocalSearch]       = useState('')
   const [selectedSources, setSelectedSources] = useState<FeedbackSource[]>([])
@@ -624,28 +626,40 @@ export default function DataStudio() {
   return (
     <div className="p-6">
       {/* ── Page header ────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Data Studio</h1>
           <p className="text-muted-foreground mt-1">
             Manage and analyze feedback from all sources
           </p>
         </div>
-        <Button
-          className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
-          onClick={() => setShowAddModal(true)}
-        >
-          <Plus className="w-4 h-4 mr-2" />New Feedback
-        </Button>
+        <div className="flex items-center gap-3">
+          {hasData
+            ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Demo Data Active</Badge>
+            : <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>
+          }
+          <Button
+            className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
+            onClick={() => setShowAddModal(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />New Feedback
+          </Button>
+        </div>
       </div>
+
+      {!hasData && (
+        <div className="mb-5 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+          Upload feedback data on the Import Sources page to see insights
+        </div>
+      )}
 
       {/* ── Quick-stat pills ───────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-2 mb-5">
         {[
-          { label: `${feedbackList.length} Total`,   color: 'bg-muted text-foreground' },
-          { label: `${analyzedCount} Analyzed`,      color: 'bg-green-500/10 text-green-600' },
-          { label: `${newCount} New`,                color: 'bg-blue-500/10 text-blue-600' },
-          { label: `6 Evidence Clusters`,            color: 'bg-violet-500/10 text-violet-600' },
+          { label: `${hasData ? feedbackList.length : 0} Total`,   color: 'bg-muted text-foreground' },
+          { label: `${hasData ? analyzedCount : 0} Analyzed`,      color: 'bg-green-500/10 text-green-600' },
+          { label: `${hasData ? newCount : 0} New`,                color: 'bg-blue-500/10 text-blue-600' },
+          { label: `${hasData ? 6 : 0} Evidence Clusters`,         color: 'bg-violet-500/10 text-violet-600' },
         ].map(({ label, color }) => (
           <span key={label} className={cn('px-3 py-1 rounded-full text-xs font-medium', color)}>{label}</span>
         ))}
@@ -772,28 +786,35 @@ export default function DataStudio() {
       </p>
 
       {/* ── Cards grid ────────────────────────────────────────────────────── */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <AnimatePresence>
-          {filteredFeedback.map((item) => (
-            <FeedbackCard
-              key={item.id}
-              item={item}
-              isSelected={selectedItems.includes(item.id)}
-              onSelect={() => toggleItemSelection(item.id)}
-              onClick={() => setActiveItem(item)}
-            />
-          ))}
-        </AnimatePresence>
-      </div>
-
-      {/* ── Empty state ────────────────────────────────────────────────────── */}
-      {filteredFeedback.length === 0 && (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-            <Search className="w-8 h-8 text-muted-foreground" />
+      {hasData ? (
+        <>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <AnimatePresence>
+              {filteredFeedback.map((item) => (
+                <FeedbackCard
+                  key={item.id}
+                  item={item}
+                  isSelected={selectedItems.includes(item.id)}
+                  onSelect={() => toggleItemSelection(item.id)}
+                  onClick={() => setActiveItem(item)}
+                />
+              ))}
+            </AnimatePresence>
           </div>
-          <h3 className="font-medium text-foreground mb-2">No feedback found</h3>
-          <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
+
+          {filteredFeedback.length === 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+                <Search className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-medium text-foreground mb-2">No feedback found</h3>
+              <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-center py-16 text-muted-foreground text-sm">
+          Upload feedback data on the Import Sources page to see insights
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Bot, CheckCircle2, XCircle, Play, RefreshCw, Loader2, Zap, Database, Brain, Shield } from 'lucide-react'
+import { Bot, CheckCircle2, XCircle, Play, RefreshCw, Loader2, Zap, Database, Brain, Shield, AlertTriangle } from 'lucide-react'
+import { hasUploadedData } from '@/utils/uploadState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
@@ -33,9 +34,9 @@ const AGENT_CONFIG = [
     lambdaName: 'veloquity-reasoning-dev',
     shortKey: 'reasoning',
     display: 'Reasoning Agent',
-    subtitle: 'Confidence Scoring · Claude 3 Haiku · Bedrock',
-    tags: ['Claude 3 Haiku', 'Bedrock', 'Confidence Score'],
-    description: 'Scores evidence clusters on confidence, user count, source corroboration and recency. Invokes Claude 3 Haiku for structured recommendations.',
+    subtitle: 'Confidence Scoring · Amazon Nova Pro · Bedrock',
+    tags: ['Amazon Nova Pro', 'Bedrock', 'Confidence Score'],
+    description: 'Scores evidence clusters on confidence, user count, source corroboration and recency. Invokes Amazon Nova Pro for structured recommendations.',
     Icon: Brain,
     accent: '#a855f7',
   },
@@ -207,6 +208,7 @@ function AgentOutputBox({ lines, shortKey, accent }: { lines: string[]; shortKey
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Agents() {
+  const hasData = hasUploadedData()
   const [agents, setAgents]         = useState<AgentStatus[]>([])
   const [runStatus, setRunStatus]   = useState<Record<string, RunStatus>>({})
   const [lastResult, setLastResult] = useState<Record<string, AgentRunResult>>({})
@@ -295,6 +297,16 @@ export default function Agents() {
           Each agent is independently invokable and observable.
         </p>
       </div>
+
+      {/* ── No data notice ──────────────────────────────────────────────────── */}
+      {!hasData && (
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            Upload feedback data first to run the intelligence pipeline
+          </p>
+        </div>
+      )}
 
       {/* ── Pipeline flow card ──────────────────────────────────────────────── */}
       {/* FIX: bg-card border-border instead of bg-[#0F1729] border-white/5 */}

@@ -6,6 +6,7 @@ import {
   Minus, ChevronDown, ChevronUp, BarChart3, Zap, X,
   Shield, Users, Hash, Target
 } from 'lucide-react'
+import { hasUploadedData } from '@/utils/uploadState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -686,6 +687,7 @@ function ComparisonTable({ scenarios }: { scenarios: Scenario[] }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Scenarios() {
+  const hasData = hasUploadedData()
   const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS)
   const [showForm, setShowForm]   = useState(false)
   const [appliedId, setAppliedId] = useState<string | null>(null)
@@ -711,28 +713,40 @@ export default function Scenarios() {
   }
 
  return (
-  <div className="p-6 min-h-screen bg-gray-50 dark:bg-[#080D1A] space-y-6 transition-colors">
+  <div className="p-6 min-h-screen bg-background space-y-6 transition-colors">
 
     {/* Header */}
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between flex-wrap gap-3">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-foreground">
           Scenarios
         </h1>
 
-        <p className="text-gray-600 dark:text-slate-400 mt-1 text-sm">
+        <p className="text-muted-foreground mt-1 text-sm">
           Model different prioritization strategies · compare outcomes across all 6 evidence clusters
         </p>
       </div>
 
-      <Button
-        onClick={() => setShowForm((p) => !p)}
-        className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 gap-2"
-      >
-        {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-        {showForm ? 'Cancel' : 'New Scenario'}
-      </Button>
+      <div className="flex items-center gap-3">
+        {hasData
+          ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Demo Data Active</Badge>
+          : <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>
+        }
+        <Button
+          onClick={() => setShowForm((p) => !p)}
+          className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 gap-2"
+        >
+          {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          {showForm ? 'Cancel' : 'New Scenario'}
+        </Button>
+      </div>
     </div>
+
+    {!hasData && (
+      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+        Upload feedback data on the Import Sources page to see insights
+      </div>
+    )}
 
     {/* New scenario form */}
     <AnimatePresence>
@@ -772,30 +786,34 @@ export default function Scenarios() {
 
       <div className="grid lg:grid-cols-2 gap-4">
 
-        <AnimatePresence>
-          {scenarios.map((scenario, i) => (
-
-            <motion.div
-              key={scenario.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ delay: i * 0.04 }}
-            >
-              <ScenarioCard
-                scenario={scenario}
-                onClone={handleClone}
-                onDelete={handleDelete}
-                onApply={handleApply}
-              />
-            </motion.div>
-
-          ))}
-        </AnimatePresence>
+        {!hasData ? (
+          <div className="lg:col-span-2 text-center py-16 text-muted-foreground text-sm">
+            Upload feedback data on the Import Sources page to see insights
+          </div>
+        ) : (
+          <AnimatePresence>
+            {scenarios.map((scenario, i) => (
+              <motion.div
+                key={scenario.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ delay: i * 0.04 }}
+              >
+                <ScenarioCard
+                  scenario={scenario}
+                  onClone={handleClone}
+                  onDelete={handleDelete}
+                  onApply={handleApply}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
 
       </div>
 
-      {scenarios.length === 0 && (
+      {hasData && scenarios.length === 0 && (
         <div className="text-center py-12 text-gray-500 dark:text-slate-500">
           <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">
@@ -807,7 +825,7 @@ export default function Scenarios() {
     </div>
 
     {/* Comparison table */}
-    {scenarios.length > 1 && (
+    {hasData && scenarios.length > 1 && (
       <ComparisonTable scenarios={scenarios} />
     )}
 

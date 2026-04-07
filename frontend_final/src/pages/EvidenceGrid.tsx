@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { MOCK_EVIDENCE } from '@/api/mockData'
 import { getEvidence } from '@/api/client'
 import { cn } from '@/lib/utils'
+import { hasUploadedData } from '@/utils/uploadState'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EvidenceCategory = 'Technical' | 'Feature' | 'UX'
@@ -405,13 +406,13 @@ function EvidenceCard({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function EvidenceGrid() {
+  const hasData = hasUploadedData()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>(EVIDENCE_DATA)
 
   // Only replace mock data if the API returns well-formed evidence clusters.
-  // Guard: items must have a clean short title and non-zero user counts.
-  // If the API is unhealthy or returns raw/malformed data, mock data is preserved.
   useEffect(() => {
+    if (!hasData) return
     getEvidence()
       .then((r) => {
         if (!r || r.length === 0) return
@@ -450,38 +451,52 @@ export default function EvidenceGrid() {
   )
   const totalFbClustered = evidenceList.reduce((s, e) => s + e.feedbackCount, 0)
 
+  const displayList = hasData ? evidenceList : []
+
   return (
     <div className="p-6">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Evidence Grid</h1>
           <p className="text-muted-foreground mt-1">
             pgvector cosine clusters · Titan Embed V2 · confidence ≥ 0.60 auto-accept
           </p>
         </div>
-        <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
-          <Shield className="w-4 h-4 mr-2" />Create Evidence
-        </Button>
+        <div className="flex items-center gap-3">
+          {hasData
+            ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Demo Data Active</Badge>
+            : <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>
+          }
+          <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
+            <Shield className="w-4 h-4 mr-2" />Create Evidence
+          </Button>
+        </div>
       </div>
+
+      {!hasData && (
+        <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+          Upload feedback data on the Import Sources page to see insights
+        </div>
+      )}
 
       {/* ── Stats row ──────────────────────────────────────────────────────── */}
       <div className="grid sm:grid-cols-4 gap-4 mb-8">
         {[
           {
-            icon: Shield,       label: 'Evidence Clusters',  value: evidenceList.length,
+            icon: Shield,       label: 'Evidence Clusters',  value: hasData ? evidenceList.length : 0,
             gradient: 'from-blue-500/5 to-blue-500/10',      iconColor: 'text-blue-600',
           },
           {
-            icon: TrendingUp,   label: 'Avg Confidence',     value: `${avgConf}%`,
+            icon: TrendingUp,   label: 'Avg Confidence',     value: hasData ? `${avgConf}%` : '0%',
             gradient: 'from-violet-500/5 to-violet-500/10',  iconColor: 'text-violet-600',
           },
           {
-            icon: Layers,       label: 'Feedback Clustered', value: totalFbClustered.toLocaleString(),
+            icon: Layers,       label: 'Feedback Clustered', value: hasData ? totalFbClustered.toLocaleString() : '0',
             gradient: 'from-green-500/5 to-green-500/10',    iconColor: 'text-green-600',
           },
           {
-            icon: ExternalLink, label: 'Unique Sources',     value: UNIQUE_SOURCES,
+            icon: ExternalLink, label: 'Unique Sources',     value: hasData ? UNIQUE_SOURCES : 0,
             gradient: 'from-orange-500/5 to-orange-500/10',  iconColor: 'text-orange-600',
           },
         ].map(({ icon: Icon, label, value, gradient, iconColor }) => (
@@ -515,7 +530,7 @@ export default function EvidenceGrid() {
 
       {/* ── Evidence cards grid ────────────────────────────────────────────── */}
       <div className="grid lg:grid-cols-2 gap-4">
-        {evidenceList.map((item) => (
+        {displayList.map((item) => (
           <EvidenceCard
             key={item.id}
             item={item}
@@ -523,6 +538,11 @@ export default function EvidenceGrid() {
             onToggle={() => toggleExpand(item.id)}
           />
         ))}
+        {!hasData && displayList.length === 0 && (
+          <div className="lg:col-span-2 text-center py-16 text-muted-foreground text-sm">
+            Upload feedback data on the Import Sources page to see insights
+          </div>
+        )}
       </div>
     </div>
   )

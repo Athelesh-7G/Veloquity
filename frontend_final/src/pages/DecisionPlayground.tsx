@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sliders, RotateCcw, Download, CheckCircle2, Clock, XCircle, Zap, Shield, TrendingUp, TrendingDown, Minus, Users, Hash, Layers, ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Target } from 'lucide-react'
+import { hasUploadedData } from '@/utils/uploadState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
@@ -446,6 +447,7 @@ const DEFAULT_UNC  = 15
 const DEFAULT_EV   = 40
 
 export default function DecisionPlayground() {
+  const hasData = hasUploadedData()
   const [confThreshold,  setConfThreshold]  = useState(DEFAULT_CONF)
   const [uncTolerance,   setUncTolerance]   = useState(DEFAULT_UNC)
   const [minEvidence,    setMinEvidence]    = useState(DEFAULT_EV)
@@ -481,25 +483,32 @@ export default function DecisionPlayground() {
   const highImpact  = sprintItems.filter((r) => r.cluster.impact === 'high').length
   const totalUsers  = sprintItems.reduce((s, r) => s + r.cluster.uniqueUsers, 0)
 
+  const displayResults = hasData ? results : []
+  const displayCounts = hasData ? counts : { prioritize: 0, consider: 0, defer: 0 }
+
   return (
-  <div className="p-6 min-h-screen bg-gray-50 dark:bg-[#080D1A] transition-colors">
+  <div className="p-6 min-h-screen bg-background transition-colors">
 
     {/* Header */}
-    <div className="flex items-start justify-between mb-8">
+    <div className="flex items-start justify-between mb-8 flex-wrap gap-3">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-foreground">
           Decision Playground
         </h1>
 
-        <p className="text-gray-600 dark:text-slate-400 mt-1 text-sm">
+        <p className="text-muted-foreground mt-1 text-sm">
           Adjust thresholds to see how confidence levels reshape your roadmap priorities
         </p>
       </div>
 
       <div className="flex items-center gap-2">
+        {hasData
+          ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Demo Data Active</Badge>
+          : <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>
+        }
         <Button
           variant="ghost"
-          className="text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white gap-2"
+          className="text-muted-foreground hover:text-foreground gap-2"
           onClick={reset}
         >
           <RotateCcw className="w-4 h-4" />
@@ -524,6 +533,12 @@ export default function DecisionPlayground() {
         </Button>
       </div>
     </div>
+
+    {!hasData && (
+      <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+        Upload feedback data on the Import Sources page to see insights
+      </div>
+    )}
 
     <div className="grid lg:grid-cols-[380px_1fr] gap-6">
 
@@ -594,9 +609,9 @@ export default function DecisionPlayground() {
           <div className="space-y-3">
 
             {[
-              { label: 'Prioritize', count: counts.prioritize, color: 'bg-emerald-500', textColor: 'text-emerald-500' },
-              { label: 'Consider', count: counts.consider, color: 'bg-amber-500', textColor: 'text-amber-500' },
-              { label: 'Defer', count: counts.defer, color: 'bg-slate-500', textColor: 'text-slate-500' },
+              { label: 'Prioritize', count: displayCounts.prioritize, color: 'bg-emerald-500', textColor: 'text-emerald-500' },
+              { label: 'Consider', count: displayCounts.consider, color: 'bg-amber-500', textColor: 'text-amber-500' },
+              { label: 'Defer', count: displayCounts.defer, color: 'bg-slate-500', textColor: 'text-slate-500' },
             ].map(({ label, count, color, textColor }) => (
 
               <div key={label} className="flex items-center gap-3">
@@ -694,7 +709,7 @@ export default function DecisionPlayground() {
 
         <AnimatePresence mode="popLayout">
 
-          {results.map(({ cluster, decision }, i) => (
+          {displayResults.map(({ cluster, decision }, i) => (
 
             <ScenarioCard
               key={cluster.id}
@@ -705,6 +720,12 @@ export default function DecisionPlayground() {
             />
 
           ))}
+
+          {!hasData && displayResults.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              Upload feedback data on the Import Sources page to see insights
+            </div>
+          )}
 
         </AnimatePresence>
 

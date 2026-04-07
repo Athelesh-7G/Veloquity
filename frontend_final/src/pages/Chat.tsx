@@ -1,8 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bot, Send, Sparkles, Database, Shield, BarChart3, Activity, Layers, Hash } from 'lucide-react'
+import { Bot, Send, Sparkles, Database, Shield, BarChart3, Activity, Layers, Hash, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { type ChatMessage, getAgentStatus, getEvidence, getRecommendations, sendChatMessage } from '@/api/client'
+import { hasUploadedData } from '@/utils/uploadState'
+
+const BASE = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL ?? 'http://localhost:8002'
+
+const NO_DATA_RESPONSE = 'No feedback data has been uploaded yet. Please visit the Import Sources page to upload your App Store and Zendesk feedback files. Once uploaded, I can provide evidence-based recommendations and insights from your data.'
 
 // ─── Veloquity-aligned starter questions ─────────────────────────────────────
 const STARTERS = [
@@ -102,14 +107,39 @@ function MessageText({ content }: { content: string }) {
 }
 
 export default function Chat() {
+  const hasData = hasUploadedData()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput]       = useState('')
   const [sending, setSending]   = useState(false)
   const [contextInfo, setContextInfo] = useState<{ clusters: number; recommendations: number }>({
     clusters: 6, recommendations: 6,
   })
+  // Cold start state
+  const [healthReady, setHealthReady]       = useState(false)
+  const [healthAttempt, setHealthAttempt]   = useState(0)
+  const [healthWarming, setHealthWarming]   = useState(false)
+  const [progressLabel, setProgressLabel]   = useState('')
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLInputElement>(null)
+
+  // Cold start: ping /health up to 10 times with 3s gaps
+  const checkHealth = useCallback(async () => {
+    setHealthWarming(true)
+    for (let attempt = 1; attempt <= 10; attempt++) {
+      setHealthAttempt(attempt)
+      try {
+        const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(4000) })
+        if (res.ok) { setHealthReady(true); setHealthWarming(false); return }
+      } catch {}
+      if (attempt < 10) await new Promise(r => setTimeout(r, 3000))
+    }
+    // After 10 retries give up but still allow typing
+    setHealthReady(true)
+    setHealthWarming(false)
+  }, [])
+
+  useEffect(() => { checkHealth() }, [checkHealth])
 
   // Load live context (falls back to Veloquity defaults)
   useEffect(() => {
@@ -138,6 +168,23 @@ export default function Chat() {
     const pendingMsg: Message = { role: 'assistant', content: '', pending: true }
     setMessages((m) => [...m, pendingMsg])
 
+    // No data uploaded — return mock message without API call
+    if (!hasData) {
+      const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      setMessages((m) => [
+        ...m.slice(0, -1),
+        { role: 'assistant', content: NO_DATA_RESPONSE, timestamp: replyTime },
+      ])
+      setSending(false)
+      setTimeout(() => inputRef.current?.focus(), 100)
+      return
+    }
+
+    // Progressive status labels
+    setProgressLabel('')
+    const t1 = setTimeout(() => setProgressLabel('Querying evidence clusters…'), 3000)
+    const t2 = setTimeout(() => setProgressLabel('Nova Pro is analyzing your question…'), 8000)
+
     try {
       const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }))
       const res = await sendChatMessage(text, history)
@@ -165,6 +212,8 @@ export default function Chat() {
         },
       ])
     } finally {
+      clearTimeout(t1); clearTimeout(t2)
+      setProgressLabel('')
       setSending(false)
       setTimeout(() => inputRef.current?.focus(), 100)
     }
@@ -390,6 +439,23 @@ export default function Chat() {
           <div ref={bottomRef} />
         </div>
 
+        {/* Warming up banner */}
+        {healthWarming && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-500/30 bg-amber-500/8 mb-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Warming up AI engine… Connecting (attempt {healthAttempt}/10)
+            </p>
+          </div>
+        )}
+
+        {/* Progress label */}
+        {progressLabel && (
+          <div className="px-3 py-1.5 text-xs text-muted-foreground italic mb-1">
+            {progressLabel}
+          </div>
+        )}
+
         {/* Input bar */}
         <div className="flex gap-2">
           <div className="flex-1 relative">
@@ -399,8 +465,8 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send(input)}
-              disabled={sending}
-              placeholder="Ask about evidence clusters, sprint priorities, governance activity…"
+              disabled={sending || !healthReady}
+              placeholder={healthReady ? "Ask about evidence clusters, sprint priorities, governance activity…" : "Warming up AI engine…"}
               className="w-full rounded-xl px-4 py-3 pr-12 text-sm border border-border bg-card text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all disabled:opacity-60"
             />
             {input.trim() && !sending && (
@@ -415,7 +481,7 @@ export default function Chat() {
           </div>
           <Button
             onClick={() => send(input)}
-            disabled={sending || !input.trim()}
+            disabled={sending || !input.trim() || !healthReady}
             className="rounded-xl px-4 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white disabled:opacity-40 shrink-0"
           >
             {sending

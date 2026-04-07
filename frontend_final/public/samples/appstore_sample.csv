@@ -1,0 +1,101 @@
+review_id,rating,title,review,date,version,author
+r001,1,App crashes every time I switch projects,The app crashes without fail whenever I try to switch between projects. Lost all my work twice now. Unacceptable for a paid app.,2025-08-03,3.1.0,marcus_dev
+r002,1,Switching projects kills the app,I click on a different project and the app just dies. No warning, no autosave. Started after the 3.2 update.,2025-08-07,3.2.0,product_jane
+r003,2,Crashes on project switch - please fix,Rating 2 instead of 1 because I love the app otherwise but this crash is a dealbreaker. Reproducible every time.,2025-08-11,3.2.0,teamlead_sarah
+r004,1,Fatal crash switching workspaces,Our whole team is stuck. Every single person hits this crash when switching between workspaces. Please patch urgently.,2025-08-15,3.2.0,cto_startup
+r005,1,Project context crash since 3.2,Null pointer crash in project context handler. I can see it in the logs. Easy to reproduce: open two projects, switch between them.,2025-08-19,3.2.0,dev_luke
+r006,1,Crashing constantly on project switch,This is my third support ticket about this crash. Every time I go from project A to project B the app quits.,2025-08-23,3.2.0,pm_alex
+r007,1,Unusable - crashes on switch,Downloaded this for my whole team and none of us can switch projects without a crash. Requesting refund.,2025-08-27,3.2.1,team_manager
+r008,2,Good app ruined by crash bug,Great features but I cannot do my job when switching projects crashes the app every single time without exception.,2025-09-01,3.2.1,designer_mia
+r009,1,App closes when I switch projects,The moment I click on another project the app freezes for two seconds then closes. Data loss every time.,2025-09-05,3.2.1,freelancer_tom
+r010,1,Still crashing after 3.2.1,Updated hoping the crash was fixed. Still crashes on project switch. This is a critical bug that has been ignored.,2025-09-09,3.2.1,senior_eng
+r011,1,Project switch = instant death,100% reproducible. Click project in left sidebar. App freezes. App crashes. Every. Single. Time.,2025-09-13,3.2.1,ux_researcher
+r012,2,Crash ruins my workflow,I have to log back in every time I need to look at a different project because switching always crashes the app.,2025-09-17,3.2.1,agile_coach
+r013,1,The worst regression I have seen,This project-switch crash has been present for months and has not been fixed. How is this still shipping?,2025-09-21,3.3.0,eng_manager
+r014,1,Complete crash on workspace change,I manage 12 projects and cannot switch between them without crashing. Completely breaks my workflow.,2025-09-25,3.3.0,portfolio_pm
+r015,1,App crashes when I change projects,Tried on two different iPhones and one iPad. Same crash every time I switch projects. This is a platform-wide bug.,2025-09-29,3.3.0,qa_tester
+r016,2,Crash bug is killing my productivity,Good project management tool overall but this crash has reduced my productivity by about 40% since I have to restart constantly.,2025-10-03,3.3.0,startup_founder
+r017,1,Uninstalling due to crash,I cannot use an app that crashes every time I do the most basic action. Switching between projects should not crash an app.,2025-10-07,3.3.0,angry_user
+r018,1,Project switch crash still not fixed,Version 3.3 and the crash on project switch is still there. I am moving to a competitor if this is not patched.,2025-10-11,3.3.0,enterprise_user
+r019,1,Freezes then crashes when switching,The app freezes for about 3 seconds when I switch projects then fully crashes. Log shows null pointer in context.,2025-10-15,3.3.0,backend_dev
+r020,2,Love the features hate the crash,If not for this project-switch crash this would be a 5-star app. Please fix this and I will update my review.,2025-10-19,3.3.0,loyal_user
+r021,1,Black screen every morning since update,After the 3.2 update the app shows a black screen for 15-20 seconds on every cold start. Only warm restarts work fine.,2025-08-05,3.2.0,morning_user
+r022,1,Black screen on launch,Opens to a completely black screen. Have to kill and reopen the app at least twice every morning. Absurd.,2025-08-10,3.2.0,daily_user
+r023,2,Black screen issue ruins mornings,I depend on this app first thing in the morning and the black screen bug means I waste 3 minutes every single day.,2025-08-14,3.2.0,commuter_felix
+r024,1,Stuck on black screen,App hangs on a black screen indefinitely. Force-close and reopen is the only fix. This is a fresh install issue.,2025-08-18,3.2.0,new_subscriber
+r025,1,Black screen deadlock on startup,This is clearly an async init deadlock introduced in 3.2. The app stalls during initialization on cold start.,2025-08-22,3.2.0,ios_dev
+r026,2,Black screen every cold start,If I quit the app completely it always shows a black screen for 20+ seconds on relaunch. Warm restarts are fine.,2025-08-26,3.2.1,power_user
+r027,1,Still black screen in 3.2.1,Updated hoping this would be fixed. Still getting the black screen on every cold launch. Very frustrating.,2025-08-30,3.2.1,impatient_user
+r028,1,Black screen affects our whole company,All 12 users in our organization hit the black screen on cold start. Must be a systemic initialization bug.,2025-09-04,3.2.1,it_admin
+r029,2,Black screen every day,This has become my daily routine: open app, wait for black screen to clear, start working. Please fix.,2025-09-08,3.2.1,routine_user
+r030,1,Cold start always shows black screen,I have tried reinstalling, clearing cache, restarting the device. Black screen every cold launch since 3.2.,2025-09-12,3.2.1,troubleshooter
+r031,1,Black screen hang on every start,App is completely frozen on the black screen for about 20 seconds before it loads. iOS 17.4 and macOS both affected.,2025-09-16,3.3.0,multi_platform
+r032,2,Black screen is a bad first impression,New users at my company always ask why the app starts with a black screen. It makes us look bad to present this.,2025-09-20,3.3.0,sales_manager
+r033,1,Black screen since 3.2 not fixed in 3.3,Three versions later and the black screen on launch is still there. I have lost all faith in the update process.,2025-09-24,3.3.0,frustrated_user
+r034,1,Every morning black screen,I have documented this: 100% reproduction on cold start, 0% on warm restart. Classic async init deadlock.,2025-09-28,3.3.0,meticulous_tester
+r035,1,Black screen is embarrassing,Demoing this app to a client and it opened to a black screen for 20 seconds. Very unprofessional experience.,2025-10-02,3.3.0,account_exec
+r036,2,Black screen still happening in latest,Just updated to 3.3 and the black screen on cold start is still there. How has this not been prioritized?,2025-10-06,3.3.0,update_watcher
+r037,1,App completely black on open,Every cold start results in a completely black screen. Have to wait it out or force-close and try again.,2025-10-10,3.3.0,patient_user
+r038,1,Black screen hang is unacceptable,A productivity app that hangs on a black screen every morning is counterproductive. Please fix this urgently.,2025-10-14,3.3.0,productivity_freak
+r039,1,Cold launch always shows black screen,Confirmed on iPhone 15 Pro, iPhone 14, and iPad Pro. Consistent black screen on cold start across all devices.,2025-10-18,3.3.0,device_tester
+r040,2,Black screen on launch every day,This is now expected behavior at my company. We all know to wait 20 seconds after opening the app cold.,2025-10-22,3.3.0,resigned_user
+r041,1,Dashboard takes 12 seconds to load,After the 3.2 update the dashboard went from loading in under 2 seconds to taking 12 seconds. Backend is fine.,2025-08-06,3.2.0,perf_watcher
+r042,2,Extremely slow dashboard after update,Dashboard performance has completely regressed. Went from instant to 12+ seconds. Something changed in the UI.,2025-08-12,3.2.0,speed_conscious
+r043,1,Dashboard load is painful,I time my coffee break to the dashboard load now. It takes 12-15 seconds on my enterprise workspace. Unusable.,2025-08-16,3.2.0,enterprise_pm
+r044,2,Dashboard so slow it breaks focus,Context switching to the dashboard takes so long that I lose my train of thought waiting for it to load.,2025-08-20,3.2.1,deep_worker
+r045,1,Dashboard regression since 3.2,I have measured this: 1.8 seconds before 3.2, 12.4 seconds after. Backend response times unchanged. Frontend bug.,2025-08-24,3.2.1,eng_lead
+r046,2,Dashboard load scales badly,The more projects in my workspace the longer the dashboard takes. 200 projects = 15 seconds minimum. Unusable.,2025-08-28,3.2.1,power_pm
+r047,1,Dashboard is way too slow,Waiting 12 seconds for the dashboard to load every single time I open the app kills my workflow entirely.,2025-09-02,3.2.1,workflow_user
+r048,2,Slow dashboard hurts productivity,I calculated I waste 10+ minutes per day waiting for the dashboard to load. That is over 40 hours per year.,2025-09-06,3.2.1,time_tracking
+r049,1,Dashboard still slow in 3.3,Updated to 3.3 hoping the performance regression would be fixed. Dashboard still takes 12 seconds to load.,2025-09-10,3.3.0,hopeful_user
+r050,2,Dashboard performance unacceptable,A dashboard that takes 12 seconds to load in 2026 is not acceptable for a productivity app. Please optimize.,2025-09-14,3.3.0,standards_user
+r051,1,Dashboard load time kills meetings,I use the dashboard in meetings and waiting 12 seconds for it to load while clients watch is humiliating.,2025-09-18,3.3.0,meeting_user
+r052,2,Dashboard slow since March update,Every update seems to make the dashboard slower. It was fast before 3.2. Something in the render cycle changed.,2025-09-22,3.3.0,update_tracker
+r053,1,12 seconds to load the dashboard,Measured the dashboard load time: exactly 12.3 seconds average over 20 tries. This was under 2 seconds before.,2025-09-26,3.3.0,precise_user
+r054,1,Dashboard lags badly on enterprise,Our enterprise workspace has 400 projects and the dashboard takes 20+ seconds to load. Completely unworkable.,2025-10-01,3.3.0,large_enterprise
+r055,2,Slow dashboard is embarrassing,I have to apologize to my team every time I share the dashboard in a standup because of how long it takes.,2025-10-05,3.3.0,team_lead
+r056,1,Dashboard unusably slow,I work in product and a 12-second dashboard load time is something I would reject in any product I reviewed.,2025-10-09,3.3.0,product_critic
+r057,1,Dashboard performance regression,This is a textbook frontend render performance regression. The data loads fast but something in the UI is slow.,2025-10-13,3.3.0,front_end_dev
+r058,2,Dashboard so slow I use a workaround,I have started screenshotting the dashboard and using that instead of waiting for it to reload every time.,2025-10-17,3.3.0,creative_workaround
+r059,1,Dashboard load time has tripled,Before 3.2 the dashboard loaded in 2 seconds. Now it takes over 12 seconds. This is a 500% regression.,2025-10-21,3.3.0,stat_tracker
+r060,2,Dashboard should be fast,A project management dashboard in 2026 should load in under 2 seconds. 12 seconds is a decade behind.,2025-10-25,3.3.0,modern_standards
+r061,2,No onboarding when I first signed up,I signed up, confirmed my email, and was dropped into a blank workspace with no guidance whatsoever.,2025-08-08,3.2.0,new_signup
+r062,2,New users need a setup wizard,Every new team member I add needs a 30-minute walkthrough from me because there is no in-app onboarding.,2025-08-13,3.2.0,onboarding_pain
+r063,3,Would love an onboarding checklist,The app is powerful but there is zero guidance for getting started. A checklist or wizard would help a lot.,2025-08-17,3.2.1,feature_request
+r064,2,Confusing start for new users,I had no idea where to begin. No checklist, no tutorial, no welcome message. Very steep initial learning curve.,2025-08-21,3.2.1,confused_starter
+r065,3,Please add a getting started guide,There is no in-app onboarding. New users have to figure everything out on their own or watch YouTube videos.,2025-08-25,3.2.1,self_learner
+r066,2,No welcome tour or checklist,Other project management apps have a welcome checklist. This one just drops you into the app with no guidance.,2025-08-29,3.3.0,comparison_user
+r067,3,Onboarding is missing entirely,I manage a team of 20 and onboarding new members takes forever because there is no in-app guidance at all.,2025-09-03,3.3.0,team_manager_v2
+r068,2,Need an interactive onboarding flow,First time I opened the app I closed it thinking it had not loaded properly. No guidance makes it look broken.,2025-09-07,3.3.0,first_impression
+r069,3,Setup checklist would change everything,An onboarding checklist with the top 5 things to do first would make this app so much more accessible.,2025-09-11,3.3.0,ux_feedback
+r070,2,New user experience is very poor,I referred two colleagues and both of them could not figure out how to get started without me walking them through.,2025-09-15,3.3.0,referrer
+r071,2,Onboarding checklist is badly needed,Every project management tool I have used has an onboarding checklist. This one has nothing. Major gap.,2025-09-19,3.3.0,experienced_pm
+r072,3,Would benefit from a setup wizard,The app has great features once you learn them but discovery is very hard without any in-app guidance.,2025-09-23,3.3.0,feature_explorer
+r073,2,No guidance for new users at all,Tried to get my non-technical product owner to use this. She gave up in 5 minutes with no onboarding flow.,2025-09-27,3.3.0,cross_functional
+r074,2,First-run experience needs work,The app dumps you into an empty workspace with no hints about what to do next. Needs an onboarding flow.,2025-10-01,3.3.0,ux_reviewer
+r075,3,Please add onboarding checklist,I know this has been requested before but I want to add my voice: an onboarding checklist is really needed.,2025-10-05,3.3.0,repeat_request
+r076,1,CSV export silently fails,Clicked export to CSV, got a success notification, opened the file: zero bytes. Tried three browsers. Same result.,2025-08-09,3.2.0,data_exporter
+r077,1,Export CSV is completely broken,The export function shows success but produces an empty file. This blocks my entire weekly reporting workflow.,2025-08-14,3.2.0,weekly_reporter
+r078,2,Export fails for large datasets,I tested extensively: CSV export works for under 100 rows but silently fails for anything over that. Timeout issue.,2025-08-19,3.2.1,data_analyst
+r079,1,CSV export returns empty file,I export every Friday for my stakeholder report. Since 3.2 the file is always empty despite the success toast.,2025-08-24,3.2.1,stakeholder_reporter
+r080,2,Silent export failure is worst UX,At least show an error message. A silent success with an empty file wasted an hour of my time debugging.,2025-08-29,3.2.1,ux_critic
+r081,1,Export broken silently,The CSV export appears to work but produces a file with only the header row. No data rows at all.,2025-09-04,3.3.0,csv_user
+r082,2,Export works for small data only,I have confirmed the export works for small datasets but times out silently for larger ones. No error shown.,2025-09-09,3.3.0,volume_tester
+r083,1,CSV export is useless,I use CSV export for finance reporting. Since the bug this entire feature is useless and I export from another tool.,2025-09-14,3.3.0,finance_reporter
+r084,2,Export fails without telling you,The app says export successful but the file is empty. This is the worst kind of bug because you do not know.,2025-09-19,3.3.0,silent_failure
+r085,1,CSV export broken for 3 months,This bug has been reported multiple times. CSV export silently produces empty files for datasets over 100 rows.,2025-09-24,3.3.0,long_term_bug
+r086,4,Great app love the speed and design,This app has completely transformed how my team works. The interface is clean and performance is excellent.,2025-10-01,3.3.0,happy_user_1
+r087,5,Best project management app ever,I have tried dozens of project management tools and this one is by far the best. Beautiful design and very fast.,2025-10-04,3.3.0,enthusiast_1
+r088,4,Love the visual design,The design of this app is outstanding. Clean, modern, and very intuitive once you know your way around.,2025-10-08,3.3.0,design_lover
+r089,5,Speed and simplicity are perfect,This app is lightning fast and the UI is beautiful. My team adopted it immediately with zero friction.,2025-10-12,3.3.0,speed_fan
+r090,4,Excellent app with great potential,The core features are excellent and the performance is usually great. A few bugs to fix but overall outstanding.,2025-10-16,3.3.0,balanced_reviewer
+r091,1,Push notifications arrive 30 mins late,I get push notifications 25-40 minutes after the actual event. Email is instant. Push delivery queue is broken.,2025-08-11,3.2.0,notification_dependent
+r092,2,Notification delay ruins coordination,My team relies on push notifications to coordinate. 30-minute delays mean we miss important updates constantly.,2025-08-16,3.2.1,team_coordinator
+r093,1,Mobile notifications are unreliable,Push notifications for task assignments arrive up to 45 minutes late. Email works fine so it is server-side.,2025-08-21,3.2.1,mobile_pm
+r094,2,Notification delay affects deadlines,Because of the 30-minute push notification delay I missed a deadline reminder. This is costing my team money.,2025-08-26,3.3.0,deadline_critical
+r095,1,Push notifications broken on iOS,Confirmed: iOS 17.3 and 17.4 both have 30+ minute notification delays. Background refresh is enabled.,2025-09-01,3.3.0,ios_tester
+r096,2,Notification delay is frustrating,I have turned off push notifications and switched to email only because the 30 minute delay is useless.,2025-09-06,3.3.0,switched_to_email
+r097,1,Late notifications every day,Every single notification I receive is 25-40 minutes late. My team has noticed and trust in the app is dropping.,2025-09-11,3.3.0,trust_issue
+r098,2,Notifications should be instant,Push notifications for a task management app should arrive instantly. 30-minute delays defeat the entire purpose.,2025-09-16,3.3.0,expectations_user
+r099,1,Push delay on iOS and Android,Both platforms affected. Background refresh is on for both. This is a server-side delivery queue problem.,2025-09-21,3.3.0,cross_platform_user
+r100,2,Notification latency is too high,The average notification latency I have measured is 32 minutes. For a real-time collaboration tool this is broken.,2025-09-26,3.3.0,latency_measurer

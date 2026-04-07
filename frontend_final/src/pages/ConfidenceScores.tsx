@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { hasUploadedData } from '@/utils/uploadState'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -367,6 +368,7 @@ function MetricCard({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ConfidenceScores() {
+  const hasData = hasUploadedData()
   const [metrics, setMetrics]             = useState<ConfidenceMetric[]>(INITIAL_METRICS)
   const [showUncertainty, setShowUncertainty] = useState(true)
   const [threshold, setThreshold]         = useState([60])   // default: Veloquity's auto-accept threshold
@@ -387,23 +389,33 @@ export default function ConfidenceScores() {
     }))
   }
 
-  const visible  = metrics.filter((m) => m.score >= threshold[0]).sort((a, b) => b.score - a.score)
-  const avgScore = Math.round(metrics.reduce((s, m) => s + m.score, 0) / metrics.length)
-  const highConf = metrics.filter((m) => m.score >= 80).length
-  const needsRev = metrics.filter((m) => m.score >= 60 && m.score < 80).length
-  const lowConf  = metrics.filter((m) => m.score < 60).length
+  const visible  = hasData ? metrics.filter((m) => m.score >= threshold[0]).sort((a, b) => b.score - a.score) : []
+  const avgScore = hasData ? Math.round(metrics.reduce((s, m) => s + m.score, 0) / metrics.length) : 0
+  const highConf = hasData ? metrics.filter((m) => m.score >= 80).length : 0
+  const needsRev = hasData ? metrics.filter((m) => m.score >= 60 && m.score < 80).length : 0
+  const lowConf  = hasData ? metrics.filter((m) => m.score < 60).length : 0
 
   return (
     <div className="p-6 space-y-6">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Confidence Scores</h1>
           <p className="text-muted-foreground mt-1">
             Per-cluster certainty from Titan Embed V2 cosine variance · priority formula breakdown
           </p>
         </div>
+        {hasData
+          ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Demo Data Active</Badge>
+          : <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>
+        }
       </div>
+
+      {!hasData && (
+        <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+          Upload feedback data on the Import Sources page to see insights
+        </div>
+      )}
 
       {/* ── Controls ───────────────────────────────────────────────────────── */}
       <Card>
@@ -496,7 +508,11 @@ export default function ConfidenceScores() {
         {visible.length === 0 && (
           <div className="text-center py-10 text-muted-foreground">
             <Scale className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">No clusters meet the {threshold[0]}% threshold. Lower the slider to see more.</p>
+            <p className="text-sm">
+              {hasData
+                ? `No clusters meet the ${threshold[0]}% threshold. Lower the slider to see more.`
+                : 'Upload feedback data on the Import Sources page to see insights'}
+            </p>
           </div>
         )}
       </div>

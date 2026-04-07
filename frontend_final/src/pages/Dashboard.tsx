@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import type React from 'react'
 import { motion } from 'framer-motion'
-import { BarChart3, TrendingUp, TrendingDown, Minus, Database, Shield, GitBranch, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react'
+import { BarChart3, TrendingUp, TrendingDown, Minus, Database, Shield, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { mockEvidence } from '@/lib/mock-data'
-import { MOCK_EVIDENCE, MOCK_RECOMMENDATIONS, MOCK_AGENTS, MOCK_STATS } from '@/api/mockData'
-import { getEvidence, getRecommendations, getAgentStatus, getGovernanceStats } from '@/api/client'
+import { MOCK_EVIDENCE } from '@/api/mockData'
+import { getEvidence } from '@/api/client'
+import { hasUploadedData } from '@/utils/uploadState'
 
 // ─── Veloquity-scale numbers (all internally consistent) ─────────────────────
 const TOTAL_FEEDBACK    = 547
@@ -72,56 +72,75 @@ function StatCard({
 }
 
 export default function Dashboard() {
+  const hasData = hasUploadedData()
   const [evidence, setEvidence] = useState(MOCK_EVIDENCE)
 
   useEffect(() => {
+    if (!hasData) return
     getEvidence()
       .then((r) => { if (r && r.length > 0) setEvidence(r as any) })
       .catch(() => {})
-  }, [])
+  }, [hasData])
 
   const bucketMax = Math.max(...CONFIDENCE_BUCKETS.map((b) => b.count))
 
+  const displayTotal      = hasData ? TOTAL_FEEDBACK    : 0
+  const displayClusters   = hasData ? EVIDENCE_CLUSTERS : 0
+  const displayConfidence = hasData ? AVG_CONFIDENCE    : 0
+  const displayAnalyzed   = hasData ? ANALYZED_PCT      : 0
+
   return (
     <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Overview of your feedback, evidence, and decision metrics
-        </p>
+      <div className="mb-8 flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Overview of your feedback, evidence, and decision metrics
+          </p>
+        </div>
+        {hasData
+          ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Demo Data Active</Badge>
+          : <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>
+        }
       </div>
+
+      {!hasData && (
+        <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+          Upload feedback data on the Import Sources page to see insights
+        </div>
+      )}
 
       {/* ── Top 4 Stat Cards ──────────────────────────────────────────────── */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           title="Total Feedback"
-          value={TOTAL_FEEDBACK.toLocaleString()}
-          change="+12%"
-          trend="up"
+          value={displayTotal.toLocaleString()}
+          change={hasData ? '+12%' : undefined}
+          trend={hasData ? 'up' : undefined}
           icon={Database}
           gradient="from-blue-500/5 to-blue-500/10"
         />
         <StatCard
           title="Evidence Clusters"
-          value={EVIDENCE_CLUSTERS}
-          change="+2"
-          trend="up"
+          value={displayClusters}
+          change={hasData ? '+2' : undefined}
+          trend={hasData ? 'up' : undefined}
           icon={Shield}
           gradient="from-violet-500/5 to-violet-500/10"
         />
         <StatCard
           title="Avg Confidence"
-          value={`${AVG_CONFIDENCE}%`}
-          change="+3%"
-          trend="up"
+          value={`${displayConfidence}%`}
+          change={hasData ? '+3%' : undefined}
+          trend={hasData ? 'up' : undefined}
           icon={TrendingUp}
           gradient="from-green-500/5 to-green-500/10"
         />
         <StatCard
           title="Analyzed"
-          value={`${ANALYZED_PCT}%`}
-          change="+5%"
-          trend="up"
+          value={`${displayAnalyzed}%`}
+          change={hasData ? '+5%' : undefined}
+          trend={hasData ? 'up' : undefined}
           icon={CheckCircle2}
           gradient="from-orange-500/5 to-orange-500/10"
         />
@@ -143,7 +162,12 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-2">
-            {VELOQUITY_THEMES.map((theme, i) => {
+            {!hasData && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                Upload feedback data on the Import Sources page to see insights
+              </div>
+            )}
+            {hasData && VELOQUITY_THEMES.map((theme, i) => {
               const TrendIcon =
                 theme.trend === 'rising'    ? TrendingUp  :
                 theme.trend === 'declining' ? TrendingDown : Minus
@@ -193,29 +217,36 @@ export default function Dashboard() {
             <h2 className="font-semibold text-foreground">Confidence Distribution</h2>
           </div>
 
-          <div className="space-y-4">
-            {CONFIDENCE_BUCKETS.map((range, i) => (
-              <div key={range.label} className="flex items-center gap-4">
-                <span className="w-16 text-sm text-muted-foreground">{range.label}</span>
-                <div className="flex-1 h-8 bg-muted rounded-lg overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(range.count / bucketMax) * 100}%` }}
-                    transition={{ duration: 0.8, delay: i * 0.1 }}
-                    className={`h-full ${range.color} rounded-lg`}
-                  />
-                </div>
-                <span className="w-10 text-sm font-medium text-foreground text-right">
-                  {range.count}
-                </span>
+          {!hasData ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              Upload feedback data on the Import Sources page to see insights
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4">
+                {CONFIDENCE_BUCKETS.map((range, i) => (
+                  <div key={range.label} className="flex items-center gap-4">
+                    <span className="w-16 text-sm text-muted-foreground">{range.label}</span>
+                    <div className="flex-1 h-8 bg-muted rounded-lg overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(range.count / bucketMax) * 100}%` }}
+                        transition={{ duration: 0.8, delay: i * 0.1 }}
+                        className={`h-full ${range.color} rounded-lg`}
+                      />
+                    </div>
+                    <span className="w-10 text-sm font-medium text-foreground text-right">
+                      {range.count}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-
-          <p className="text-sm text-muted-foreground mt-6">
-            Distribution across all {TOTAL_FEEDBACK.toLocaleString()} feedback items —
-            {' '}{EVIDENCE_CLUSTERS} clusters accepted at ≥ 0.60 confidence threshold.
-          </p>
+              <p className="text-sm text-muted-foreground mt-6">
+                Distribution across all {TOTAL_FEEDBACK.toLocaleString()} feedback items —
+                {' '}{EVIDENCE_CLUSTERS} clusters accepted at ≥ 0.60 confidence threshold.
+              </p>
+            </>
+          )}
         </div>
 
       </div>
