@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Bot, CheckCircle2, XCircle, Play, RefreshCw, Loader2, Zap, Database, Brain, Shield, AlertTriangle } from 'lucide-react'
 import { hasUploadedData } from '@/utils/uploadState'
+import { getAgentRunState, hasAgentsRun } from '@/utils/agentRunState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
@@ -219,6 +220,21 @@ export default function Agents() {
   const anyRunning = Object.values(runStatus).includes('running')
 
   useEffect(() => {
+    // Pre-populate run state from localStorage if agents have already been triggered
+    if (hasAgentsRun()) {
+      const stored = getAgentRunState()
+      const statusMap: Record<string, RunStatus> = {}
+      const ranAtMap: Record<string, Date> = {}
+      for (const a of stored) {
+        if (a.status === 'done' && a.ranAt) {
+          statusMap[a.name] = 'success'
+          ranAtMap[a.name] = new Date(a.ranAt)
+        }
+      }
+      setRunStatus(statusMap)
+      setLastRanAt(ranAtMap)
+    }
+
     getAgentStatus()
       .then((d) => { setAgents(d.length ? d : MOCK_AGENTS); setLoading(false) })
       .catch(() => { setAgents(MOCK_AGENTS); setLoading(false) })
@@ -249,7 +265,8 @@ export default function Agents() {
   function resolveLastRun(shortKey: string, lastRunAt: string | null | undefined): string {
     const rs = runStatus[shortKey]
     if (rs === 'running') return 'Running now…'
-    if (rs === 'success' && lastRanAt[shortKey]) return 'Ran just now ✓'
+    if (rs === 'success' && lastRanAt[shortKey])
+      return `Ran ${formatDistanceToNow(lastRanAt[shortKey], { addSuffix: true })} ✓`
     if (lastRunAt) return formatDistanceToNow(new Date(lastRunAt), { addSuffix: true })
     return 'Never'
   }

@@ -1,4 +1,6 @@
 {
+  "buildCommand": "cd frontend_final && npm install && npm run build",
+  "outputDirectory": "frontend_final/dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "env": {
     "VITE_API_URL": "your-render-api-url-here"

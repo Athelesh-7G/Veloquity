@@ -1,16 +1,34 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import {
   CheckCircle2, Upload, Smartphone, Ticket, Download, AlertTriangle,
-  Info, X, FileText
+  Info, X, FileText, Loader2
 } from 'lucide-react'
 import {
   getUploadedSources, addUploadedSource, removeUploadedSource,
-  hasSource, type UploadedSource,
+  type UploadedSource,
 } from '@/utils/uploadState'
+import { setAgentsDone, clearAgentRunState } from '@/utils/agentRunState'
+
+// ─── Phase definitions ────────────────────────────────────────────────────────
+interface Phase {
+  label: (rows: number) => string
+  startAt: number   // ms from connection start
+  targetProgress: number
+}
+
+const PHASES: Phase[] = [
+  { label: ()       => 'Reading file…',                 startAt: 0,     targetProgress: 5   },
+  { label: (n)      => `Processing ${n} feedback items…`, startAt: 2000,  targetProgress: 40  },
+  { label: ()       => 'Running ingestion pipeline…',   startAt: 5000,  targetProgress: 75  },
+  { label: ()       => 'Clustering evidence…',          startAt: 9000,  targetProgress: 95  },
+  { label: ()       => 'Generating insights…',          startAt: 12000, targetProgress: 100 },
+]
+const CONNECT_TOTAL_MS = 14000
 
 // ─── Status Banner ─────────────────────────────────────────────────────────────
 function StatusBanner({ count }: { count: number }) {
@@ -56,10 +74,21 @@ interface SourceCardProps {
 }
 
 function SourceCard({ id, label, description, Icon, connected, onConnect, onDisconnect }: SourceCardProps) {
-  const [dragging, setDragging]     = useState(false)
+  const [dragging, setDragging]         = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [success, setSuccess]       = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [connecting, setConnecting]     = useState(false)
+  const [phaseLabel, setPhaseLabel]     = useState('')
+  const [progress, setProgress]         = useState(0)
+
+  const timersRef  = useRef<ReturnType<typeof setTimeout>[]>([])
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const fileRef    = useRef<HTMLInputElement>(null)
+
+  // Clean up timers on unmount
+  useEffect(() => () => {
+    timersRef.current.forEach(clearTimeout)
+    if (intervalRef.current) clearInterval(intervalRef.current)
+  }, [])
 
   function handleFile(file: File) {
     if (!file.name.endsWith('.csv')) return
@@ -73,24 +102,59 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
     if (file) handleFile(file)
   }
 
+  function animateProgressTo(target: number) {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    intervalRef.current = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= target) {
+          if (intervalRef.current) clearInterval(intervalRef.current)
+          return target
+        }
+        return Math.min(prev + 1, target)
+      })
+    }, 60)
+  }
+
   function handleConnect() {
-    if (!selectedFile) return
+    if (!selectedFile || connecting) return
     const reader = new FileReader()
     reader.onload = (e) => {
       const text = e.target?.result as string
       const lines = text.split('\n').filter(l => l.trim().length > 0)
-      const rowCount = Math.max(0, lines.length - 1) // subtract header
-      onConnect(id, selectedFile.name, rowCount)
-      setSuccess(`${label} data connected — ${rowCount} rows loaded`)
-      setSelectedFile(null)
+      const rowCount = Math.max(0, lines.length - 1)
+      const filename = selectedFile.name
+
+      setConnecting(true)
+      setProgress(0)
+
+      // Schedule each phase
+      PHASES.forEach((phase) => {
+        const t = setTimeout(() => {
+          setPhaseLabel(phase.label(rowCount))
+          animateProgressTo(phase.targetProgress)
+        }, phase.startAt)
+        timersRef.current.push(t)
+      })
+
+      // Final phase: write to localStorage and notify parent
+      const done = setTimeout(() => {
+        setConnecting(false)
+        setSelectedFile(null)
+        setPhaseLabel('')
+        setProgress(0)
+        onConnect(id, filename, rowCount)
+      }, CONNECT_TOTAL_MS)
+      timersRef.current.push(done)
     }
     reader.readAsText(selectedFile)
   }
 
   function handleDisconnect() {
     onDisconnect(id)
-    setSuccess('')
     setSelectedFile(null)
+    setProgress(0)
+    setPhaseLabel('')
+    setConnecting(false)
   }
 
   return (
@@ -134,6 +198,16 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
             >
               <X className="w-3.5 h-3.5 mr-1.5" />Disconnect
             </Button>
+          </div>
+        ) : connecting ? (
+          /* ── Phased loading state ─────────────────────────────────────────── */
+          <div className="space-y-4 py-2">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-violet-500 shrink-0" />
+              <p className="text-sm text-foreground font-medium">{phaseLabel}</p>
+            </div>
+            <Progress value={progress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-right">{progress}%</p>
           </div>
         ) : (
           /* ── Upload state ─────────────────────────────────────────────────── */
@@ -183,17 +257,6 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
             >
               Connect Source
             </Button>
-
-            {success && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 p-3 bg-emerald-500/8 border border-emerald-500/25 rounded-lg"
-              >
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <p className="text-xs text-emerald-600 dark:text-emerald-400">{success}</p>
-              </motion.div>
-            )}
           </div>
         )}
       </CardContent>
@@ -217,11 +280,16 @@ export default function ImportSources() {
       uploadedAt: new Date().toISOString(),
     }
     addUploadedSource(entry)
+    // Mark all agents as done with the current timestamp
+    setAgentsDone(new Date().toISOString())
     setSources(getUploadedSources())
   }
 
   function handleDisconnect(source: 'appstore' | 'zendesk') {
     removeUploadedSource(source)
+    // Clear agent run state when all sources are gone
+    const remaining = getUploadedSources().filter(s => s.source !== source)
+    if (remaining.length === 0) clearAgentRunState()
     setSources(getUploadedSources())
   }
 

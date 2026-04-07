@@ -22,7 +22,7 @@ const features = [
     icon: Map,
     title: 'Reasoning Agent',
     subtitle: 'Confidence scoring, constraint-aware priorities',
-    description: 'ReAct-style tool-calling agent using Claude Sonnet on Bedrock. Scores evidence clusters on confidence, user count, and source corroboration. Produces prioritized, constraint-aware recommendations.',
+    description: 'ReAct-style tool-calling agent using Amazon Nova Pro on Bedrock. Scores evidence clusters on confidence, user count, and source corroboration. Produces prioritized, constraint-aware recommendations.',
     gradient: 'from-orange-500 to-rose-500',
     bgGradient: 'from-orange-500/10 to-rose-500/10',
   },
