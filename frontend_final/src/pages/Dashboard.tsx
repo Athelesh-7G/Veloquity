@@ -3,35 +3,51 @@ import type React from 'react'
 import { motion } from 'framer-motion'
 import { BarChart3, TrendingUp, TrendingDown, Minus, Database, Shield, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { MOCK_EVIDENCE } from '@/api/mockData'
+import { MOCK_EVIDENCE, HOSPITAL_MOCK_DATA } from '@/api/mockData'
 import { getEvidence } from '@/api/client'
-import { hasUploadedData } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
 
-// ─── Veloquity-scale numbers (all internally consistent) ─────────────────────
-const TOTAL_FEEDBACK    = 547
-const EVIDENCE_CLUSTERS = 6
-const AVG_CONFIDENCE    = 84
-const ANALYZED_PCT      = 91
+// ─── App product numbers ──────────────────────────────────────────────────────
+const APP_TOTAL_FEEDBACK    = 547
+const APP_EVIDENCE_CLUSTERS = 6
+const APP_AVG_CONFIDENCE    = 84
+const APP_ANALYZED_PCT      = 91
 
-// ─── Theme data aligned to TOTAL_FEEDBACK = 547, 6 clusters ──────────────────
-// feedbackCounts sum to 521 (remaining ~26 are noise/ungrouped — realistic)
-const VELOQUITY_THEMES = [
-  { id: 't1', name: 'App crashes on project switch',      feedbackCount: 138, avgConfidence: 91, trend: 'rising'   },
-  { id: 't2', name: 'Black screen after latest update',   feedbackCount: 112, avgConfidence: 87, trend: 'rising'   },
-  { id: 't3', name: 'Dashboard load time regression',     feedbackCount:  94, avgConfidence: 85, trend: 'stable'   },
-  { id: 't4', name: 'No onboarding checklist for new users', feedbackCount: 82, avgConfidence: 81, trend: 'rising' },
-  { id: 't5', name: 'Export to CSV silently fails',       feedbackCount:  58, avgConfidence: 76, trend: 'declining'},
-  { id: 't6', name: 'Notification delay on mobile',       feedbackCount:  37, avgConfidence: 71, trend: 'stable'   },
+const APP_VELOQUITY_THEMES = [
+  { id: 't1', name: 'App crashes on project switch',         feedbackCount: 138, avgConfidence: 91, trend: 'rising'    },
+  { id: 't2', name: 'Black screen after latest update',      feedbackCount: 112, avgConfidence: 87, trend: 'rising'    },
+  { id: 't3', name: 'Dashboard load time regression',        feedbackCount:  94, avgConfidence: 85, trend: 'stable'    },
+  { id: 't4', name: 'No onboarding checklist for new users', feedbackCount:  82, avgConfidence: 81, trend: 'rising'    },
+  { id: 't5', name: 'Export to CSV silently fails',          feedbackCount:  58, avgConfidence: 76, trend: 'declining' },
+  { id: 't6', name: 'Notification delay on mobile',          feedbackCount:  37, avgConfidence: 71, trend: 'stable'    },
 ]
 
-// ─── Confidence distribution derived from TOTAL_FEEDBACK ─────────────────────
-const CONFIDENCE_BUCKETS = [
+const APP_CONFIDENCE_BUCKETS = [
   { label: '90-100%', count: 153, color: 'bg-green-500'  },
   { label: '70-89%',  count: 235, color: 'bg-blue-500'   },
   { label: '50-69%',  count: 109, color: 'bg-orange-500' },
   { label: '<50%',    count:  50, color: 'bg-red-500'     },
 ]
-// 153 + 235 + 109 + 50 = 547 ✓
+
+// ─── Hospital numbers ─────────────────────────────────────────────────────────
+const HOSP_TOTAL_FEEDBACK    = 310
+const HOSP_EVIDENCE_CLUSTERS = 4
+const HOSP_AVG_CONFIDENCE    = 81
+const HOSP_ANALYZED_PCT      = 89
+
+const HOSP_VELOQUITY_THEMES = [
+  { id: 'ht1', name: 'Extended Emergency Wait Times',           feedbackCount: 98, avgConfidence: 91, trend: 'rising'   },
+  { id: 'ht2', name: 'Online Appointment Booking Failures',     feedbackCount: 76, avgConfidence: 84, trend: 'stable'   },
+  { id: 'ht3', name: 'Billing Statement Errors and Confusion',  feedbackCount: 82, avgConfidence: 78, trend: 'stable'   },
+  { id: 'ht4', name: 'Medical Records Portal Access Issues',    feedbackCount: 54, avgConfidence: 72, trend: 'declining'},
+]
+
+const HOSP_CONFIDENCE_BUCKETS = [
+  { label: '90-100%', count:  98, color: 'bg-green-500'  },
+  { label: '70-89%',  count: 158, color: 'bg-blue-500'   },
+  { label: '50-69%',  count:  54, color: 'bg-orange-500' },
+  { label: '<50%',    count:   0, color: 'bg-red-500'     },
+]
 
 function StatCard({
   title, value, change, trend, icon: Icon, gradient,
@@ -73,7 +89,17 @@ function StatCard({
 
 export default function Dashboard() {
   const hasData = hasUploadedData()
-  const [evidence, setEvidence] = useState(MOCK_EVIDENCE)
+  const dataset = getActiveDataset()
+  const isHospital = dataset === 'hospital_survey'
+
+  const TOTAL_FEEDBACK    = isHospital ? HOSP_TOTAL_FEEDBACK    : APP_TOTAL_FEEDBACK
+  const EVIDENCE_CLUSTERS = isHospital ? HOSP_EVIDENCE_CLUSTERS : APP_EVIDENCE_CLUSTERS
+  const AVG_CONFIDENCE    = isHospital ? HOSP_AVG_CONFIDENCE    : APP_AVG_CONFIDENCE
+  const ANALYZED_PCT      = isHospital ? HOSP_ANALYZED_PCT      : APP_ANALYZED_PCT
+  const VELOQUITY_THEMES  = isHospital ? HOSP_VELOQUITY_THEMES  : APP_VELOQUITY_THEMES
+  const CONFIDENCE_BUCKETS = isHospital ? HOSP_CONFIDENCE_BUCKETS : APP_CONFIDENCE_BUCKETS
+
+  const [evidence, setEvidence] = useState(isHospital ? HOSPITAL_MOCK_DATA : MOCK_EVIDENCE)
 
   useEffect(() => {
     if (!hasData) return

@@ -1,0 +1,81 @@
+review_id,rating,title,review,date,version,author
+r0047,2,Records portal broken,Test results were supposed to be in the portal within 48 hours. Still missing after 2 weeks.,2025-12-29,4.1.0,CareUser1712
+r0036,1,Booking portal broken,Tried to reschedule an appointment. App crashed and the original was cancelled.,2026-03-14,4.2.0,User7887
+r0054,1,MyChart crashes on Android,Two-factor authentication is broken. Never receives the verification code.,2025-12-07,4.1.0,AppUser4445
+r0028,1,App crashes during booking,Never received a confirmation after booking. Had no idea if my appointment was real.,2026-02-22,4.1.0,CareUser8897
+r0071,1,Billing dispute ignored,Insurance submitted a prior auth and it still wasnt applied. Had to call 4 times.,2025-11-09,4.2.1,HealthUser3550
+r0064,2,MyChart crashes on Android,Patient portal doesnt work on iOS 17. Crashes on launch every time.,2025-12-27,4.2.1,Patient252
+r0057,1,Records portal broken,Cannot upload documents to the portal for my upcoming procedure prep.,2026-01-27,4.1.0,CareUser5238
+r0039,2,Double-booked through app,Appointment reminders stopped working after the last update.,2026-01-11,4.3.0,Patient4161
+r0010,1,Terrible ER experience,"The app doesnt update ER wait times accurately. Showed 30 mins, actual was 3+ hours.",2026-02-02,4.2.1,Patient7627
+r0079,4,Very helpful team,"Despite the wait, the staff were warm and attentive once we were seen.",2025-12-04,4.2.0,AppUser2188
+r0024,1,ER wait time nightmare,"My elderly aunt with heart issues waited 5 hours. She needed a chair, not a hard bench.",2025-10-27,4.2.0,HealthUser8185
+r0016,1,4+ hour ER wait,Cannot believe how long we waited. The app should show real estimated times.,2026-02-27,4.1.0,HealthUser2903
+r0034,1,Booking glitch,Session expires too fast. Lost my place in the booking flow three times.,2025-12-02,4.2.1,User1049
+r0001,1,4+ hour ER wait,"Waited over 4 hours in the ER with severe chest pain. No updates, no acknowledgment.",2025-09-07,4.2.1,User3757
+r0040,1,Appointment confirmation never came,Calendar integration is broken. Appointments dont sync to my phone calendar.,2025-09-17,4.2.1,Patient9738
+r0059,1,MyChart login failure,Lab results display incorrectly on mobile. Tables are cut off and unreadable.,2025-09-15,4.1.0,User1222
+r0044,1,Booking glitch,Booking portal completely unresponsive on Android. Works fine on desktop.,2026-01-17,4.2.0,CareUser9455
+r0058,1,Lab results missing,The portal shows my upcoming appointments wrong. Shows cancelled ones as active.,2025-09-13,4.3.0,HealthUser8801
+r0017,2,Emergency wait is unacceptable,4 hour ER wait with a child running a 104 fever. This is dangerous.,2026-03-06,4.2.0,User7673
+r0038,1,App crashes during booking,Insurance info is never saved between sessions. Have to re-enter every single visit.,2026-03-02,4.2.1,AppUser6218
+r0062,2,Medication list wrong,Portal crashed and I lost the message I was typing to my doctor.,2026-02-16,4.2.1,Visitor3446
+r0012,1,ER system is broken,Waited 2.5 hours for a room after triage. The hallway was the only available space.,2026-02-08,4.2.1,HealthUser3250
+r0077,5,Excellent care,The nursing staff went above and beyond during my recovery. Truly grateful.,2026-01-22,4.1.0,Patient1332
+r0049,1,MyChart login failure,My medication list in the portal is completely wrong. Shows two discontinued meds.,2025-10-19,4.3.0,User7012
+r0068,1,Charged for services not received,Two different bills arrived for the same hospital stay. Which one do I pay?,2026-01-18,4.2.1,HealthUser8766
+r0037,1,Cant book appointments,The portal is down more often than it works. Had to call the office every time.,2025-11-07,4.3.0,User8935
+r0061,1,Password reset loop,Patient portal doesnt show immunization records. Had to request paper copies.,2026-01-27,4.1.0,HealthUser1443
+r0019,1,Waited hours in pain,Nobody came to check on patients in the waiting room for over 2 hours.,2025-10-29,4.1.0,Visitor6672
+r0006,2,5 hour ER wait for chest pain,ER staff were kind but the wait was brutal. 6 hours for a broken wrist.,2025-10-27,4.3.0,HealthUser4657
+r0009,1,ER wait time nightmare,3 hours in the ER waiting room with my 8-year-old in pain. Completely unacceptable.,2025-09-24,4.3.0,Patient5981
+r0029,2,Double-booked through app,The portal timed out and lost all my insurance information. Had to re-enter everything.,2026-03-16,4.2.1,Patient4908
+r0008,1,Critical delay in ER,I drove past two closer hospitals to come here and waited longer than either would have been.,2025-11-11,4.2.0,User5614
+r0076,5,Great staff!,The care team was incredibly compassionate. Made a difficult visit much easier.,2025-10-12,4.3.0,HealthUser7107
+r0042,1,Lost my insurance info again,App doesnt show all available doctors. Found better availability by calling.,2025-10-29,4.1.0,Patient5513
+r0035,1,Online scheduling disaster,No confirmation email or SMS after booking. I have no record of my appointment.,2026-01-24,4.1.0,Patient8062
+r0060,1,Test results not in portal,MyChart integration with the hospital app is broken. Have to use two separate apps.,2026-02-20,4.2.0,AppUser2064
+r0033,1,Appointment system unreliable,Portal shows available slots then says theyre taken when you try to book.,2026-02-01,4.2.1,AppUser419
+r0050,1,Test results not in portal,Lab results from my last visit have disappeared from the portal entirely.,2025-11-11,4.3.0,User1335
+r0041,1,Portal times out,Booking flow is confusing and outdated. Took 15 minutes to book a 10-min appointment.,2026-01-29,4.2.0,Patient1263
+r0005,1,Emergency room chaos,The app showed a 45-min wait but we were there 4+ hours. Completely misleading.,2026-01-22,4.2.0,CareUser9028
+r0063,2,Portal access denied,Referral records arent showing up in the portal. My specialist cant see them either.,2025-11-01,4.2.1,AppUser2244
+r0022,1,Why is the ER so slow?,App shows ER is open but doesnt show the real wait. False advertising.,2025-11-07,4.2.0,User9297
+r0026,1,Booking portal broken,The portal crashes every time I try to confirm my appointment. Had to call.,2026-02-22,4.3.0,HealthUser1140
+r0052,1,Medication list wrong,Cant view my discharge summary in the portal. File just wont load.,2025-09-24,4.2.0,User6758
+r0066,1,Wrong bill,Received a bill for a service I never received. Dispute has been ignored for weeks.,2026-01-08,4.2.1,User5818
+r0002,1,Emergency wait is unacceptable,My mother sat in the emergency waiting room for 5 hours before being triaged. Unacceptable.,2026-03-08,4.1.0,CareUser9035
+r0048,1,Lab results missing,The portal app crashes immediately on Android. Web version barely works.,2025-12-13,4.2.1,Patient4173
+r0065,2,Medical records unavailable,"After a system update, all my past visit notes were wiped from the portal.",2026-02-07,4.1.0,Patient8908
+r0073,2,Bill dispute nightmare,Portal shows a balance but I have a zero-balance letter. Cant resolve online.,2026-01-04,4.2.1,Patient1612
+r0067,1,Billing error,Insurance was not applied to my bill despite pre-authorization. Still fighting it.,2025-11-02,4.2.1,Visitor2684
+r0030,2,Appointment confirmation never came,Booking an appointment on iPhone is impossible. App crashes on the final step.,2025-10-11,4.3.0,Patient4415
+r0013,1,Hours in the ER waiting room,ER wait times are pushing patients to leave without being seen. I nearly did.,2025-09-12,4.2.0,Visitor1407
+r0015,1,Emergency dept needs help,The ER is massively understaffed. Waited 5 hours and watched others leave in frustration.,2025-10-12,4.2.1,Visitor3532
+r0075,1,Billing nightmare,Billing support number just rings. No answer for days. Portal has no dispute option.,2026-03-17,4.2.0,CareUser4391
+r0055,2,Medical records unavailable,App asks me to log in every single time. Session never stays active.,2025-11-13,4.3.0,CareUser9205
+r0003,1,ER wait times out of control,Emergency wait times have doubled in the past year. Something needs to change.,2026-01-30,4.3.0,Patient588
+r0056,2,Cant access MyChart,"My allergies list in MyChart is outdated. Changed two years ago, still wrong.",2025-10-10,4.2.0,Visitor3666
+r0025,1,Terrible ER experience,The ER wait times have tripled since last year. Something systemic is broken.,2026-03-13,4.1.0,Patient2604
+r0007,1,Why is the ER so slow?,Triage nurses overwhelmed. Waited 4 hours just to be seen initially.,2026-03-14,4.2.0,CareUser7024
+r0045,2,Online scheduling disaster,Cant book follow-up appointments through the app. Only new patient booking works.,2025-11-02,4.3.0,AppUser3219
+r0051,2,Password reset loop,MyChart password reset emails never arrive. Had to call IT three times.,2026-01-19,4.1.0,Patient8956
+r0011,2,Waited forever in ER,Extremely long waits in the ER. Staff apologized but couldnt explain the backup.,2025-10-02,4.3.0,Patient9144
+r0018,2,ER wait times out of control,ER wait was 6 hours. I understand emergencies happen but this was a quiet Tuesday.,2025-11-09,4.2.0,CareUser5413
+r0078,4,Wonderful nurses,Doctors explained everything clearly. Best communication I have had with a medical team.,2026-02-24,4.2.0,HealthUser690
+r0069,1,Insurance not applied,Charged at inpatient rates for a same-day outpatient procedure.,2026-02-18,4.2.1,CareUser1797
+r0043,1,Appointment system unreliable,Error on the payment screen during co-pay setup. Couldnt complete booking online.,2026-01-10,4.2.0,Visitor8053
+r0070,1,Duplicate bill,Bill amount changes every month. I dont know what I actually owe.,2025-11-07,4.1.0,Patient9164
+r0004,1,Waited hours in pain,Arrived with breathing difficulties and waited 3.5 hours before seeing anyone.,2025-10-26,4.2.0,HealthUser9963
+r0074,2,Unexpected charge,My EOB shows $0 patient responsibility but the hospital billed me $400.,2025-12-18,4.2.1,Patient158
+r0023,2,Critical delay in ER,Came in with severe abdominal pain. 4 hour wait before anyone even acknowledged me.,2025-11-07,4.3.0,HealthUser6643
+r0021,1,5 hour ER wait for chest pain,The ER felt chaotic and disorganized. We had no idea where we were in the queue.,2026-02-15,4.3.0,AppUser7617
+r0031,1,Portal times out,Double-booked twice in one month. This is embarrassing for a hospital.,2026-01-08,4.1.0,CareUser4989
+r0020,1,Emergency room chaos,Waited in a hallway for 3 hours post-triage because no rooms available.,2025-09-17,4.2.0,HealthUser5255
+r0053,2,Portal access denied,Portal shows records from 2019 but nothing recent. Nothing from my last 3 visits.,2026-01-02,4.2.0,AppUser1060
+r0072,2,Charged wrong rate,Received a collection notice for a bill I already paid. No way to resolve in the app.,2025-11-27,4.2.0,CareUser4425
+r0080,5,Impressed with service,Amazing follow-up call from the care coordinator. Really felt heard.,2025-09-11,4.2.1,Visitor753
+r0014,1,ER nearly killed me with delays,My father had stroke symptoms and waited 45 minutes just to be called back to triage.,2025-09-26,4.3.0,Visitor7528
+r0032,1,Lost my insurance info again,App gives an error on the confirmation screen. Appointment might not have been saved.,2025-10-10,4.2.1,User8937
+r0027,2,Cant book appointments,Got double-booked through the app. Showed up and was told appointment didnt exist.,2025-12-07,4.3.0,HealthUser4219
+r0046,1,Cant access MyChart,Cannot log into MyChart. Reset my password three times and still locked out.,2025-09-25,4.3.0,Visitor7039

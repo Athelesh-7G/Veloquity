@@ -139,10 +139,10 @@ export const getGovernanceLog = (limit = 50) =>
 export const getGovernanceStats = () =>
   apiFetch<GovernanceStats>(`${V1}/governance/stats`)
 
-export const sendChatMessage = (message: string, history: ChatMessage[]) =>
+export const sendChatMessage = (message: string, history: ChatMessage[], system?: string) =>
   apiFetch<ChatResponse>(`${V1}/chat/`, {
     method: 'POST',
-    body: JSON.stringify({ message, history }),
+    body: JSON.stringify({ message, history, ...(system ? { system } : {}) }),
   })
 
 export const getConstraints = () =>

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { MOCK_EVIDENCE } from '@/api/mockData'
 import { getEvidence } from '@/api/client'
 import { cn } from '@/lib/utils'
-import { hasUploadedData } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EvidenceCategory = 'Technical' | 'Feature' | 'UX'
@@ -170,6 +170,94 @@ const EVIDENCE_DATA: EvidenceItem[] = [
 ]
 
 const UNIQUE_SOURCES = 2
+
+// ─── Hospital evidence data ───────────────────────────────────────────────────
+const HOSPITAL_EVIDENCE_DATA: EvidenceItem[] = [
+  {
+    id: 'hev1', clusterId: 'hc1',
+    title: 'Extended Emergency Wait Times',
+    sources: ['App Store', 'Zendesk'],
+    confidence: 91,
+    uncertaintyRange: [83, 96],
+    feedbackCount: 98,
+    uniqueUsers: 87,
+    category: 'Technical',
+    trend: 'rising',
+    lastValidated: '2026-03-15',
+    representativeQuotes: [
+      'Waited 4 hours in the ER with chest pain before anyone saw me',
+      'Emergency department wait times have doubled in the past year',
+    ],
+    linkedFeedback: [
+      { id: 'hf001', title: 'ER wait 4+ hours — when does triage actually start?', source: 'App Store', date: '2026-03-14', confidenceScore: 92 },
+      { id: 'hf002', title: 'Wait time tripled since last year — systemic issue', source: 'Zendesk', date: '2026-03-13', confidenceScore: 91 },
+      { id: 'hf003', title: 'Elderly parent sat 5 hours on hard chair in waiting room', source: 'App Store', date: '2026-03-12', confidenceScore: 89 },
+    ],
+  },
+  {
+    id: 'hev2', clusterId: 'hc2',
+    title: 'Online Appointment Booking Failures',
+    sources: ['App Store', 'Zendesk'],
+    confidence: 84,
+    uncertaintyRange: [77, 90],
+    feedbackCount: 76,
+    uniqueUsers: 71,
+    category: 'Technical',
+    trend: 'stable',
+    lastValidated: '2026-03-15',
+    representativeQuotes: [
+      'Booking portal crashes every time I try to confirm my appointment',
+      'Got double-booked through the online system — twice in one month',
+    ],
+    linkedFeedback: [
+      { id: 'hf004', title: 'Portal crashes on appointment confirmation screen', source: 'App Store', date: '2026-03-14', confidenceScore: 85 },
+      { id: 'hf005', title: 'Double booking through online system — second time this month', source: 'Zendesk', date: '2026-03-13', confidenceScore: 84 },
+      { id: 'hf006', title: 'No confirmation email — never know if booking went through', source: 'App Store', date: '2026-03-12', confidenceScore: 82 },
+    ],
+  },
+  {
+    id: 'hev3', clusterId: 'hc3',
+    title: 'Billing Statement Errors and Confusion',
+    sources: ['Zendesk'],
+    confidence: 78,
+    uncertaintyRange: [71, 85],
+    feedbackCount: 82,
+    uniqueUsers: 58,
+    category: 'Feature',
+    trend: 'stable',
+    lastValidated: '2026-03-15',
+    representativeQuotes: [
+      'Received a bill for a service I never received. Dispute ignored.',
+      'Insurance was not applied to my bill despite being pre-approved',
+    ],
+    linkedFeedback: [
+      { id: 'hf007', title: 'Billed for procedure I never had — dispute unanswered', source: 'Zendesk', date: '2026-03-14', confidenceScore: 79 },
+      { id: 'hf008', title: 'Insurance pre-auth ignored — billed full rate', source: 'Zendesk', date: '2026-03-13', confidenceScore: 78 },
+      { id: 'hf009', title: 'Two bills for same hospital stay — which is correct?', source: 'Zendesk', date: '2026-03-11', confidenceScore: 77 },
+    ],
+  },
+  {
+    id: 'hev4', clusterId: 'hc4',
+    title: 'Medical Records Portal Access Issues',
+    sources: ['App Store'],
+    confidence: 72,
+    uncertaintyRange: [65, 79],
+    feedbackCount: 54,
+    uniqueUsers: 44,
+    category: 'Technical',
+    trend: 'declining',
+    lastValidated: '2026-03-14',
+    representativeQuotes: [
+      'Cannot log into MyChart. Reset password three times. Still locked out.',
+      'Test results missing from portal after 2 weeks — was told 48 hours',
+    ],
+    linkedFeedback: [
+      { id: 'hf010', title: 'Locked out of MyChart after 3 password resets', source: 'App Store', date: '2026-03-13', confidenceScore: 73 },
+      { id: 'hf011', title: 'Portal app crashes instantly on Android', source: 'App Store', date: '2026-03-12', confidenceScore: 72 },
+      { id: 'hf012', title: 'Wrong medication list showing in patient portal', source: 'App Store', date: '2026-03-10', confidenceScore: 70 },
+    ],
+  },
+]
 
 // ─── Helpers to validate live API response ────────────────────────────────────
 function isValidApiItem(e: any): boolean {
@@ -407,8 +495,11 @@ function EvidenceCard({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function EvidenceGrid() {
   const hasData = hasUploadedData()
+  const dataset = getActiveDataset()
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>(EVIDENCE_DATA)
+  const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>(
+    dataset === 'hospital_survey' ? HOSPITAL_EVIDENCE_DATA : EVIDENCE_DATA
+  )
 
   // Only replace mock data if the API returns well-formed evidence clusters.
   useEffect(() => {

@@ -6,7 +6,7 @@ import {
   Minus, ChevronDown, ChevronUp, BarChart3, Zap, X,
   Shield, Users, Hash, Target
 } from 'lucide-react'
-import { hasUploadedData } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -14,20 +14,42 @@ import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
 
-// ─── Shared cluster data (mirrors DecisionPlayground + EvidenceGrid) ──────────
-const CLUSTERS = [
+// ─── Cluster type ──────────────────────────────────────────────────────────────
+type ScenarioCluster = {
+  readonly id: string
+  readonly name: string
+  readonly confidence: number
+  readonly uncertainty: number
+  readonly feedbackCount: number
+  readonly uniqueUsers: number
+  readonly priorityScore: number
+  readonly effort: 'low' | 'medium' | 'high'
+  readonly impact: 'low' | 'medium' | 'high'
+  readonly trend: string
+}
+
+// ─── App product clusters ─────────────────────────────────────────────────────
+const APP_CLUSTERS: ScenarioCluster[] = [
   { id: 'c1', name: 'App crashes on project switch',      confidence: 91, uncertainty: 7,  feedbackCount: 138, uniqueUsers: 94,  priorityScore: 87, effort: 'high',   impact: 'high',   trend: 'rising'   },
   { id: 'c2', name: 'Black screen after latest update',   confidence: 87, uncertainty: 9,  feedbackCount: 112, uniqueUsers: 78,  priorityScore: 83, effort: 'medium', impact: 'high',   trend: 'rising'   },
   { id: 'c3', name: 'Dashboard load time regression',     confidence: 86, uncertainty: 8,  feedbackCount: 94,  uniqueUsers: 61,  priorityScore: 80, effort: 'medium', impact: 'high',   trend: 'stable'   },
   { id: 'c4', name: 'No onboarding checklist',            confidence: 81, uncertainty: 10, feedbackCount: 82,  uniqueUsers: 67,  priorityScore: 76, effort: 'medium', impact: 'medium', trend: 'rising'   },
   { id: 'c5', name: 'Export to CSV silently fails',       confidence: 77, uncertainty: 11, feedbackCount: 58,  uniqueUsers: 39,  priorityScore: 70, effort: 'low',    impact: 'medium', trend: 'declining'},
   { id: 'c6', name: 'Notification delay on mobile',       confidence: 72, uncertainty: 13, feedbackCount: 37,  uniqueUsers: 28,  priorityScore: 63, effort: 'medium', impact: 'low',    trend: 'stable'   },
-] as const
+]
+
+// ─── Hospital clusters ────────────────────────────────────────────────────────
+const HOSPITAL_CLUSTERS: ScenarioCluster[] = [
+  { id: 'hc1', name: 'Extended Emergency Wait Times',          confidence: 91, uncertainty: 8,  feedbackCount: 98, uniqueUsers: 87, priorityScore: 78, effort: 'high',   impact: 'high',   trend: 'rising'   },
+  { id: 'hc2', name: 'Online Appointment Booking Failures',    confidence: 84, uncertainty: 9,  feedbackCount: 76, uniqueUsers: 71, priorityScore: 76, effort: 'medium', impact: 'high',   trend: 'stable'   },
+  { id: 'hc3', name: 'Billing Statement Errors and Confusion', confidence: 78, uncertainty: 10, feedbackCount: 82, uniqueUsers: 58, priorityScore: 71, effort: 'medium', impact: 'medium', trend: 'stable'   },
+  { id: 'hc4', name: 'Medical Records Portal Access Issues',   confidence: 72, uncertainty: 11, feedbackCount: 54, uniqueUsers: 44, priorityScore: 66, effort: 'low',    impact: 'medium', trend: 'declining'},
+]
 
 type ClusterDecision = 'prioritize' | 'consider' | 'defer'
 
 function computeDecision(
-  c: typeof CLUSTERS[number],
+  c: ScenarioCluster,
   confThreshold: number,
   uncTolerance: number,
   minEvidence: number,
@@ -141,13 +163,13 @@ function MiniArc({ value, size = 44 }: { value: number; size?: number }) {
 }
 
 // ─── Scenario results breakdown ───────────────────────────────────────────────
-function ScenarioResults({ params, compact = false }: { params: ScenarioParams; compact?: boolean }) {
+function ScenarioResults({ params, compact = false, clusters }: { params: ScenarioParams; compact?: boolean; clusters: ScenarioCluster[] }) {
   const results = useMemo(() =>
-    CLUSTERS.map((c) => ({
+    clusters.map((c) => ({
       cluster: c,
       decision: computeDecision(c, params.confidenceThreshold, params.uncertaintyTolerance, params.minEvidence, params.effortCap),
     })),
-  [params])
+  [params, clusters])
 
   const counts = {
     prioritize: results.filter((r) => r.decision === 'prioritize').length,
@@ -162,7 +184,7 @@ function ScenarioResults({ params, compact = false }: { params: ScenarioParams; 
         <div className="flex h-2 rounded-full overflow-hidden gap-px">
           {(['prioritize', 'consider', 'defer'] as ClusterDecision[]).map((d) => {
             const s = decisionStyle(d)
-            const w = (counts[d] / CLUSTERS.length) * 100
+            const w = (counts[d] / clusters.length) * 100
             return w > 0 ? (
               <motion.div key={d} className={s.bar}
                 initial={{ flex: 0 }} animate={{ flex: w }}
@@ -217,28 +239,29 @@ function ScenarioResults({ params, compact = false }: { params: ScenarioParams; 
 
 // ─── Scenario card ────────────────────────────────────────────────────────────
 function ScenarioCard({
-  scenario, onClone, onDelete, onApply,
+  scenario, onClone, onDelete, onApply, clusters,
 }: {
   scenario: Scenario
   onClone: (s: Scenario) => void
   onDelete: (id: string) => void
   onApply: (s: Scenario) => void
+  clusters: ScenarioCluster[]
 }) {
   const [expanded, setExpanded] = useState(false)
 
   const counts = useMemo(() => {
-    const results = CLUSTERS.map((c) => computeDecision(c, scenario.params.confidenceThreshold, scenario.params.uncertaintyTolerance, scenario.params.minEvidence, scenario.params.effortCap))
+    const results = clusters.map((c) => computeDecision(c, scenario.params.confidenceThreshold, scenario.params.uncertaintyTolerance, scenario.params.minEvidence, scenario.params.effortCap))
     return {
       prioritize: results.filter((d) => d === 'prioritize').length,
       consider:   results.filter((d) => d === 'consider').length,
       defer:      results.filter((d) => d === 'defer').length,
     }
-  }, [scenario.params])
+  }, [scenario.params, clusters])
 
   const usersUnblocked = useMemo(() =>
-    CLUSTERS.filter((c) => computeDecision(c, scenario.params.confidenceThreshold, scenario.params.uncertaintyTolerance, scenario.params.minEvidence, scenario.params.effortCap) === 'prioritize')
+    clusters.filter((c) => computeDecision(c, scenario.params.confidenceThreshold, scenario.params.uncertaintyTolerance, scenario.params.minEvidence, scenario.params.effortCap) === 'prioritize')
       .reduce((s, c) => s + c.uniqueUsers, 0),
-  [scenario.params])
+  [scenario.params, clusters])
 
   return (
     <motion.div
@@ -282,7 +305,7 @@ function ScenarioCard({
         </div>
 
         {/* Compact results */}
-        <ScenarioResults params={scenario.params} compact />
+        <ScenarioResults params={scenario.params} compact clusters={clusters} />
 
         {/* Impact stat */}
         <div className="mt-3 flex items-center gap-3">
@@ -293,7 +316,7 @@ function ScenarioCard({
           <div className="flex items-center gap-1.5 p-2 bg-white/3 rounded-lg border border-white/5 flex-1">
             <Target className="w-3.5 h-3.5 text-violet-400" />
             <span className="text-xs text-slate-300">
-              <span className="font-semibold text-violet-300">{counts.prioritize}</span> of {CLUSTERS.length} clusters
+              <span className="font-semibold text-violet-300">{counts.prioritize}</span> of {clusters.length} clusters
             </span>
           </div>
         </div>
@@ -338,7 +361,7 @@ function ScenarioCard({
               <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-3">
                 Per-cluster decisions under this scenario
               </p>
-              <ScenarioResults params={scenario.params} compact={false} />
+              <ScenarioResults params={scenario.params} compact={false} clusters={clusters} />
             </div>
           </motion.div>
         )}
@@ -348,18 +371,18 @@ function ScenarioCard({
 }
 
 // ─── New scenario form ────────────────────────────────────────────────────────
-function NewScenarioForm({ onAdd, onClose }: { onAdd: (s: Scenario) => void; onClose: () => void }) {
+function NewScenarioForm({ onAdd, onClose, clusters }: { onAdd: (s: Scenario) => void; onClose: () => void; clusters: ScenarioCluster[] }) {
   const [form, setForm] = useState({
     name: '', description: '',
     params: { confidenceThreshold: 75, uncertaintyTolerance: 15, minEvidence: 40, effortCap: 'any' as 'low' | 'medium' | 'high' | 'any' },
   })
 
   const liveResults = useMemo(() =>
-    CLUSTERS.map((c) => ({
+    clusters.map((c) => ({
       cluster: c,
       decision: computeDecision(c, form.params.confidenceThreshold, form.params.uncertaintyTolerance, form.params.minEvidence, form.params.effortCap),
     })),
-  [form.params])
+  [form.params, clusters])
 
   const counts = {
     prioritize: liveResults.filter((r) => r.decision === 'prioritize').length,
@@ -522,19 +545,18 @@ function NewScenarioForm({ onAdd, onClose }: { onAdd: (s: Scenario) => void; onC
 }
 
 // ─── Comparison table ─────────────────────────────────────────────────────────
-function ComparisonTable({ scenarios }: { scenarios: Scenario[] }) {
-  // For each scenario, compute decisions for all 6 clusters
+function ComparisonTable({ scenarios, clusters }: { scenarios: Scenario[]; clusters: ScenarioCluster[] }) {
   const rows = useMemo(() =>
     scenarios.map((s) => {
-      const decisions = CLUSTERS.map((c) => computeDecision(c, s.params.confidenceThreshold, s.params.uncertaintyTolerance, s.params.minEvidence, s.params.effortCap))
+      const decisions = clusters.map((c) => computeDecision(c, s.params.confidenceThreshold, s.params.uncertaintyTolerance, s.params.minEvidence, s.params.effortCap))
       const p = decisions.filter((d) => d === 'prioritize').length
       const c = decisions.filter((d) => d === 'consider').length
       const d = decisions.filter((d) => d === 'defer').length
-      const users = CLUSTERS.filter((cl, i) => decisions[i] === 'prioritize').reduce((s, cl) => s + cl.uniqueUsers, 0)
-      const efficiency = Math.round((p / CLUSTERS.length) * 100)
+      const users = clusters.filter((cl, i) => decisions[i] === 'prioritize').reduce((s, cl) => s + cl.uniqueUsers, 0)
+      const efficiency = Math.round((p / clusters.length) * 100)
       return { scenario: s, p, c, d, users, efficiency, decisions }
     }),
-  [scenarios])
+  [scenarios, clusters])
 
  return (
   <div className="bg-white dark:bg-[#0F1729] rounded-2xl border border-gray-200 dark:border-white/5 overflow-hidden">
@@ -548,7 +570,7 @@ function ComparisonTable({ scenarios }: { scenarios: Scenario[] }) {
       </div>
 
       <p className="text-xs text-gray-500 dark:text-slate-500 mt-1">
-        Side-by-side outcome across all {CLUSTERS.length} evidence clusters
+        Side-by-side outcome across all {clusters.length} evidence clusters
       </p>
     </div>
 
@@ -568,7 +590,7 @@ function ComparisonTable({ scenarios }: { scenarios: Scenario[] }) {
             </th>
 
             {/* Per-cluster columns */}
-            {CLUSTERS.map((c) => (
+            {clusters.map((c) => (
               <th
                 key={c.id}
                 className="py-3 px-2 text-center text-[10px] text-gray-500 dark:text-slate-600 font-normal max-w-[80px]"
@@ -688,6 +710,8 @@ function ComparisonTable({ scenarios }: { scenarios: Scenario[] }) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Scenarios() {
   const hasData = hasUploadedData()
+  const dataset = getActiveDataset()
+  const clusters = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
   const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS)
   const [showForm, setShowForm]   = useState(false)
   const [appliedId, setAppliedId] = useState<string | null>(null)
@@ -723,7 +747,7 @@ export default function Scenarios() {
         </h1>
 
         <p className="text-muted-foreground mt-1 text-sm">
-          Model different prioritization strategies · compare outcomes across all 6 evidence clusters
+          Model different prioritization strategies · compare outcomes across all {clusters.length} evidence clusters
         </p>
       </div>
 
@@ -751,7 +775,7 @@ export default function Scenarios() {
     {/* New scenario form */}
     <AnimatePresence>
       {showForm && (
-        <NewScenarioForm onAdd={handleAdd} onClose={() => setShowForm(false)} />
+        <NewScenarioForm onAdd={handleAdd} onClose={() => setShowForm(false)} clusters={clusters} />
       )}
     </AnimatePresence>
 
@@ -805,6 +829,7 @@ export default function Scenarios() {
                   onClone={handleClone}
                   onDelete={handleDelete}
                   onApply={handleApply}
+                  clusters={clusters}
                 />
               </motion.div>
             ))}
@@ -826,7 +851,7 @@ export default function Scenarios() {
 
     {/* Comparison table */}
     {hasData && scenarios.length > 1 && (
-      <ComparisonTable scenarios={scenarios} />
+      <ComparisonTable scenarios={scenarios} clusters={clusters} />
     )}
 
   </div>

@@ -1,0 +1,81 @@
+ticket_id,subject,description,status,priority,created_at,requester
+t0015,ER triage wait unacceptable,Wait time for urgent care exceeded 2.5 hours. Patient requests staffing review.,open,high,2025-10-24,K. Taylor
+t0027,Insurance not applied to bill,Insurance pre-authorization was obtained but not applied to bill. Patient owes $800 unexpectedly.,open,high,2026-01-25,T. Davis
+t0066,Cannot access MyChart portal,Patient unable to log into MyChart. Password reset attempted 3 times. Account appears locked.,open,medium,2025-10-08,K. Taylor
+t0036,Duplicate bill for same stay,Double-charge for lab work. Both in-house and third-party lab billed for same test.,pending,high,2025-12-13,K. Taylor
+t0010,Wait time in emergency exceeded 5 hours,Patient with documented urgent condition waited 45 minutes before triage acknowledgment.,pending,high,2026-03-05,B. Jackson
+t0049,Appointment confirmation not received,Portal session timed out and all entered insurance information was lost. Had to restart process.,pending,medium,2025-11-26,E. Garcia
+t0045,Billing dispute - wrong rate charged,"Patient reports billing department unreachable. 4 calls, no callback.",pending,high,2025-10-06,I. Clark
+t0004,Emergency room delays - patient complaint,Patient arrived with acute symptoms and waited in ER for 4.5 hours before triage. Requests explanation.,pending,high,2025-11-02,P. Moore
+t0005,ER triage wait unacceptable,Family reports ER wait doubled compared to last year. Requesting review of triage process.,open,high,2026-03-20,D. Harris
+t0043,Insurance not applied to bill,Patient billed for interpreter services they did not request or receive.,open,high,2025-10-16,P. Moore
+t0042,Incorrect billing statement received,Surprise bill for out-of-network anesthesiologist during in-network procedure.,open,high,2026-02-16,N. Thompson
+t0013,Outpatient wait time issue,Patient survey indicates ER wait dissatisfaction across 3 consecutive visits.,open,high,2025-11-13,R. Williams
+t0024,Emergency room delays - patient complaint,Emergency department wait complaint - patient discharged without full evaluation due to wait.,open,high,2025-11-26,C. Wilson
+t0075,Medical records portal access issue,Patient unable to send message to care team through portal. Send button non-functional.,pending,medium,2025-11-20,R. Williams
+t0011,Emergency department wait time excessive,ER appeared understaffed on weekend shift. Average wait was reported at 5 hours by multiple patients.,open,high,2026-01-22,N. Thompson
+t0019,ER overcrowding complaint,Repeated ER wait time complaints from same zip code area. May indicate local capacity issue.,pending,high,2025-10-19,N. Thompson
+t0079,Exceptional patient experience,"Patient noted that despite initial wait, staff attentiveness made the experience positive.",solved,low,2025-10-31,I. Clark
+t0026,Incorrect billing statement received,Patient received a bill for a service they did not receive. Dispute filed. No response in 3 weeks.,open,high,2026-02-20,K. Taylor
+t0046,Online appointment booking system failure,Patient attempted to book appointment through portal. System crashed on final confirmation step.,pending,medium,2026-01-31,J. Smith
+t0060,Online scheduling system down,Booking portal unresponsive on Android devices running latest OS version.,pending,medium,2025-11-24,N. Thompson
+t0008,Outpatient department delays,Multiple patients in waiting room reported 4+ hour waits on same day. Systematic issue suspected.,pending,high,2025-10-01,L. Thomas
+t0003,Outpatient wait time issue,Outpatient visit wait time exceeded 3 hours past appointment time. Patient requested formal complaint process.,open,high,2026-01-12,L. Thomas
+t0007,Emergency wait time feedback,ER wait time display showed 30 minutes but actual wait was over 3 hours. Patient requests accuracy fix.,pending,high,2025-12-17,D. Harris
+t0033,Inpatient rate charged for outpatient procedure,Patient EOB shows $0 responsibility but hospital billed $650. Discrepancy unexplained.,open,high,2025-12-03,S. Anderson
+t0001,Emergency department wait time excessive,Patient reports waiting over 4 hours in the emergency department before being seen by a provider. Patient had chest pain symptoms.,pending,high,2025-11-01,L. Thomas
+t0078,Positive feedback for care team,Patient survey response: 5/5 overall satisfaction. Specifically praised care coordinator follow-up.,solved,low,2026-03-25,W. Lewis
+t0058,Portal session timeout during booking,Portal does not display all available providers. Patient discovered more options by calling.,open,medium,2026-01-27,C. Wilson
+t0034,Incorrect billing statement received,Billing dispute for ER visit copay. Patient has a zero-copay plan but was charged $300.,pending,high,2026-02-02,K. Taylor
+t0067,Lab results missing from patient portal,Lab results from visit 2 weeks ago not visible in patient portal. Patient needs for specialist.,open,medium,2025-10-06,W. Lewis
+t0073,Lab results missing from patient portal,Portal shows incorrect upcoming appointment dates. May cause patient to miss appointment.,open,medium,2026-02-26,J. Smith
+t0077,Staff praise - outstanding service,Family member praised nursing staff for exceptional care and communication during difficult time.,solved,low,2025-10-27,L. Thomas
+t0041,Inpatient rate charged for outpatient procedure,Insurance applied wrong plan year rates. Patient overcharged by estimated $400.,open,high,2026-01-15,F. Martin
+t0017,Emergency wait time feedback,ER wait complaint escalated by patient advocate. Three similar complaints this week.,open,high,2025-11-07,J. Smith
+t0076,Excellent care experience,Patient submitted positive feedback for care team. Described experience as compassionate and professional.,solved,low,2026-03-01,K. Taylor
+t0071,Password reset loop on patient portal,Two-factor authentication code never arrives via SMS. Patient locked out of portal.,pending,medium,2025-11-12,W. Lewis
+t0039,Billing error - prior auth not applied,Itemized bill requested 3 times. Never received. Dispute filed.,open,high,2025-11-29,D. Harris
+t0012,ER wait over 4 hours - complaint,Emergency wait time complaint from patient who later required urgent intervention. Escalated.,pending,high,2025-11-24,H. Martinez
+t0051,Insurance info lost in booking portal,Calendar sync feature not working. Appointment did not appear in phone calendar after booking.,pending,medium,2025-10-08,D. Harris
+t0032,Collection notice for paid bill,Collection notice received for a bill patient already paid. Proof of payment provided.,open,high,2026-01-30,N. Thompson
+t0074,MyChart login failure,All past visit notes disappeared from portal after recent system update.,pending,medium,2026-02-25,D. Harris
+t0022,ER wait over 4 hours - complaint,Survey response: 5/5 wait time dissatisfaction in ER visit dated March 2026.,open,high,2025-12-02,T. Davis
+t0025,ER triage wait unacceptable,ER wait complaint: patient with documented chronic condition waited over 4 hours.,pending,high,2026-02-10,N. Thompson
+t0072,Cannot access MyChart portal,Patient cannot view referral status in portal. Specialist says referral not visible either.,open,medium,2025-11-11,L. Thomas
+t0037,Billing dispute - wrong rate charged,Incorrect NPI on claim caused denial. Patient held responsible for full amount incorrectly.,open,high,2025-12-25,B. Jackson
+t0057,Appointment confirmation not received,New patient registration flow on portal is broken. Cannot complete profile before booking.,open,medium,2026-03-14,F. Martin
+t0061,Appointment portal booking error,Follow-up appointment booking disabled in portal. Only new patient slots available online.,pending,medium,2025-12-26,D. Harris
+t0029,Billing dispute - wrong rate charged,Patient charged at inpatient rates for a same-day outpatient procedure. Requests rate correction.,pending,high,2026-03-02,B. Jackson
+t0062,Online appointment booking system failure,Patient experienced booking loop: portal confirms then immediately cancels appointments.,pending,medium,2026-01-16,S. Anderson
+t0006,Long ER wait for urgent case,Patient left ER without being seen after 3 hour wait. Requests follow-up and explanation.,pending,high,2025-11-14,W. Lewis
+t0016,Long ER wait for urgent case,Family of pediatric patient reports 3 hour ER wait for fever of 104F. Requests review.,pending,high,2025-12-19,K. Taylor
+t0021,Emergency department wait time excessive,Complaint: ER patient communication absent during 4 hour wait. No status updates provided.,open,high,2026-01-07,E. Garcia
+t0018,Outpatient department delays,Post-procedure patient waited 2 hours in recovery for transport. Staffing gap identified.,open,high,2025-12-02,E. Garcia
+t0038,Bill received for service not rendered,Patient received bill addressed to deceased family member. Distressing and incorrect.,pending,high,2025-10-21,T. Davis
+t0080,Thank you - outstanding nursing staff,Post-discharge survey: patient expressed gratitude for thorough explanation and follow-up call.,solved,low,2025-10-11,G. White
+t0053,Appointment portal booking error,Mobile app crashes on iOS during the booking confirmation step. Desktop version works.,pending,medium,2025-11-12,N. Thompson
+t0028,Duplicate bill for same stay,Two separate bills received for the same 2-night hospital stay. Patient unsure which is correct.,open,high,2026-03-20,H. Martinez
+t0030,Bill received for service not rendered,Bill amount changed between monthly statements without explanation. Patient requests itemized bill.,open,high,2026-03-06,H. Martinez
+t0031,Billing error - prior auth not applied,"Prior authorization was submitted and confirmed, but not reflected on final bill.",open,high,2026-02-18,N. Thompson
+t0050,Portal session timeout during booking,Portal shows available appointment slots then returns error when patient tries to select one.,open,medium,2025-12-09,F. Martin
+t0064,Double booking through online portal,Portal password reset required every session. Prevents easy rebooking.,pending,medium,2026-02-16,M. Johnson
+t0068,MyChart login failure,Patient portal crashes on Android devices. Web version returns login error.,open,medium,2025-12-01,T. Davis
+t0052,Online scheduling system down,Patient reports portal down for 3 days. Could not book needed follow-up appointment.,pending,medium,2026-03-21,D. Harris
+t0040,Collection notice for paid bill,Patient billed for no-show but attended appointment. Receptionist confirms attendance.,pending,high,2025-11-09,P. Moore
+t0035,Insurance not applied to bill,Patient received a bill 8 months post-visit. Insurance says claim was filed incorrectly.,open,high,2026-01-21,R. Williams
+t0023,Outpatient wait time issue,Patient advocacy group flagged ER wait patterns for systemic review.,pending,high,2025-10-02,A. Brown
+t0070,Test results not appearing in portal,Discharge summary from recent stay not accessible in portal. Patient needs for insurance.,open,medium,2026-01-28,S. Anderson
+t0020,Wait time in emergency exceeded 5 hours,Patient reports being moved from ER to hallway and waiting an additional 3 hours for a bed.,open,high,2026-03-11,I. Clark
+t0059,Insurance info lost in booking portal,Error message during co-pay setup prevents completion of online booking.,open,medium,2025-12-06,D. Harris
+t0047,Portal booking crashes on mobile,Patient double-booked through online portal. Arrived to find appointment did not exist in system.,pending,medium,2025-12-16,D. Harris
+t0056,Double booking through online portal,Patient reported that the portal rescheduled their appointment without notification.,pending,medium,2026-03-19,J. Smith
+t0014,Emergency room delays - patient complaint,Complaint from patient advocate regarding systemic ER delays affecting vulnerable patients.,open,high,2026-02-09,W. Lewis
+t0063,Portal booking crashes on mobile,Insurance verification step in portal always fails. Patients forced to call to complete booking.,open,medium,2026-01-29,J. Smith
+t0054,Online appointment booking system failure,Appointment reminder system stopped sending reminders. Patient missed appointment.,open,medium,2026-03-09,O. Robinson
+t0002,ER wait over 4 hours - complaint,Elderly patient waited 5 hours in the ER waiting room. Family member filed complaint on behalf of patient.,pending,high,2025-12-19,F. Martin
+t0044,Duplicate bill for same stay,Pre-surgical lab work billed separately and not covered under bundled procedure rate.,open,high,2026-01-08,I. Clark
+t0065,Appointment confirmation not received,Pediatric appointment booking unavailable through portal despite being offered in-clinic.,pending,medium,2025-11-27,R. Williams
+t0009,ER overcrowding complaint,Post-surgery outpatient follow-up required 2 hour wait past scheduled time. No communication given.,open,high,2025-11-23,F. Martin
+t0048,Double booking through online portal,Booking confirmation email never arrived. Patient unsure if appointment was successfully made.,pending,medium,2026-02-15,O. Robinson
+t0055,Portal booking crashes on mobile,Portal allows booking but sends no confirmation. Patient called to verify - appointment existed.,open,medium,2026-01-09,I. Clark
+t0069,Medical records portal access issue,Medication list in portal reflects discontinued medications from 18 months ago.,pending,medium,2026-03-21,A. Brown

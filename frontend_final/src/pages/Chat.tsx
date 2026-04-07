@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Bot, Send, Sparkles, Database, Shield, BarChart3, Activity, Layers, Hash, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { type ChatMessage, getAgentStatus, getEvidence, getRecommendations, sendChatMessage } from '@/api/client'
-import { hasUploadedData } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
 
 const BASE = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL ?? 'http://localhost:8002'
 
@@ -106,8 +106,14 @@ function MessageText({ content }: { content: string }) {
   )
 }
 
+const APP_PRODUCT_CONTEXT = "You are Veloquity AI analyzing app product complaint data. Active evidence clusters: App crashes on project switch (91% confidence, 94 users), Black screen after latest update (87% confidence, 78 users), Dashboard load regression (86% confidence, 71 users), No onboarding checklist for new users (81% confidence, 63 users), Export to CSV silently fails (77% confidence, 54 users), Notification delay on mobile (72% confidence, 48 users). Total: 547 feedback items across 6 clusters. Sources: App Store Reviews and Zendesk Tickets. Answer only based on this data."
+
+const HOSPITAL_CONTEXT = "You are Veloquity AI analyzing patient hospital survey data. Active evidence clusters: Extended Emergency Wait Times (91% confidence, 87 users), Online Appointment Booking Failures (84% confidence, 71 users), Billing Statement Errors and Confusion (78% confidence, 58 users), Medical Records Portal Access Issues (72% confidence, 44 users). Total: 310 feedback items across 4 clusters. Sources: Patient Portal Reviews and Hospital Survey Tickets. Answer only based on this data."
+
 export default function Chat() {
   const hasData = hasUploadedData()
+  const dataset = getActiveDataset()
+  const systemContext = dataset === 'hospital_survey' ? HOSPITAL_CONTEXT : APP_PRODUCT_CONTEXT
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput]       = useState('')
   const [sending, setSending]   = useState(false)
@@ -187,7 +193,7 @@ export default function Chat() {
 
     try {
       const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }))
-      const res = await sendChatMessage(text, history)
+      const res = await sendChatMessage(text, history, systemContext)
       const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       setMessages((m) => [
         ...m.slice(0, -1),

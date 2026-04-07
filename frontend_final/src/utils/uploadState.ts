@@ -1,8 +1,9 @@
 export type UploadedSource = {
-  source: 'appstore' | 'zendesk'
+  source: 'appstore' | 'zendesk' | 'patient_portal' | 'hospital_survey_ticket'
   filename: string
   rowCount: number
   uploadedAt: string
+  dataset: 'app_product' | 'hospital_survey'
 }
 
 const KEY = 'veloquity_uploaded_sources'
@@ -32,8 +33,15 @@ export function hasUploadedData(): boolean {
   return getUploadedSources().length > 0
 }
 
-export function hasSource(source: 'appstore' | 'zendesk'): boolean {
+export function hasSource(source: 'appstore' | 'zendesk' | 'patient_portal' | 'hospital_survey_ticket'): boolean {
   return getUploadedSources().some(x => x.source === source)
+}
+
+export function getActiveDataset(): 'app_product' | 'hospital_survey' | null {
+  const sources = getUploadedSources()
+  if (sources.some(s => s.dataset === 'hospital_survey')) return 'hospital_survey'
+  if (sources.some(s => s.dataset === 'app_product')) return 'app_product'
+  return null
 }
 
 export function clearAll(): void {

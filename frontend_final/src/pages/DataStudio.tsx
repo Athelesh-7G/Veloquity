@@ -5,7 +5,7 @@ import {
   ChevronDown, X, Check, Archive, Layers, AlertCircle,
   CheckCircle2, Clock, RefreshCw
 } from 'lucide-react'
-import { hasUploadedData } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -207,6 +207,122 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     title: 'Calendar integration not loading - fixed',
     content: 'Google Calendar integration was failing to load events for dates beyond 90 days. This was resolved by the team on March 5 - confirmed working now.',
     tags: ['calendar', 'google', 'integration', 'resolved'], confidenceScore: 52,
+  },
+]
+
+// ─── Hospital feedback items ──────────────────────────────────────────────────
+const HOSPITAL_MOCK_FEEDBACK: FeedbackItem[] = [
+  // Cluster 1 — Extended Emergency Wait Times
+  {
+    id: 'hf001', source: 'App Store', date: '2026-03-14', status: 'analyzed',
+    title: 'Waited 4 hours in ER with chest pain',
+    content: 'I came in with chest pain and waited over 4 hours before a nurse even assessed me. I understand it gets busy but chest pain should be higher priority. The triage process needs to be revisited.',
+    tags: ['er-wait', 'triage', 'chest-pain', 'urgent'], confidenceScore: 92,
+    clusterId: 'hc1', clusterName: 'Extended Emergency Wait Times',
+  },
+  {
+    id: 'hf002', source: 'Zendesk', date: '2026-03-13', status: 'analyzed',
+    title: 'ER wait times have doubled — systemic failure',
+    content: 'We have filed 5 complaints this year about emergency wait times. Average wait before initial assessment has gone from 1.5 hours to over 3.5 hours. This is a systemic issue affecting patient safety.',
+    tags: ['er-wait', 'systemic', 'safety', 'complaint'], confidenceScore: 91,
+    clusterId: 'hc1', clusterName: 'Extended Emergency Wait Times',
+  },
+  {
+    id: 'hf003', source: 'App Store', date: '2026-03-12', status: 'analyzed',
+    title: 'Elderly mother waited 5 hours on hard chair',
+    content: 'My 82-year-old mother was left waiting for 5 hours on a hard plastic chair with a suspected hip fracture. No pain management offered while waiting. The nurses were kind but the system is completely overwhelmed.',
+    tags: ['er-wait', 'elderly', 'accessibility', 'pain-management'], confidenceScore: 90,
+    clusterId: 'hc1', clusterName: 'Extended Emergency Wait Times',
+  },
+  // Cluster 2 — Online Appointment Booking Failures
+  {
+    id: 'hf004', source: 'App Store', date: '2026-03-14', status: 'analyzed',
+    title: 'Portal crashes on appointment confirmation',
+    content: 'Every time I reach the confirmation screen for booking, the portal crashes. I have tried 3 different phones and 2 browsers. I called the front desk and they said this is a known issue — so why isn\'t it fixed?',
+    tags: ['booking', 'portal-crash', 'confirmation', 'bug'], confidenceScore: 85,
+    clusterId: 'hc2', clusterName: 'Online Appointment Booking Failures',
+  },
+  {
+    id: 'hf005', source: 'Zendesk', date: '2026-03-13', status: 'analyzed',
+    title: 'Double-booked twice through online system',
+    content: 'The online booking system double-booked me twice in one month. First with my GP, then with the cardiologist. I showed up and there was another patient in the same slot. This wastes everyone\'s time and causes real distress.',
+    tags: ['booking', 'double-booking', 'system-error', 'patient-impact'], confidenceScore: 84,
+    clusterId: 'hc2', clusterName: 'Online Appointment Booking Failures',
+  },
+  {
+    id: 'hf006', source: 'App Store', date: '2026-03-11', status: 'analyzed',
+    title: 'No confirmation email — did my booking go through?',
+    content: 'I completed the booking flow and was shown a confirmation screen, but no email arrived. I have no record of the appointment. I have to call the hospital to verify every booking I make online.',
+    tags: ['booking', 'confirmation-email', 'ux', 'uncertainty'], confidenceScore: 82,
+    clusterId: 'hc2', clusterName: 'Online Appointment Booking Failures',
+  },
+  // Cluster 3 — Billing Statement Errors
+  {
+    id: 'hf007', source: 'Zendesk', date: '2026-03-14', status: 'analyzed',
+    title: 'Billed for a procedure I never received',
+    content: 'I received a bill for an MRI scan I was never given. I was scheduled for it but the appointment was cancelled. I filed a dispute 3 weeks ago and have heard nothing. The amount is $1,200.',
+    tags: ['billing-error', 'dispute', 'mri', 'phantom-charge'], confidenceScore: 79,
+    clusterId: 'hc3', clusterName: 'Billing Statement Errors and Confusion',
+  },
+  {
+    id: 'hf008', source: 'Zendesk', date: '2026-03-12', status: 'analyzed',
+    title: 'Insurance pre-auth ignored — billed full rate',
+    content: 'My insurance company pre-authorized the entire procedure. The hospital still billed me at the full uninsured rate. I have called 4 times and each person says the previous person should have fixed it. This has been ongoing for 2 months.',
+    tags: ['billing-error', 'insurance', 'pre-auth', 'dispute'], confidenceScore: 78,
+    clusterId: 'hc3', clusterName: 'Billing Statement Errors and Confusion',
+  },
+  {
+    id: 'hf009', source: 'Zendesk', date: '2026-03-10', status: 'analyzed',
+    title: 'Two separate bills for the same hospital stay',
+    content: 'After a 3-night inpatient stay I received two separate bills totaling different amounts for the same dates. I don\'t know which one is correct or whether I owe both. No one has been able to explain this to me.',
+    tags: ['billing-error', 'duplicate-bill', 'inpatient', 'confusing'], confidenceScore: 77,
+    clusterId: 'hc3', clusterName: 'Billing Statement Errors and Confusion',
+  },
+  // Cluster 4 — Medical Records Portal Access Issues
+  {
+    id: 'hf010', source: 'App Store', date: '2026-03-13', status: 'analyzed',
+    title: 'Locked out of MyChart after 3 password resets',
+    content: 'I have reset my password three times and still cannot access MyChart. After entering the new password it immediately says "invalid credentials". I need access to see my test results and this is preventing my care.',
+    tags: ['mychart', 'login', 'password-reset', 'access'], confidenceScore: 73,
+    clusterId: 'hc4', clusterName: 'Medical Records Portal Access Issues',
+  },
+  {
+    id: 'hf011', source: 'App Store', date: '2026-03-12', status: 'analyzed',
+    title: 'Portal app crashes instantly on Android',
+    content: 'The MyChart app opens the splash screen and immediately crashes on my Samsung Galaxy S23. I updated the app, cleared cache, and reinstalled. Same result every time. I have to use the web version which is very slow.',
+    tags: ['mychart', 'android', 'crash', 'app-stability'], confidenceScore: 72,
+    clusterId: 'hc4', clusterName: 'Medical Records Portal Access Issues',
+  },
+  // New / unprocessed items
+  {
+    id: 'hf012', source: 'App Store', date: '2026-03-15', status: 'new',
+    title: 'Parking is impossible near the main entrance',
+    content: 'There are never any spaces in the parking garage when I come for outpatient appointments. I regularly have to park 15 minutes away and walk, which is difficult with my mobility issues.',
+    tags: ['parking', 'accessibility', 'outpatient', 'facility'], confidenceScore: 45,
+  },
+  {
+    id: 'hf013', source: 'Zendesk', date: '2026-03-15', status: 'new',
+    title: 'Discharge instructions were not provided',
+    content: 'I was discharged after a day procedure with no written instructions about medication or follow-up. I had to call back twice to get the information I needed. This is a patient safety risk.',
+    tags: ['discharge', 'instructions', 'patient-safety', 'documentation'], confidenceScore: 62,
+  },
+  {
+    id: 'hf014', source: 'App Store', date: '2026-03-11', status: 'processing',
+    title: 'Specialist referral waiting time is too long',
+    content: 'My GP referred me to a cardiologist 8 weeks ago. I still haven\'t received an appointment date. The portal shows "referral pending" with no estimated timeframe. How long should I expect to wait?',
+    tags: ['referral', 'cardiology', 'wait-time', 'communication'], confidenceScore: 58,
+  },
+  {
+    id: 'hf015', source: 'Zendesk', date: '2026-03-10', status: 'processing',
+    title: 'Cafeteria closed during evening visiting hours',
+    content: 'The main cafeteria closes at 6pm. Visiting hours run until 9pm. Family members who visit after work have no food options. A vending machine with limited options is not adequate.',
+    tags: ['cafeteria', 'visiting-hours', 'facility', 'family'], confidenceScore: 42,
+  },
+  {
+    id: 'hf016', source: 'App Store', date: '2026-03-05', status: 'archived',
+    title: 'Excellent care from the oncology team',
+    content: 'The oncology nursing staff went above and beyond throughout my treatment. They were compassionate, clear in their communication, and always made time for my questions. A world-class team.',
+    tags: ['positive', 'oncology', 'nursing', 'care-quality'], confidenceScore: 95,
   },
 ]
 
@@ -555,6 +671,7 @@ function AddFeedbackModal({ isOpen, onClose, onAdd }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DataStudio() {
   const hasData = hasUploadedData()
+  const dataset = getActiveDataset()
   const { searchQuery } = useApp()
   const [localSearch, setLocalSearch]       = useState('')
   const [selectedSources, setSelectedSources] = useState<FeedbackSource[]>([])
@@ -562,7 +679,9 @@ export default function DataStudio() {
   const [selectedItems, setSelectedItems]   = useState<string[]>([])
   const [activeItem, setActiveItem]         = useState<FeedbackItem | null>(null)
   const [showAddModal, setShowAddModal]     = useState(false)
-  const [feedbackList, setFeedbackList]     = useState<FeedbackItem[]>(MOCK_FEEDBACK)
+  const [feedbackList, setFeedbackList]     = useState<FeedbackItem[]>(
+    dataset === 'hospital_survey' ? HOSPITAL_MOCK_FEEDBACK : MOCK_FEEDBACK
+  )
 
   const effectiveSearch = searchQuery || localSearch
 

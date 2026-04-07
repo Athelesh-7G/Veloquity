@@ -195,3 +195,166 @@ export const MOCK_STATS = {
   active_evidence: 4,
   staging_count: 0
 }
+
+// ─── Hospital Dataset ──────────────────────────────────────────────────────────
+
+export const HOSPITAL_MOCK_DATA = [
+  {
+    id: "hev-001",
+    theme: "Extended Emergency Wait Times",
+    confidence_score: 0.91,
+    unique_user_count: 87,
+    feedback_item_count: 98,
+    source_lineage: ["patient_portal", "hospital_survey"],
+    status: "active",
+    trend: "increasing",
+    representative_quotes: [
+      "Waited 4 hours in the ER with chest pain before anyone saw me",
+      "Emergency department wait times have doubled in the past year",
+      "Triage nurses were kind but the system is clearly overwhelmed",
+      "My elderly mother waited 5 hours on a hard chair — unacceptable"
+    ]
+  },
+  {
+    id: "hev-002",
+    theme: "Online Appointment Booking Failures",
+    confidence_score: 0.84,
+    unique_user_count: 71,
+    feedback_item_count: 76,
+    source_lineage: ["patient_portal", "hospital_survey"],
+    status: "active",
+    trend: "stable",
+    representative_quotes: [
+      "Booking portal crashes every time I try to confirm my appointment",
+      "Got double-booked through the online system — twice in one month",
+      "No confirmation email after booking. Never know if it went through",
+      "The portal times out and loses all my entered insurance information"
+    ]
+  },
+  {
+    id: "hev-003",
+    theme: "Billing Statement Errors and Confusion",
+    confidence_score: 0.78,
+    unique_user_count: 58,
+    feedback_item_count: 82,
+    source_lineage: ["hospital_survey"],
+    status: "active",
+    trend: "stable",
+    representative_quotes: [
+      "Received a bill for a service I never received. Dispute ignored.",
+      "Insurance was not applied to my bill despite being pre-approved",
+      "Two different bills arrived for the same hospital stay",
+      "Charged at inpatient rates for an outpatient day procedure"
+    ]
+  },
+  {
+    id: "hev-004",
+    theme: "Medical Records Portal Access Issues",
+    confidence_score: 0.72,
+    unique_user_count: 44,
+    feedback_item_count: 54,
+    source_lineage: ["patient_portal"],
+    status: "active",
+    trend: "decreasing",
+    representative_quotes: [
+      "Cannot log into MyChart. Reset password three times. Still locked out.",
+      "Test results were supposed to be in the portal within 48 hours. Still missing after 2 weeks.",
+      "The portal app crashes immediately on Android. Web version barely works.",
+      "My medication list in the portal is completely wrong — two discontinued meds still showing"
+    ]
+  }
+]
+
+export const HOSPITAL_MOCK_RECOMMENDATIONS = [
+  {
+    id: "hrec-001",
+    priority_rank: 1,
+    theme: "Extended Emergency Wait Times",
+    recommendation: "Deploy real-time ER wait time display in patient portal and SMS updates every 30 minutes for waiting patients. Partner with operations team to audit triage flow and identify bottlenecks causing the observed doubling of wait times.",
+    confidence: 0.91,
+    affected_users: 87,
+    risk_level: "high",
+    effort_level: "high",
+    reasoning: "Highest-confidence cluster with 98 feedback items. Wait time issues directly impact patient safety and satisfaction. Rising trend indicates the problem is worsening. Cross-source corroboration from both portal reviews and survey tickets confirms this is systemic, not isolated."
+  },
+  {
+    id: "hrec-002",
+    priority_rank: 2,
+    theme: "Online Appointment Booking Failures",
+    recommendation: "Immediate portal stability audit focusing on session timeout handling and insurance data persistence. Implement booking confirmation SMS as fallback. Add duplicate-booking detection before confirmation to prevent double-booking.",
+    confidence: 0.84,
+    affected_users: 71,
+    risk_level: "medium",
+    effort_level: "medium",
+    reasoning: "76 feedback items with stable trend. Portal crashes and double-booking directly erode patient trust and increase no-show rates. Confirmation failures leave patients uncertain about their care schedule. Medium effort fix with high patient satisfaction return."
+  },
+  {
+    id: "hrec-003",
+    priority_rank: 3,
+    theme: "Billing Statement Errors and Confusion",
+    recommendation: "Audit billing system integration with insurance pre-authorization workflow. Implement itemized bill reconciliation check before dispatch. Create a patient-facing bill dispute portal with guaranteed 48-hour acknowledgement SLA.",
+    confidence: 0.78,
+    affected_users: 58,
+    risk_level: "medium",
+    effort_level: "medium",
+    reasoning: "82 feedback items, predominantly from hospital survey. Billing errors create financial harm and legal risk. Insurance pre-approval mismatches suggest an integration gap. Single-source signal (hospital survey only) reduces confidence slightly but the severity of impacts demands action."
+  },
+  {
+    id: "hrec-004",
+    priority_rank: 4,
+    theme: "Medical Records Portal Access Issues",
+    recommendation: "Fix MyChart Android crash (likely WebView compatibility issue) and reduce password reset friction with biometric fallback. Implement automated 48-hour test result delivery SLA with notification if delayed. Audit medication reconciliation data sync.",
+    confidence: 0.72,
+    affected_users: 44,
+    risk_level: "low",
+    effort_level: "low",
+    reasoning: "54 feedback items with decreasing trend — likely partially addressed already. Android crash and password lockout are discrete engineering fixes. Decreasing trend and single-source signal (patient portal only) lower urgency relative to other clusters, but access failures directly impair continuity of care."
+  }
+]
+
+export const HOSPITAL_MOCK_AGENTS = [
+  {
+    name: "ingestion",
+    display_name: "Ingestion Agent",
+    description: "Ingests Patient Portal reviews and Hospital Survey tickets. Applies PII redaction (names, DOB, MRN) and SHA-256 deduplication before landing 310 patient feedback items to S3.",
+    last_run_status: "success",
+    last_run_at: "2026-03-15T06:02:00Z",
+    total_runs: 12,
+    lambda_function_name: "veloquity-ingestion-dev"
+  },
+  {
+    name: "evidence",
+    display_name: "Evidence Intelligence",
+    description: "Embeds 310 patient feedback items using Amazon Titan Embed V2 (1024 dims), caches in pgvector RDS, clusters with cosine similarity at 0.6 threshold into 4 evidence clusters.",
+    last_run_status: "success",
+    last_run_at: "2026-03-15T06:08:00Z",
+    total_runs: 11,
+    lambda_function_name: "veloquity-evidence-dev"
+  },
+  {
+    name: "reasoning",
+    display_name: "Reasoning Agent",
+    description: "Scores 4 hospital evidence clusters on confidence, user count, source corroboration and recency. Invokes Amazon Nova Pro for structured patient experience recommendations.",
+    last_run_status: "success",
+    last_run_at: "2026-03-15T06:15:00Z",
+    total_runs: 9,
+    lambda_function_name: "veloquity-reasoning-dev"
+  },
+  {
+    name: "governance",
+    display_name: "Governance Agent",
+    description: "Runs daily at 06:00 UTC via EventBridge. Monitors 4 active evidence clusters for stale signals. Promoted 3 high-frequency signals. Cache hit rate 89% — above healthy threshold.",
+    last_run_status: "success",
+    last_run_at: "2026-03-15T06:00:00Z",
+    total_runs: 15,
+    lambda_function_name: "veloquity-governance-dev"
+  }
+]
+
+export const HOSPITAL_MOCK_GOVERNANCE = {
+  total_events: 8,
+  stale_signals: 0,
+  promoted_signals: 3,
+  cache_hit_rate: 0.89,
+  last_run: "2026-03-15T06:00:00Z"
+}

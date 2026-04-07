@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Bot, CheckCircle2, XCircle, Play, RefreshCw, Loader2, Zap, Database, Brain, Shield, AlertTriangle } from 'lucide-react'
-import { hasUploadedData } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
 import { getAgentRunState, hasAgentsRun } from '@/utils/agentRunState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
 import { type AgentRunResult, type AgentStatus, getAgentStatus, runAgent } from '@/api/client'
-import { MOCK_AGENTS } from '@/api/mockData'
+import { MOCK_AGENTS, HOSPITAL_MOCK_AGENTS } from '@/api/mockData'
 
 type RunStatus = 'idle' | 'running' | 'success' | 'error'
 
@@ -210,6 +210,8 @@ function AgentOutputBox({ lines, shortKey, accent }: { lines: string[]; shortKey
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Agents() {
   const hasData = hasUploadedData()
+  const dataset = getActiveDataset()
+  const activeMockAgents = dataset === 'hospital_survey' ? HOSPITAL_MOCK_AGENTS : MOCK_AGENTS
   const [agents, setAgents]         = useState<AgentStatus[]>([])
   const [runStatus, setRunStatus]   = useState<Record<string, RunStatus>>({})
   const [lastResult, setLastResult] = useState<Record<string, AgentRunResult>>({})
@@ -236,8 +238,8 @@ export default function Agents() {
     }
 
     getAgentStatus()
-      .then((d) => { setAgents(d.length ? d : MOCK_AGENTS); setLoading(false) })
-      .catch(() => { setAgents(MOCK_AGENTS); setLoading(false) })
+      .then((d) => { setAgents(d.length ? d : activeMockAgents); setLoading(false) })
+      .catch(() => { setAgents(activeMockAgents); setLoading(false) })
   }, [])
 
   function addToast(msg: string, ok: boolean) {

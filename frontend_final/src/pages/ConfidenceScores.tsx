@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { hasUploadedData } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -37,9 +37,8 @@ interface ConfidenceMetric {
   lastValidated: string
 }
 
-// ─── 6 clusters aligned to full system (547 items, avg conf 84%) ──────────────
-// priorityScore = conf*0.35 + userCount*0.25 + sourceCorr*0.20 + recency*0.20
-const INITIAL_METRICS: ConfidenceMetric[] = [
+// ─── App product clusters (547 items, 6 clusters, avg conf 84%) ──────────────
+const APP_INITIAL_METRICS: ConfidenceMetric[] = [
   {
     id: 'ev1', clusterId: 'c1',
     name: 'App crashes on project switch',
@@ -129,6 +128,70 @@ const INITIAL_METRICS: ConfidenceMetric[] = [
     priorityScore: 63,
     factors: ['20–40 min push latency on iOS and Android', 'Email notifications unaffected', 'Device background refresh confirmed on', 'Server-side delivery queue suspected'],
     lastValidated: '2026-03-08',
+  },
+]
+
+// ─── Hospital clusters (310 items, 4 clusters, avg conf 81%) ──────────────────
+const HOSPITAL_INITIAL_METRICS: ConfidenceMetric[] = [
+  {
+    id: 'hev1', clusterId: 'hc1',
+    name: 'Extended Emergency Wait Times',
+    score: 91, uncertainty: 8, trend: 'up',
+    feedbackCount: 98, uniqueUsers: 87,
+    sources: ['Patient Portal', 'Hospital Survey'],
+    category: 'Technical',
+    w_confidence: 91 * 0.35,
+    w_userCount:  Math.min(87 / 50, 1.0) * 0.25 * 100,
+    w_sourceCorr: 0.1 * 0.20 * 100,
+    w_recency:    0.97 * 0.20 * 100,
+    priorityScore: 78,
+    factors: ['Cross-source corroboration (Portal + Survey)', 'High unique patient count (87)', 'Rising trend — wait times doubling year-over-year', 'Direct patient safety implications'],
+    lastValidated: '2026-03-15',
+  },
+  {
+    id: 'hev2', clusterId: 'hc2',
+    name: 'Online Appointment Booking Failures',
+    score: 84, uncertainty: 9, trend: 'stable',
+    feedbackCount: 76, uniqueUsers: 71,
+    sources: ['Patient Portal', 'Hospital Survey'],
+    category: 'Technical',
+    w_confidence: 84 * 0.35,
+    w_userCount:  Math.min(71 / 50, 1.0) * 0.25 * 100,
+    w_sourceCorr: 0.1 * 0.20 * 100,
+    w_recency:    0.96 * 0.20 * 100,
+    priorityScore: 76,
+    factors: ['Portal crash on confirmation screen', 'Double-booking incidents confirmed', 'Stable trend but no improvement observed', 'No confirmation email compounds uncertainty'],
+    lastValidated: '2026-03-15',
+  },
+  {
+    id: 'hev3', clusterId: 'hc3',
+    name: 'Billing Statement Errors and Confusion',
+    score: 78, uncertainty: 10, trend: 'stable',
+    feedbackCount: 82, uniqueUsers: 58,
+    sources: ['Hospital Survey'],
+    category: 'Feature',
+    w_confidence: 78 * 0.35,
+    w_userCount:  Math.min(58 / 50, 1.0) * 0.25 * 100,
+    w_sourceCorr: 0,
+    w_recency:    0.95 * 0.20 * 100,
+    priorityScore: 71,
+    factors: ['Insurance pre-auth not applied at billing', 'Duplicate bills for same stay reported', 'Single-source (survey only) — no portal corroboration', 'Financial harm and legal risk to patients'],
+    lastValidated: '2026-03-15',
+  },
+  {
+    id: 'hev4', clusterId: 'hc4',
+    name: 'Medical Records Portal Access Issues',
+    score: 72, uncertainty: 11, trend: 'down',
+    feedbackCount: 54, uniqueUsers: 44,
+    sources: ['Patient Portal'],
+    category: 'Technical',
+    w_confidence: 72 * 0.35,
+    w_userCount:  Math.min(44 / 50, 1.0) * 0.25 * 100,
+    w_sourceCorr: 0,
+    w_recency:    0.93 * 0.20 * 100,
+    priorityScore: 66,
+    factors: ['Password reset loop — 3+ attempts to unlock', 'Android crash on portal app launch', 'Decreasing trend — likely partially addressed', 'Medication list data sync errors persist'],
+    lastValidated: '2026-03-14',
   },
 ]
 
@@ -369,7 +432,10 @@ function MetricCard({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ConfidenceScores() {
   const hasData = hasUploadedData()
-  const [metrics, setMetrics]             = useState<ConfidenceMetric[]>(INITIAL_METRICS)
+  const dataset = getActiveDataset()
+  const [metrics, setMetrics] = useState<ConfidenceMetric[]>(
+    dataset === 'hospital_survey' ? HOSPITAL_INITIAL_METRICS : APP_INITIAL_METRICS
+  )
   const [showUncertainty, setShowUncertainty] = useState(true)
   const [threshold, setThreshold]         = useState([60])   // default: Veloquity's auto-accept threshold
 

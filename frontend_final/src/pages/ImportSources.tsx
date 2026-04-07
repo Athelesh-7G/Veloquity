@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import {
   CheckCircle2, Upload, Smartphone, Ticket, Download, AlertTriangle,
-  Info, X, FileText, Loader2
+  Info, X, FileText, Loader2, Hospital, ClipboardList
 } from 'lucide-react'
 import {
   getUploadedSources, addUploadedSource, removeUploadedSource,
@@ -17,22 +17,25 @@ import { setAgentsDone, clearAgentRunState } from '@/utils/agentRunState'
 // ─── Phase definitions ────────────────────────────────────────────────────────
 interface Phase {
   label: (rows: number) => string
-  startAt: number   // ms from connection start
+  startAt: number
   targetProgress: number
 }
 
 const PHASES: Phase[] = [
-  { label: ()       => 'Reading file…',                 startAt: 0,     targetProgress: 5   },
+  { label: ()       => 'Reading file…',                  startAt: 0,     targetProgress: 5   },
   { label: (n)      => `Processing ${n} feedback items…`, startAt: 2000,  targetProgress: 40  },
-  { label: ()       => 'Running ingestion pipeline…',   startAt: 5000,  targetProgress: 75  },
-  { label: ()       => 'Clustering evidence…',          startAt: 9000,  targetProgress: 95  },
-  { label: ()       => 'Generating insights…',          startAt: 12000, targetProgress: 100 },
+  { label: ()       => 'Running ingestion pipeline…',    startAt: 5000,  targetProgress: 75  },
+  { label: ()       => 'Clustering evidence…',           startAt: 9000,  targetProgress: 95  },
+  { label: ()       => 'Generating insights…',           startAt: 12000, targetProgress: 100 },
 ]
 const CONNECT_TOTAL_MS = 14000
 
+type SourceId = 'appstore' | 'zendesk' | 'patient_portal' | 'hospital_survey_ticket'
+
 // ─── Status Banner ─────────────────────────────────────────────────────────────
-function StatusBanner({ count }: { count: number }) {
-  if (count === 0) {
+function StatusBanner({ appCount, hospitalCount }: { appCount: number; hospitalCount: number }) {
+  const total = appCount + hospitalCount
+  if (total === 0) {
     return (
       <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
         <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
@@ -42,21 +45,25 @@ function StatusBanner({ count }: { count: number }) {
       </div>
     )
   }
-  if (count === 1) {
+  if (appCount > 0) {
     return (
       <div className="flex items-center gap-3 p-4 rounded-xl border border-blue-500/30 bg-blue-500/8">
         <Info className="w-5 h-5 text-blue-500 shrink-0" />
         <p className="text-sm text-blue-600 dark:text-blue-400">
-          1 of 2 sources connected — upload the second source for full cross-source insights
+          {appCount === 2
+            ? 'App Product Complaints active — all insights unlocked'
+            : `App Product Complaints active — ${appCount} of 2 sources connected`}
         </p>
       </div>
     )
   }
   return (
-    <div className="flex items-center gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/8">
-      <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-      <p className="text-sm text-emerald-600 dark:text-emerald-400">
-        All sources connected — insights available across all pages
+    <div className="flex items-center gap-3 p-4 rounded-xl border border-blue-500/30 bg-blue-500/8">
+      <Info className="w-5 h-5 text-blue-500 shrink-0" />
+      <p className="text-sm text-blue-600 dark:text-blue-400">
+        {hospitalCount === 2
+          ? 'Patient Hospital Survey active — all insights unlocked'
+          : `Patient Hospital Survey active — ${hospitalCount} of 2 sources connected`}
       </p>
     </div>
   )
@@ -64,16 +71,19 @@ function StatusBanner({ count }: { count: number }) {
 
 // ─── Source Card ───────────────────────────────────────────────────────────────
 interface SourceCardProps {
-  id: 'appstore' | 'zendesk'
+  id: SourceId
   label: string
   description: string
   Icon: React.ElementType
   connected: UploadedSource | null
-  onConnect: (source: 'appstore' | 'zendesk', filename: string, rowCount: number) => void
-  onDisconnect: (source: 'appstore' | 'zendesk') => void
+  blockedMessage?: string
+  onConnect: (source: SourceId, filename: string, rowCount: number) => void
+  onDisconnect: (source: SourceId) => void
 }
 
-function SourceCard({ id, label, description, Icon, connected, onConnect, onDisconnect }: SourceCardProps) {
+function SourceCard({
+  id, label, description, Icon, connected, blockedMessage, onConnect, onDisconnect,
+}: SourceCardProps) {
   const [dragging, setDragging]         = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [connecting, setConnecting]     = useState(false)
@@ -84,7 +94,6 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const fileRef    = useRef<HTMLInputElement>(null)
 
-  // Clean up timers on unmount
   useEffect(() => () => {
     timersRef.current.forEach(clearTimeout)
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -127,7 +136,6 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
       setConnecting(true)
       setProgress(0)
 
-      // Schedule each phase
       PHASES.forEach((phase) => {
         const t = setTimeout(() => {
           setPhaseLabel(phase.label(rowCount))
@@ -136,7 +144,6 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
         timersRef.current.push(t)
       })
 
-      // Final phase: write to localStorage and notify parent
       const done = setTimeout(() => {
         setConnecting(false)
         setSelectedFile(null)
@@ -179,7 +186,6 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-3">
         {connected ? (
-          /* ── Connected state ──────────────────────────────────────────────── */
           <div className="space-y-3">
             <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
@@ -199,8 +205,12 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
               <X className="w-3.5 h-3.5 mr-1.5" />Disconnect
             </Button>
           </div>
+        ) : blockedMessage ? (
+          <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-600 dark:text-amber-400 leading-relaxed">{blockedMessage}</p>
+          </div>
         ) : connecting ? (
-          /* ── Phased loading state ─────────────────────────────────────────── */
           <div className="space-y-4 py-2">
             <div className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-violet-500 shrink-0" />
@@ -210,9 +220,7 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
             <p className="text-xs text-muted-foreground text-right">{progress}%</p>
           </div>
         ) : (
-          /* ── Upload state ─────────────────────────────────────────────────── */
           <div className="space-y-3">
-            {/* Drop zone */}
             <div
               className={`border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer ${
                 dragging
@@ -249,7 +257,6 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
               className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
             />
-
             <Button
               className="w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white"
               disabled={!selectedFile}
@@ -268,26 +275,36 @@ function SourceCard({ id, label, description, Icon, connected, onConnect, onDisc
 export default function ImportSources() {
   const [sources, setSources] = useState<UploadedSource[]>(getUploadedSources)
 
-  const appstoreSource = sources.find(s => s.source === 'appstore') ?? null
-  const zendeskSource  = sources.find(s => s.source === 'zendesk')  ?? null
-  const connectedCount = sources.length
+  const appstoreSource        = sources.find(s => s.source === 'appstore')          ?? null
+  const zendeskSource         = sources.find(s => s.source === 'zendesk')           ?? null
+  const patientPortalSource   = sources.find(s => s.source === 'patient_portal')    ?? null
+  const hospitalSurveySource  = sources.find(s => s.source === 'hospital_survey_ticket') ?? null
 
-  function handleConnect(source: 'appstore' | 'zendesk', filename: string, rowCount: number) {
+  const appCount      = sources.filter(s => s.dataset === 'app_product').length
+  const hospitalCount = sources.filter(s => s.dataset === 'hospital_survey').length
+
+  const appBlocked      = hospitalCount > 0 ? 'Disconnect Patient Hospital Survey sources first to switch datasets' : undefined
+  const hospitalBlocked = appCount > 0 ? 'Disconnect App Product sources first to switch datasets' : undefined
+
+  function handleConnect(source: SourceId, filename: string, rowCount: number) {
+    const lower = filename.toLowerCase()
+    const dataset: 'app_product' | 'hospital_survey' =
+      lower.includes('patient') || lower.includes('hospital') ? 'hospital_survey' : 'app_product'
+
     const entry: UploadedSource = {
       source,
       filename,
       rowCount,
       uploadedAt: new Date().toISOString(),
+      dataset,
     }
     addUploadedSource(entry)
-    // Mark all agents as done with the current timestamp
     setAgentsDone(new Date().toISOString())
     setSources(getUploadedSources())
   }
 
-  function handleDisconnect(source: 'appstore' | 'zendesk') {
+  function handleDisconnect(source: SourceId) {
     removeUploadedSource(source)
-    // Clear agent run state when all sources are gone
     const remaining = getUploadedSources().filter(s => s.source !== source)
     if (remaining.length === 0) clearAgentRunState()
     setSources(getUploadedSources())
@@ -304,28 +321,66 @@ export default function ImportSources() {
       </div>
 
       {/* ── Status Banner ──────────────────────────────────────────────────── */}
-      <StatusBanner count={connectedCount} />
+      <StatusBanner appCount={appCount} hospitalCount={hospitalCount} />
 
-      {/* ── Source Cards ───────────────────────────────────────────────────── */}
-      <div className="grid sm:grid-cols-2 gap-5">
-        <SourceCard
-          id="appstore"
-          label="App Store Reviews"
-          description="Upload a CSV export of iOS/macOS App Store reviews"
-          Icon={Smartphone}
-          connected={appstoreSource}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-        />
-        <SourceCard
-          id="zendesk"
-          label="Zendesk Tickets"
-          description="Upload a CSV export of customer support tickets from Zendesk"
-          Icon={Ticket}
-          connected={zendeskSource}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-        />
+      {/* ── Section 1: App Product Complaints ──────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-foreground">App Product Complaints</h2>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-5">
+          <SourceCard
+            id="appstore"
+            label="App Store Reviews"
+            description="Upload a CSV export of iOS/macOS App Store reviews"
+            Icon={Smartphone}
+            connected={appstoreSource}
+            blockedMessage={appstoreSource ? undefined : appBlocked}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+          />
+          <SourceCard
+            id="zendesk"
+            label="Zendesk Tickets"
+            description="Upload a CSV export of customer support tickets from Zendesk"
+            Icon={Ticket}
+            connected={zendeskSource}
+            blockedMessage={zendeskSource ? undefined : appBlocked}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+          />
+        </div>
+      </div>
+
+      {/* ── Section 2: Patient Hospital Survey ─────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-foreground">Patient Hospital Survey</h2>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-5">
+          <SourceCard
+            id="patient_portal"
+            label="Patient Portal Reviews"
+            description="Upload a CSV export of patient portal app reviews"
+            Icon={Hospital}
+            connected={patientPortalSource}
+            blockedMessage={patientPortalSource ? undefined : hospitalBlocked}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+          />
+          <SourceCard
+            id="hospital_survey_ticket"
+            label="Hospital Survey Tickets"
+            description="Upload a CSV export of hospital patient satisfaction survey tickets"
+            Icon={ClipboardList}
+            connected={hospitalSurveySource}
+            blockedMessage={hospitalSurveySource ? undefined : hospitalBlocked}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+          />
+        </div>
       </div>
 
       {/* ── Download Sample Files ───────────────────────────────────────────── */}
@@ -349,6 +404,18 @@ export default function ImportSources() {
             <Button variant="outline" className="bg-transparent gap-2">
               <Ticket className="w-4 h-4" />
               Download Zendesk Sample CSV
+            </Button>
+          </a>
+          <a href="/samples/patient_portal_sample.csv" download>
+            <Button variant="outline" className="bg-transparent gap-2">
+              <Hospital className="w-4 h-4" />
+              Download Patient Portal Sample CSV
+            </Button>
+          </a>
+          <a href="/samples/hospital_survey_sample.csv" download>
+            <Button variant="outline" className="bg-transparent gap-2">
+              <ClipboardList className="w-4 h-4" />
+              Download Hospital Survey Sample CSV
             </Button>
           </a>
         </CardContent>

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sliders, RotateCcw, Download, CheckCircle2, Clock, XCircle, Zap, Shield, TrendingUp, TrendingDown, Minus, Users, Hash, Layers, ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Target } from 'lucide-react'
-import { hasUploadedData } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
@@ -30,8 +30,8 @@ interface Cluster {
   tradeoff: string
 }
 
-// ─── The 6 Veloquity clusters ─────────────────────────────────────────────────
-const CLUSTERS: Cluster[] = [
+// ─── App product clusters ─────────────────────────────────────────────────────
+const APP_CLUSTERS: Cluster[] = [
   {
     id: 'c1',
     name: 'App crashes on project switch',
@@ -109,6 +109,58 @@ const CLUSTERS: Cluster[] = [
     rationale: 'Push notifications arriving 20–40 minutes late on both iOS and Android. Email notifications unaffected. Background refresh confirmed on for all reporters. Likely a server-side delivery queue bottleneck. Smallest cluster with stable trend — lowest urgency of the six.',
     riskFlags: ['Server-side queue suspected', 'Team coordination use cases blocked'],
     tradeoff: 'Server-side queue investigation is medium effort with low-to-medium impact. Prioritising this over crash fixes would be a poor allocation. Revisit after c1–c3 are resolved.',
+  },
+]
+
+// ─── Hospital clusters ────────────────────────────────────────────────────────
+const HOSPITAL_CLUSTERS: Cluster[] = [
+  {
+    id: 'hc1',
+    name: 'Extended Emergency Wait Times',
+    confidence: 91, uncertainty: 8,
+    feedbackCount: 98, uniqueUsers: 87,
+    sources: ['Patient Portal', 'Hospital Survey'],
+    category: 'Technical', trend: 'rising',
+    priorityScore: 78, effort: 'high', impact: 'high',
+    rationale: 'Highest-confidence hospital cluster. 98 patient reports with rising signal velocity. ER wait times have doubled year-over-year per multiple sources. Cross-source corroboration from both patient portal and survey confirms systemic triage overload. Direct patient safety implications require urgent operational response.',
+    riskFlags: ['Patient safety risk', 'Rising signal velocity', 'Cross-source corroboration'],
+    tradeoff: 'High effort (operational + technology change) but non-negotiable for patient safety and CQC compliance. Delay risks regulatory action and measurable patient harm.',
+  },
+  {
+    id: 'hc2',
+    name: 'Online Appointment Booking Failures',
+    confidence: 84, uncertainty: 9,
+    feedbackCount: 76, uniqueUsers: 71,
+    sources: ['Patient Portal', 'Hospital Survey'],
+    category: 'Technical', trend: 'stable',
+    priorityScore: 76, effort: 'medium', impact: 'high',
+    rationale: 'Portal crash on confirmation screen and double-booking incidents reduce patient trust and increase no-show rates. 71 unique patients affected with stable trend — no self-healing. Confirmation email absence compounds uncertainty. Medium engineering effort to fix session and dedup logic.',
+    riskFlags: ['Trust erosion', 'Double-booking incidents', 'No confirmation fallback'],
+    tradeoff: 'Medium effort fix (session handling + dedup check). Deferring risks continued double-booking and patient complaints escalating to PALS.',
+  },
+  {
+    id: 'hc3',
+    name: 'Billing Statement Errors and Confusion',
+    confidence: 78, uncertainty: 10,
+    feedbackCount: 82, uniqueUsers: 58,
+    sources: ['Hospital Survey'],
+    category: 'Feature', trend: 'stable',
+    priorityScore: 71, effort: 'medium', impact: 'medium',
+    rationale: 'Insurance pre-auth mismatches and duplicate billing create financial harm and legal exposure. Single-source signal (survey only) reduces confidence but 82 items is substantial volume. Billing errors are a compliance risk under NHS/private billing codes.',
+    riskFlags: ['Financial harm to patients', 'Legal/compliance exposure', 'Single-source signal'],
+    tradeoff: 'Medium effort integration fix (billing ↔ insurance pre-auth sync). Cost of inaction includes complaints to financial ombudsman and reputational damage.',
+  },
+  {
+    id: 'hc4',
+    name: 'Medical Records Portal Access Issues',
+    confidence: 72, uncertainty: 11,
+    feedbackCount: 54, uniqueUsers: 44,
+    sources: ['Patient Portal'],
+    category: 'Technical', trend: 'declining',
+    priorityScore: 66, effort: 'low', impact: 'medium',
+    rationale: 'Password reset loop and Android crash are discrete engineering fixes. Decreasing trend suggests partial progress already made. 44 unique patients affected — access failures impair continuity of care. Low effort fix with meaningful trust restoration.',
+    riskFlags: ['Continuity of care impacted', 'Android-specific crash', 'Data sync errors'],
+    tradeoff: 'Low effort (WebView fix + auth flow patch). Declining trend means urgency is lower than clusters 1–2, but access to medical records is a patient right.',
   },
 ]
 
@@ -448,6 +500,8 @@ const DEFAULT_EV   = 40
 
 export default function DecisionPlayground() {
   const hasData = hasUploadedData()
+  const dataset = getActiveDataset()
+  const CLUSTERS = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
   const [confThreshold,  setConfThreshold]  = useState(DEFAULT_CONF)
   const [uncTolerance,   setUncTolerance]   = useState(DEFAULT_UNC)
   const [minEvidence,    setMinEvidence]    = useState(DEFAULT_EV)
