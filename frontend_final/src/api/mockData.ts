@@ -694,3 +694,153 @@ export const HOSPITAL_ITEMS: FeedbackDataItem[] = [
   { id: 'hp099', source: 'hospital_survey', date: '2025-10-05', cluster: 'Parking and Facility Issues', metadata: { survey: 'complaint', priority: 'medium' }, text: 'No clear signage for the new oncology wing. Multiple patients reported getting lost on arrival.' },
   { id: 'hp100', source: 'hospital_survey', date: '2025-09-15', cluster: 'Parking and Facility Issues', metadata: { survey: 'complaint', priority: 'high' }, text: 'Only 2 accessible parking spaces for a major hospital. Completely inadequate for patient volume.' },
 ]
+
+// ─── Hospital Trends Chart Data (monthly Sep 2025–Mar 2026, ~310 total) ────────
+// Keys intentionally match CHART_DATA shape so Trends.tsx chart code is reused;
+// legend labels are swapped in the component (Patient Portal / Hospital Survey).
+
+export const HOSPITAL_CHART_DATA: Record<string, { label: string; appStore: number; zendesk: number }[]> = {
+  '7d': [
+    { label: 'Mar 14', appStore: 5,  zendesk: 3 },
+    { label: 'Mar 15', appStore: 6,  zendesk: 4 },
+    { label: 'Mar 16', appStore: 4,  zendesk: 3 },
+    { label: 'Mar 17', appStore: 7,  zendesk: 5 },
+    { label: 'Mar 18', appStore: 8,  zendesk: 6 },
+    { label: 'Mar 19', appStore: 9,  zendesk: 7 },
+    { label: 'Mar 20', appStore: 10, zendesk: 7 },
+  ],
+  '30d': [
+    { label: 'Feb 21', appStore: 22, zendesk: 17 },
+    { label: 'Feb 28', appStore: 26, zendesk: 20 },
+    { label: 'Mar 7',  appStore: 31, zendesk: 24 },
+    { label: 'Mar 14', appStore: 37, zendesk: 28 },
+    { label: 'Mar 20', appStore: 39, zendesk: 31 },
+  ],
+  '90d': [
+    { label: 'Wk 1',  appStore: 8,  zendesk: 5  },
+    { label: 'Wk 2',  appStore: 10, zendesk: 7  },
+    { label: 'Wk 3',  appStore: 9,  zendesk: 7  },
+    { label: 'Wk 4',  appStore: 12, zendesk: 9  },
+    { label: 'Wk 5',  appStore: 13, zendesk: 10 },
+    { label: 'Wk 6',  appStore: 15, zendesk: 11 },
+    { label: 'Wk 7',  appStore: 16, zendesk: 12 },
+    { label: 'Wk 8',  appStore: 18, zendesk: 14 },
+    { label: 'Wk 9',  appStore: 20, zendesk: 15 },
+    { label: 'Wk 10', appStore: 22, zendesk: 17 },
+    { label: 'Wk 11', appStore: 28, zendesk: 22 },
+    { label: 'Wk 12', appStore: 34, zendesk: 26 },
+  ],
+  '1y': [
+    { label: 'Sep',   appStore: 16, zendesk: 12 },
+    { label: 'Oct',   appStore: 20, zendesk: 16 },
+    { label: 'Nov',   appStore: 23, zendesk: 19 },
+    { label: 'Dec',   appStore: 27, zendesk: 21 },
+    { label: 'Jan',   appStore: 33, zendesk: 27 },
+    { label: 'Feb',   appStore: 35, zendesk: 27 },
+    { label: 'Mar',   appStore: 20, zendesk: 14 },
+  ],
+}
+
+export const HOSPITAL_TRENDS_METRICS = [
+  {
+    id: '1', name: 'Total Feedback Volume',
+    currentValue: 310, previousValue: 248, change: 25.0, trend: 'up' as const,
+    unit: '', positiveIsGood: false,
+    sparkline: [40, 45, 48, 52, 56, 60, 65, 68, 72, 78, 84, 88, 93, 97, 100],
+  },
+  {
+    id: '2', name: 'Avg Confidence Score',
+    currentValue: 81, previousValue: 78, change: 3.8, trend: 'up' as const,
+    unit: '%', positiveIsGood: true,
+    sparkline: [70, 71, 71, 72, 73, 73, 74, 75, 76, 77, 78, 79, 80, 80, 81],
+  },
+  {
+    id: '3', name: 'Evidence Clusters',
+    currentValue: 4, previousValue: 4, change: 0, trend: 'stable' as const,
+    unit: '', positiveIsGood: true,
+    sparkline: [50, 50, 75, 75, 75, 75, 100, 100, 100, 100, 100, 100, 100, 100, 100],
+  },
+  {
+    id: '4', name: 'Analyzed',
+    currentValue: 89, previousValue: 84, change: 6.0, trend: 'up' as const,
+    unit: '%', positiveIsGood: true,
+    sparkline: [70, 72, 73, 74, 76, 77, 78, 79, 81, 82, 84, 85, 87, 88, 89],
+  },
+  {
+    id: '5', name: 'Cache Hit Rate',
+    currentValue: 89, previousValue: 82, change: 8.5, trend: 'up' as const,
+    unit: '%', positiveIsGood: true,
+    sparkline: [65, 67, 68, 70, 72, 74, 76, 78, 80, 82, 84, 85, 87, 88, 89],
+  },
+  {
+    id: '6', name: 'Avg Cluster Confidence',
+    currentValue: 81, previousValue: 78, change: 3.8, trend: 'up' as const,
+    unit: '%', positiveIsGood: true,
+    sparkline: [70, 71, 72, 72, 73, 74, 75, 75, 76, 77, 78, 79, 80, 80, 81],
+  },
+]
+
+// ─── Hospital Themes (compatible with ThemeItem interface in Themes.tsx) ────────
+
+export const HOSPITAL_THEMES = [
+  {
+    id: 'h1', clusterId: 'hev-001',
+    name: 'Extended Emergency Wait Times',
+    description: 'Patients reporting 3–6 hour ER waits with no staff updates — triage system overwhelmed, portal wait-time display inaccurate',
+    feedbackCount: 98, uniqueUsers: 87, confidence: 91,
+    sentiment: 'negative' as const, trend: 'rising' as const,
+    keywords: ['ER wait', 'triage', 'emergency', 'overcrowding', 'no communication'],
+    color: 'bg-red-500', sources: ['Patient Portal', 'Hospital Survey'],
+    category: 'UX' as const,
+    representativeQuotes: [
+      'Waited 4 hours in the ER with chest pain. No updates or acknowledgment from any staff.',
+      'App showed 30-minute ER wait but we waited 4+ hours. The wait time display is completely false.',
+      'ER wait times have doubled this year. My family has experienced this 3 times.',
+    ],
+  },
+  {
+    id: 'h2', clusterId: 'hev-002',
+    name: 'Online Appointment Booking Failures',
+    description: 'Booking portal crashes on confirmation, double-books slots, and sends no confirmation emails — session timeouts lose all entered insurance data',
+    feedbackCount: 76, uniqueUsers: 71, confidence: 84,
+    sentiment: 'negative' as const, trend: 'stable' as const,
+    keywords: ['booking', 'portal crash', 'double-booked', 'confirmation', 'session timeout'],
+    color: 'bg-orange-500', sources: ['Patient Portal', 'Hospital Survey'],
+    category: 'Technical' as const,
+    representativeQuotes: [
+      'Booking portal crashes every time I try to confirm my appointment. Tried 3 different phones.',
+      'Got double-booked through the online system twice in one month.',
+      'No confirmation email after booking. I call the hospital to verify every appointment I make.',
+    ],
+  },
+  {
+    id: 'h3', clusterId: 'hev-003',
+    name: 'Billing Statement Errors and Confusion',
+    description: 'Insurance pre-approvals not applied, duplicate charges, and 45-minute hold times for billing support — dispute resolution takes months with no acknowledgement',
+    feedbackCount: 82, uniqueUsers: 58, confidence: 78,
+    sentiment: 'negative' as const, trend: 'stable' as const,
+    keywords: ['billing', 'insurance', 'overcharge', 'dispute', 'statement error'],
+    color: 'bg-blue-400', sources: ['Hospital Survey'],
+    category: 'Feature' as const,
+    representativeQuotes: [
+      'Insurance was pre-approved but not applied. Billed at full uninsured rate.',
+      'Two separate bills arrived for the same hospital stay with different amounts.',
+      'Bill dispute filed 30 days ago. No response, no acknowledgement, no contact.',
+    ],
+  },
+  {
+    id: 'h4', clusterId: 'hev-004',
+    name: 'Medical Records Portal Access Issues',
+    description: 'MyChart login failures, Android app crash on launch, test results missing after 48h SLA, outdated medication records creating potential safety risk',
+    feedbackCount: 54, uniqueUsers: 44, confidence: 72,
+    sentiment: 'negative' as const, trend: 'declining' as const,
+    keywords: ['MyChart', 'login failure', 'records access', 'Android crash', 'test results'],
+    color: 'bg-violet-500', sources: ['Patient Portal'],
+    category: 'Technical' as const,
+    representativeQuotes: [
+      'Cannot log into MyChart. Reset password three times. Still locked out.',
+      'Test results were supposed to appear within 48 hours. Still missing after 2 weeks.',
+      'Portal app crashes immediately on Android. Web version is very slow.',
+    ],
+  },
+]

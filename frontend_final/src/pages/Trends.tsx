@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { LineChart, TrendingUp, TrendingDown, Minus, Calendar, ArrowUpRight, ArrowDownRight, Filter } from 'lucide-react'
+import { LineChart, TrendingUp, TrendingDown, Minus, Calendar, ArrowUpRight, ArrowDownRight, Filter, AlertTriangle } from 'lucide-react'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { HOSPITAL_CHART_DATA, HOSPITAL_TRENDS_METRICS } from '@/api/mockData'
 
 // ─── Static sparklines per metric (normalised 0–100 for height, last = current) ───
 const trendsData = [
@@ -111,18 +114,60 @@ const INSIGHTS = [
   },
 ]
 
+const HOSPITAL_INSIGHTS = [
+  {
+    icon: TrendingUp, color: 'red',
+    title: 'Emergency wait time complaints rising — 98 items ingested',
+    desc: 'Highest-confidence cluster (91%) with cross-source corroboration from Patient Portal and Hospital Survey. Trend worsening month-over-month.',
+  },
+  {
+    icon: Minus, color: 'blue',
+    title: 'Booking portal failures stable at 76 items',
+    desc: '71 unique patients affected by double-booking and portal crash. Session timeout is the primary trigger — appointment sync fix needed.',
+  },
+  {
+    icon: TrendingDown, color: 'emerald',
+    title: 'Medical records access issues declining',
+    desc: '54 items, trend improving. Android crash and password lockout are discrete engineering fixes — partial remediation likely already in effect.',
+  },
+]
+
+const EMPTY_TRENDS_METRICS = trendsData.map((t) => ({
+  ...t,
+  currentValue: 0,
+  previousValue: 0,
+  change: 0,
+  trend: 'stable' as const,
+  sparkline: Array(15).fill(50) as number[],
+}))
+
 export default function Trends() {
+  const hasData = hasUploadedData()
+  const dataset = getActiveDataset()
   const [timeRange, setTimeRange] = useState('30d')
   const [hoveredBar, setHoveredBar] = useState<number | null>(null)
-  const chartData = CHART_DATA[timeRange]
-  const chartMax = Math.max(...chartData.map((d) => d.appStore + d.zendesk))
+
+  const activeMetrics  = !hasData ? EMPTY_TRENDS_METRICS : dataset === 'hospital_survey' ? HOSPITAL_TRENDS_METRICS : trendsData
+  const activeInsights = !hasData ? [] : dataset === 'hospital_survey' ? HOSPITAL_INSIGHTS : INSIGHTS
+  const activeChartMap = dataset === 'hospital_survey' ? HOSPITAL_CHART_DATA : CHART_DATA
+  const src1Label      = dataset === 'hospital_survey' ? 'Patient Portal'  : 'App Store'
+  const src2Label      = dataset === 'hospital_survey' ? 'Hospital Survey' : 'Zendesk'
+
+  const chartData = activeChartMap[timeRange]
+  const chartMax  = hasData ? Math.max(...chartData.map((d) => d.appStore + d.zendesk)) : 100
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Trends</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-foreground">Trends</h1>
+            {!hasData
+              ? <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 border">No Data — Upload to Begin</Badge>
+              : <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 border">Demo Data Active</Badge>
+            }
+          </div>
           <p className="text-muted-foreground mt-1">Track key metrics over time</p>
         </div>
         <div className="flex items-center gap-2">
@@ -142,9 +187,19 @@ export default function Trends() {
         </div>
       </div>
 
+      {/* No-data banner */}
+      {!hasData && (
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            Upload feedback data on the <span className="font-medium">Import Sources</span> page to unlock trends intelligence
+          </p>
+        </div>
+      )}
+
       {/* Metric cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {trendsData.map((trend) => (
+        {activeMetrics.map((trend) => (
           <Card key={trend.id} className="hover:border-violet-500/30 transition-colors">
             <CardContent className="pt-6">
               <div className="flex items-start justify-between mb-4">
@@ -202,98 +257,112 @@ export default function Trends() {
           <CardTitle className="text-lg flex items-center gap-2">
             <LineChart className="w-5 h-5 text-violet-600" />Feedback Volume Over Time
           </CardTitle>
-          <CardDescription>Daily feedback submissions — App Store vs Zendesk</CardDescription>
+          <CardDescription>
+            {dataset === 'hospital_survey'
+              ? 'Monthly patient feedback — Patient Portal vs Hospital Survey'
+              : 'Daily feedback submissions — App Store vs Zendesk'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {/* Legend */}
           <div className="flex items-center gap-6 mb-4">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-sm bg-violet-600" />
-              <span className="text-xs text-muted-foreground">App Store</span>
+              <span className="text-xs text-muted-foreground">{src1Label}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-sm bg-blue-400/70" />
-              <span className="text-xs text-muted-foreground">Zendesk</span>
+              <span className="text-xs text-muted-foreground">{src2Label}</span>
             </div>
             <span className="text-xs text-muted-foreground ml-auto">
-              Total: {chartData.reduce((s, d) => s + d.appStore + d.zendesk, 0)} items
+              {hasData
+                ? `Total: ${chartData.reduce((s, d) => s + d.appStore + d.zendesk, 0)} items`
+                : 'No data yet'}
             </span>
           </div>
 
           {/* Chart area */}
           <div className="relative h-52 bg-gradient-to-br from-blue-500/5 via-violet-500/5 to-orange-500/5 rounded-xl border border-border px-3 pt-2 pb-7 overflow-visible">
-            {/* Horizontal grid lines */}
-            {[25, 50, 75].map((pct) => (
-              <div
-                key={pct}
-                className="absolute left-3 right-3 border-t border-border/40 flex items-center"
-                style={{ bottom: `calc(${pct / 100} * (100% - 28px) + 28px)` }}
-              >
-                <span className="text-[8px] text-muted-foreground/50 -translate-y-2 pr-1 absolute -left-1 -translate-x-full">
-                  {Math.round((pct / 100) * chartMax)}
-                </span>
+            {!hasData ? (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <p className="text-sm text-muted-foreground/50">No feedback data — upload a CSV to populate this chart</p>
               </div>
-            ))}
-
-            {/* Bars */}
-            <div className="absolute inset-x-3 bottom-7 top-2 flex items-end gap-1.5">
-              {chartData.map((d, i) => {
-                const total = d.appStore + d.zendesk
-                const totalH = (total / chartMax) * 100
-                const appH   = (d.appStore / total) * totalH
-                const zenH   = (d.zendesk  / total) * totalH
-                const isHov  = hoveredBar === i
-                return (
+            ) : (
+              <>
+                {/* Horizontal grid lines */}
+                {[25, 50, 75].map((pct) => (
                   <div
-                    key={i}
-                    className="flex-1 flex flex-col justify-end cursor-pointer group"
-                    style={{ height: '100%' }}
-                    onMouseEnter={() => setHoveredBar(i)}
-                    onMouseLeave={() => setHoveredBar(null)}
+                    key={pct}
+                    className="absolute left-3 right-3 border-t border-border/40 flex items-center"
+                    style={{ bottom: `calc(${pct / 100} * (100% - 28px) + 28px)` }}
                   >
-                    {/* Tooltip */}
-                    {isHov && (
-                      <div className="absolute -translate-x-1/2 left-1/2 bottom-full mb-2 z-20 bg-popover border border-border rounded-lg px-3 py-2 shadow-xl whitespace-nowrap pointer-events-none" style={{ left: `calc(${(i + 0.5) / chartData.length * 100}%)` }}>
-                        <p className="text-xs font-semibold text-foreground mb-1">{d.label}</p>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <div className="w-2 h-2 rounded-sm bg-violet-600" />
-                          App Store: <span className="font-medium text-foreground">{d.appStore}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                          <div className="w-2 h-2 rounded-sm bg-blue-400/70" />
-                          Zendesk: <span className="font-medium text-foreground">{d.zendesk}</span>
-                        </div>
-                        <div className="border-t border-border mt-1 pt-1 text-xs font-semibold text-foreground">Total: {total}</div>
-                      </div>
-                    )}
-                    {/* Stacked bar */}
-                    <div className={`w-full flex flex-col justify-end rounded-t-sm overflow-hidden transition-opacity ${isHov ? 'opacity-100' : 'opacity-80'}`} style={{ height: `${totalH}%` }}>
-                      <motion.div
-                        className="w-full bg-blue-400/70"
-                        initial={{ height: 0 }}
-                        animate={{ height: `${zenH / totalH * 100}%` }}
-                        transition={{ duration: 0.5, delay: i * 0.04 }}
-                      />
-                      <motion.div
-                        className="w-full bg-violet-600"
-                        initial={{ height: 0 }}
-                        animate={{ height: `${appH / totalH * 100}%` }}
-                        transition={{ duration: 0.5, delay: i * 0.04 + 0.1 }}
-                      />
-                    </div>
+                    <span className="text-[8px] text-muted-foreground/50 -translate-y-2 pr-1 absolute -left-1 -translate-x-full">
+                      {Math.round((pct / 100) * chartMax)}
+                    </span>
                   </div>
-                )
-              })}
-            </div>
+                ))}
 
-            {/* X-axis labels */}
-            <div className="absolute bottom-0 left-3 right-3 flex">
-              {chartData.map((d, i) => (
-                <div key={i} className="flex-1 text-center">
-                  <span className="text-[9px] text-muted-foreground/70">{d.label}</span>
+                {/* Bars */}
+                <div className="absolute inset-x-3 bottom-7 top-2 flex items-end gap-1.5">
+                  {chartData.map((d, i) => {
+                    const total = d.appStore + d.zendesk
+                    const totalH = (total / chartMax) * 100
+                    const appH   = (d.appStore / total) * totalH
+                    const zenH   = (d.zendesk  / total) * totalH
+                    const isHov  = hoveredBar === i
+                    return (
+                      <div
+                        key={i}
+                        className="flex-1 flex flex-col justify-end cursor-pointer group"
+                        style={{ height: '100%' }}
+                        onMouseEnter={() => setHoveredBar(i)}
+                        onMouseLeave={() => setHoveredBar(null)}
+                      >
+                        {/* Tooltip */}
+                        {isHov && (
+                          <div className="absolute -translate-x-1/2 left-1/2 bottom-full mb-2 z-20 bg-popover border border-border rounded-lg px-3 py-2 shadow-xl whitespace-nowrap pointer-events-none" style={{ left: `calc(${(i + 0.5) / chartData.length * 100}%)` }}>
+                            <p className="text-xs font-semibold text-foreground mb-1">{d.label}</p>
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <div className="w-2 h-2 rounded-sm bg-violet-600" />
+                              {src1Label}: <span className="font-medium text-foreground">{d.appStore}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                              <div className="w-2 h-2 rounded-sm bg-blue-400/70" />
+                              {src2Label}: <span className="font-medium text-foreground">{d.zendesk}</span>
+                            </div>
+                            <div className="border-t border-border mt-1 pt-1 text-xs font-semibold text-foreground">Total: {total}</div>
+                          </div>
+                        )}
+                        {/* Stacked bar */}
+                        <div className={`w-full flex flex-col justify-end rounded-t-sm overflow-hidden transition-opacity ${isHov ? 'opacity-100' : 'opacity-80'}`} style={{ height: `${totalH}%` }}>
+                          <motion.div
+                            className="w-full bg-blue-400/70"
+                            initial={{ height: 0 }}
+                            animate={{ height: `${zenH / totalH * 100}%` }}
+                            transition={{ duration: 0.5, delay: i * 0.04 }}
+                          />
+                          <motion.div
+                            className="w-full bg-violet-600"
+                            initial={{ height: 0 }}
+                            animate={{ height: `${appH / totalH * 100}%` }}
+                            transition={{ duration: 0.5, delay: i * 0.04 + 0.1 }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
+
+                {/* X-axis labels */}
+                <div className="absolute bottom-0 left-3 right-3 flex">
+                  {chartData.map((d, i) => (
+                    <div key={i} className="flex-1 text-center">
+                      <span className="text-[9px] text-muted-foreground/70">{d.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -302,19 +371,23 @@ export default function Trends() {
       <Card className="bg-gradient-to-br from-blue-500/5 via-violet-500/5 to-orange-500/5">
         <CardHeader><CardTitle className="text-lg">Key Insights</CardTitle></CardHeader>
         <CardContent>
-          <ul className="space-y-3">
-            {INSIGHTS.map((insight, i) => (
-              <li key={i} className="flex items-start gap-3">
-                <div className={`p-1 rounded-full bg-${insight.color}-500/10 mt-0.5`}>
-                  <insight.icon className={`w-3 h-3 text-${insight.color}-600`} />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{insight.title}</p>
-                  <p className="text-xs text-muted-foreground">{insight.desc}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {activeInsights.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Upload feedback data to generate insights.</p>
+          ) : (
+            <ul className="space-y-3">
+              {activeInsights.map((insight, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <div className={`p-1 rounded-full bg-${insight.color}-500/10 mt-0.5`}>
+                    <insight.icon className={`w-3 h-3 text-${insight.color}-600`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{insight.title}</p>
+                    <p className="text-xs text-muted-foreground">{insight.desc}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

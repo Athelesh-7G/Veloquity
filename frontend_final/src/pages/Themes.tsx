@@ -8,8 +8,10 @@ import { Progress } from '@/components/ui/progress'
 import {
   Layers, Search, Plus, MessageSquare, TrendingUp, TrendingDown,
   Users, Merge, Edit2, Trash2, X, ExternalLink, Hash, Shield,
-  AlertCircle, ChevronDown, ChevronUp, ArrowUpDown, Minus
+  AlertCircle, ChevronDown, ChevronUp, ArrowUpDown, Minus, AlertTriangle
 } from 'lucide-react'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { HOSPITAL_THEMES } from '@/api/mockData'
 
 interface ThemeItem {
   id: string
@@ -343,10 +345,19 @@ type SortKey = 'feedbackCount' | 'uniqueUsers' | 'confidence' | 'name'
 type SortDir = 'asc' | 'desc'
 
 export default function Themes() {
+  const hasData = hasUploadedData()
+  const dataset = getActiveDataset()
+
+  const initialThemes: ThemeItem[] = !hasData
+    ? []
+    : dataset === 'hospital_survey'
+      ? (HOSPITAL_THEMES as ThemeItem[])
+      : themes
+
   const [searchQuery, setSearchQuery]   = useState('')
   const [selectedThemes, setSelectedThemes] = useState<string[]>([])
   const [activeTheme, setActiveTheme]   = useState<ThemeItem | null>(null)
-  const [themeList, setThemeList]       = useState(themes)
+  const [themeList, setThemeList]       = useState<ThemeItem[]>(initialThemes)
   const [expandedId, setExpandedId]     = useState<string | null>(null)
   const [sortKey, setSortKey]           = useState<SortKey>('feedbackCount')
   const [sortDir, setSortDir]           = useState<SortDir>('desc')
@@ -367,9 +378,10 @@ export default function Themes() {
       return mul * (a[sortKey] - b[sortKey])
     })
 
-  const totalFeedback = 547
-  const avgConf       = 84
-  const risingCount   = themeList.filter((t) => t.trend === 'rising').length
+  const totalFeedback  = themeList.reduce((s, t) => s + t.feedbackCount, 0)
+  const avgConf        = themeList.length ? Math.round(themeList.reduce((s, t) => s + t.confidence, 0) / themeList.length) : 0
+  const risingCount    = themeList.filter((t) => t.trend === 'rising').length
+  const maxFeedback    = themeList.length ? Math.max(...themeList.map((t) => t.feedbackCount)) : 1
 
   const SortBtn = ({ col, label }: { col: SortKey; label: string }) => (
     <button
@@ -386,7 +398,13 @@ export default function Themes() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Themes</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-foreground">Themes</h1>
+            {!hasData
+              ? <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 border">No Data — Upload to Begin</Badge>
+              : <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 border">Demo Data Active</Badge>
+            }
+          </div>
           <p className="text-muted-foreground mt-1">Clustered feedback signals · pgvector cosine · Titan Embed V2</p>
         </div>
         <div className="flex items-center gap-2">
@@ -398,6 +416,16 @@ export default function Themes() {
           </Button>
         </div>
       </div>
+
+      {/* No-data banner */}
+      {!hasData && (
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            Upload feedback data on the <span className="font-medium">Import Sources</span> page to unlock evidence themes
+          </p>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">
@@ -517,7 +545,7 @@ export default function Themes() {
                         <div className="mt-1 w-16 h-0.5 bg-muted rounded-full overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
-                            animate={{ width: `${(theme.feedbackCount / 138) * 100}%` }}
+                            animate={{ width: `${(theme.feedbackCount / maxFeedback) * 100}%` }}
                             transition={{ duration: 0.6, delay: idx * 0.04 }}
                             className="h-full bg-violet-500/60 rounded-full"
                           />

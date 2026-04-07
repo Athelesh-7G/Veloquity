@@ -22,13 +22,13 @@ interface Phase {
 }
 
 const PHASES: Phase[] = [
-  { label: ()       => 'Reading file…',                  startAt: 0,     targetProgress: 5   },
-  { label: (n)      => `Processing ${n} feedback items…`, startAt: 2000,  targetProgress: 40  },
-  { label: ()       => 'Running ingestion pipeline…',    startAt: 5000,  targetProgress: 75  },
-  { label: ()       => 'Clustering evidence…',           startAt: 9000,  targetProgress: 95  },
-  { label: ()       => 'Generating insights…',           startAt: 12000, targetProgress: 100 },
+  { label: () => 'Reading source file…',                 startAt: 0,     targetProgress: 10  },
+  { label: () => 'Running ingestion pipeline…',          startAt: 2000,  targetProgress: 35  },
+  { label: () => 'Computing embeddings and clustering…', startAt: 6000,  targetProgress: 70  },
+  { label: () => 'Generating evidence insights…',        startAt: 10000, targetProgress: 90  },
+  { label: () => 'Finalizing intelligence report…',      startAt: 13000, targetProgress: 100 },
 ]
-const CONNECT_TOTAL_MS = 14000
+const CONNECT_TOTAL_MS = 16000
 
 type SourceId = 'appstore' | 'zendesk' | 'patient_portal' | 'hospital_survey_ticket'
 
