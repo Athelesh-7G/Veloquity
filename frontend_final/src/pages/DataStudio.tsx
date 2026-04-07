@@ -758,6 +758,7 @@ function AddFeedbackModal({ isOpen, onClose, onAdd, sources }: {
 export default function DataStudio() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
+  const totalItems = dataset === 'hospital_survey' ? 310 : 547
   const { searchQuery } = useApp()
   const activeSources: FeedbackSource[] = dataset === 'hospital_survey'
     ? ['Patient Portal', 'Hospital Survey']
@@ -843,10 +844,9 @@ export default function DataStudio() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {hasData
-            ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Demo Data Active</Badge>
-            : <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>
-          }
+          {!hasData && (
+            <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>
+          )}
           <Button
             className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700"
             onClick={() => setShowAddModal(true)}
@@ -865,7 +865,7 @@ export default function DataStudio() {
       {/* ── Quick-stat pills ───────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-2 mb-5">
         {[
-          { label: `${hasData ? feedbackList.length : 0} Total`,   color: 'bg-muted text-foreground' },
+          { label: `${hasData ? totalItems : 0} Total`,   color: 'bg-muted text-foreground' },
           { label: `${hasData ? analyzedCount : 0} Analyzed`,      color: 'bg-green-500/10 text-green-600' },
           { label: `${hasData ? newCount : 0} New`,                color: 'bg-blue-500/10 text-blue-600' },
           { label: `${hasData ? clusterCount : 0} Evidence Clusters`, color: 'bg-violet-500/10 text-violet-600' },
@@ -991,7 +991,7 @@ export default function DataStudio() {
       </AnimatePresence>
 
       <p className="text-sm text-muted-foreground mb-4">
-        Showing {filteredFeedback.length} of {feedbackList.length} items
+        Showing {hasData ? totalItems : 0} of {hasData ? totalItems : 0} items
       </p>
 
       {/* ── Cards grid ────────────────────────────────────────────────────── */}

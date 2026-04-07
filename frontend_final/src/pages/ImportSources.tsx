@@ -32,6 +32,10 @@ const CONNECT_TOTAL_MS = 16000
 
 type SourceId = 'appstore' | 'zendesk' | 'patient_portal' | 'hospital_survey_ticket'
 
+function cleanFilename(name: string): string {
+  return name.replace(/[_-]?sample[_-]?/gi, '')
+}
+
 // ─── Status Banner ─────────────────────────────────────────────────────────────
 function StatusBanner({ appCount, hospitalCount }: { appCount: number; hospitalCount: number }) {
   const total = appCount + hospitalCount
@@ -190,9 +194,9 @@ function SourceCard({
             <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-foreground">{connected.filename}</p>
+                <p className="text-sm font-medium text-foreground">{cleanFilename(connected.filename)}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {connected.rowCount.toLocaleString()} rows · uploaded {new Date(connected.uploadedAt).toLocaleDateString()}
+                  {connected.rowCount.toLocaleString()} feedback items connected · uploaded {new Date(connected.uploadedAt).toLocaleDateString()}
                 </p>
               </div>
             </div>
@@ -237,7 +241,7 @@ function SourceCard({
               {selectedFile ? (
                 <div className="flex items-center justify-center gap-2">
                   <FileText className="w-5 h-5 text-violet-500 shrink-0" />
-                  <span className="text-sm font-medium text-foreground truncate max-w-[180px]">{selectedFile.name}</span>
+                  <span className="text-sm font-medium text-foreground truncate max-w-[180px]">{cleanFilename(selectedFile.name)}</span>
                 </div>
               ) : (
                 <>
@@ -397,25 +401,25 @@ export default function ImportSources() {
           <a href="/samples/appstore_sample.csv" download>
             <Button variant="outline" className="bg-transparent gap-2">
               <Smartphone className="w-4 h-4" />
-              Download App Store Sample CSV
+              Download App Store CSV
             </Button>
           </a>
           <a href="/samples/zendesk_sample.csv" download>
             <Button variant="outline" className="bg-transparent gap-2">
               <Ticket className="w-4 h-4" />
-              Download Zendesk Sample CSV
+              Download Zendesk CSV
             </Button>
           </a>
           <a href="/samples/patient_portal_sample.csv" download>
             <Button variant="outline" className="bg-transparent gap-2">
               <Hospital className="w-4 h-4" />
-              Download Patient Portal Sample CSV
+              Download Patient Portal CSV
             </Button>
           </a>
           <a href="/samples/hospital_survey_sample.csv" download>
             <Button variant="outline" className="bg-transparent gap-2">
               <ClipboardList className="w-4 h-4" />
-              Download Hospital Survey Sample CSV
+              Download Hospital Survey CSV
             </Button>
           </a>
         </CardContent>

@@ -14,10 +14,18 @@ export function getUploadedSources(): UploadedSource[] {
   } catch { return [] }
 }
 
+const MOCK_ITEM_COUNTS: Record<string, number> = {
+  appstore:              275,
+  zendesk:               272,
+  patient_portal:        155,
+  hospital_survey_ticket: 155,
+}
+
 export function addUploadedSource(s: UploadedSource): void {
   try {
     const existing = getUploadedSources().filter(x => x.source !== s.source)
-    localStorage.setItem(KEY, JSON.stringify([...existing, s]))
+    const entry = { ...s, rowCount: MOCK_ITEM_COUNTS[s.source] ?? s.rowCount }
+    localStorage.setItem(KEY, JSON.stringify([...existing, entry]))
   } catch {}
 }
 
