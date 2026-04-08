@@ -90,6 +90,31 @@ const HOSPITAL_KEYWORD_MAP: [string, string][] = [
   ['password',     'Medical Records Portal Access Issues'],
 ]
 
+// ─── Official cluster item counts from mockData cluster definitions ──────────
+const CLUSTER_ITEM_COUNTS: Record<string, number> = {
+  'App crashes on project switch':        94,
+  'Black screen after latest update':     78,
+  'Dashboard load regression':            71,
+  'No onboarding checklist':              63,
+  'Export to CSV silently fails':         54,
+  'Notification delay on mobile':         48,
+  'Extended Emergency Wait Times':        98,
+  'Online Appointment Booking Failures':  76,
+  'Billing Statement Errors and Confusion': 82,
+  'Medical Records Portal Access Issues': 54,
+}
+
+// ─── Guided recommendation flow ───────────────────────────────────────────────
+const TRIGGER_WORDS = [
+  'overcome', 'fix', 'solve', 'address', 'tackle', 'resolve',
+  'deal with', 'handle', 'improve', 'what should i do',
+]
+
+function hasGuidedTrigger(text: string): boolean {
+  const lower = text.toLowerCase()
+  return TRIGGER_WORDS.some((w) => lower.includes(w))
+}
+
 function detectClusters(
   query: string,
   responseText: string,
@@ -117,7 +142,7 @@ function InlineEvidence({
 }: {
   clusterNames: string[]
   dataset: 'app_product' | 'hospital_survey' | null
-  onViewAll: (cluster: string, items: EvidenceItem[]) => void
+  onViewAll: (cluster: string, items: EvidenceItem[], count: number) => void
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const allItems = dataset === 'hospital_survey' ? HOSPITAL_ITEMS : APP_PRODUCT_ITEMS
@@ -130,6 +155,7 @@ function InlineEvidence({
     <div className="mt-2 space-y-2">
       {clusterNames.map((clusterName) => {
         const items = allItems.filter((i) => i.cluster === clusterName)
+        const displayCount = CLUSTER_ITEM_COUNTS[clusterName] ?? items.length
         const repItems = items.slice(0, 10)
         const isExpanded = expanded[clusterName] ?? false
         const shown = isExpanded ? repItems : repItems.slice(0, 3)
@@ -204,10 +230,10 @@ function InlineEvidence({
             {/* View all button */}
             <button
               type="button"
-              onClick={() => onViewAll(clusterName, items)}
+              onClick={() => onViewAll(clusterName, items, displayCount)}
               className="w-full text-xs font-medium px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/8 text-violet-500 hover:bg-violet-500/15 transition-colors flex items-center justify-center gap-1.5"
             >
-              VIEW ALL {items.length} ITEMS →
+              VIEW ALL {displayCount} ITEMS →
             </button>
           </div>
         )
@@ -347,6 +373,10 @@ export default function Chat() {
   // Evidence drawer state
   const [drawerCluster, setDrawerCluster]   = useState<string | null>(null)
   const [drawerItems, setDrawerItems]       = useState<EvidenceItem[]>([])
+  const [drawerCount, setDrawerCount]       = useState<number>(0)
+
+  // Guided recommendation flow state
+  const [awaitingContext, setAwaitingContext] = useState<{ cluster: string } | null>(null)
 
   // Cold start state
   const [healthReady, setHealthReady]       = useState(false)
@@ -416,6 +446,91 @@ export default function Chat() {
       setSending(false)
       setTimeout(() => inputRef.current?.focus(), 100)
       return
+    }
+
+    // ── Guided recommendation flow ──────────────────────────────────────────
+    // If awaitingContext: this message is the user's 3-question reply
+    if (awaitingContext) {
+      const isNewQuestion = hasGuidedTrigger(text) && detectClusters(text, '', dataset).length > 0
+      if (!isNewQuestion) {
+        // Build enriched prompt with user context answers
+        const cluster = awaitingContext.cluster
+        const clusterInfo = (dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS)
+          .find((c) => c.name === cluster)
+        const itemCount = CLUSTER_ITEM_COUNTS[cluster] ?? '?'
+        const enrichedPrompt = `The user wants to overcome ${cluster}.
+Cluster details: confidence ${clusterInfo?.conf ?? '?'}%, ${itemCount} feedback items.
+User context:
+${text}
+
+Provide a specific, actionable recommendation plan with clear steps. Reference the cluster evidence. Plain text only, no markdown.`
+        setAwaitingContext(null)
+
+        setProgressLabel('')
+        const t1 = setTimeout(() => setProgressLabel('Querying evidence clusters…'), 3000)
+        const t2 = setTimeout(() => setProgressLabel('Nova Pro is analyzing your question…'), 8000)
+
+        try {
+          const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }))
+          const res = await sendChatMessage(enrichedPrompt, history, systemContext)
+          const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          setMessages((ms) => [
+            ...ms.slice(0, -1),
+            {
+              role: 'assistant',
+              content: res.response,
+              context_used: res.context_used,
+              timestamp: replyTime,
+              evidenceClusters: detectClusters(cluster, res.response, dataset),
+            },
+          ])
+        } catch {
+          const fallback = getSmartFallback(cluster, pipelineMetrics.items, pipelineMetrics.clusters)
+          const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          setMessages((ms) => [
+            ...ms.slice(0, -1),
+            {
+              role: 'assistant',
+              content: fallback,
+              context_used: [`${pipelineMetrics.clusters} evidence clusters`, `${contextInfo.recommendations} recommendations`, 'governance log'],
+              timestamp: replyTime,
+              evidenceClusters: detectClusters(cluster, fallback, dataset),
+            },
+          ])
+        } finally {
+          clearTimeout(t1); clearTimeout(t2)
+          setProgressLabel('')
+          setSending(false)
+          setTimeout(() => inputRef.current?.focus(), 100)
+        }
+        return
+      }
+      // New question while awaiting — clear context and fall through to normal flow
+      setAwaitingContext(null)
+    }
+
+    // Check for guided flow trigger (overcome/fix/solve intent + known cluster)
+    if (hasGuidedTrigger(text)) {
+      const clusters = detectClusters(text, '', dataset)
+      if (clusters.length > 0) {
+        const clusterName = clusters[0]
+        const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        const guidedResponse =
+          `To give you the most actionable recommendation for ${clusterName}, I need to understand your context better.\n` +
+          `Please answer these three questions:\n\n` +
+          `1. What is your primary goal? (e.g. reduce churn, improve retention, hit Q2 milestone, reduce support tickets)\n` +
+          `2. What is your engineering capacity? (e.g. 1 engineer for 2 weeks, full team for a sprint, limited bandwidth)\n` +
+          `3. Are there any constraints? (e.g. no backend changes, must ship by date X, budget under $Y, legal restrictions)`
+        setMessages((m) => [
+          ...m.slice(0, -1),
+          { role: 'assistant', content: guidedResponse, timestamp: replyTime },
+          // No evidenceClusters — don't show drill-down for the questions message
+        ])
+        setAwaitingContext({ cluster: clusterName })
+        setSending(false)
+        setTimeout(() => inputRef.current?.focus(), 100)
+        return
+      }
     }
 
     // Progressive status labels
@@ -673,9 +788,10 @@ export default function Chat() {
                     <InlineEvidence
                       clusterNames={m.evidenceClusters}
                       dataset={dataset}
-                      onViewAll={(cluster, items) => {
+                      onViewAll={(cluster, items, count) => {
                         setDrawerCluster(cluster)
                         setDrawerItems(items)
+                        setDrawerCount(count)
                       }}
                     />
                   )}
@@ -766,6 +882,7 @@ export default function Chat() {
       onClose={() => { setDrawerCluster(null); setDrawerItems([]) }}
       clusterName={drawerCluster ?? ''}
       allItems={drawerItems}
+      totalCount={drawerCount}
     />
     </>
   )

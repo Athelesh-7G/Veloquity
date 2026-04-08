@@ -66,9 +66,10 @@ interface EvidenceDrawerProps {
   onClose: () => void
   clusterName: string
   allItems: EvidenceItem[]
+  totalCount?: number
 }
 
-export function EvidenceDrawer({ isOpen, onClose, clusterName, allItems }: EvidenceDrawerProps) {
+export function EvidenceDrawer({ isOpen, onClose, clusterName, allItems, totalCount }: EvidenceDrawerProps) {
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
@@ -108,7 +109,7 @@ export function EvidenceDrawer({ isOpen, onClose, clusterName, allItems }: Evide
                   {clusterName}
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {allItems.length} item{allItems.length !== 1 ? 's' : ''}
+                  {(totalCount ?? allItems.length)} item{(totalCount ?? allItems.length) !== 1 ? 's' : ''}
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
