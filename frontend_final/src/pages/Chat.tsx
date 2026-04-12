@@ -400,7 +400,7 @@ ACTIVE EVIDENCE CLUSTERS (6 clusters, 547 total feedback items):
 SOURCES: App Store Reviews (275 items) · Zendesk Tickets (272 items)
 CONFIDENCE METHOD: Cosine similarity variance + cross-source corroboration + recency weighting
 
-Answer questions based ONLY on this evidence. When asked about issues, reference specific cluster names and confidence scores. Never mention mock data, demo data, or sample data. Respond in plain conversational text. No markdown formatting.`
+Answer questions based ONLY on this evidence. When asked about issues, reference specific cluster names and confidence scores. Never mention mock data, demo data, or sample data. Respond in plain conversational text only. Do not use any markdown formatting whatsoever. This means: no # headers, no ## headers, no ### headers, no * bullets, no ** bold **, no _ italic _, no - list markers at the start of lines, no numbered headers with # prefix. You may use plain numbered lists like 1. 2. 3. and plain dashes like - only as part of natural prose. Never start any line with a # character.`
 
 const HOSPITAL_CONTEXT = `You are Veloquity AI, an evidence intelligence assistant analyzing patient hospital feedback data.
 
@@ -417,7 +417,7 @@ ACTIVE EVIDENCE CLUSTERS (4 clusters, 310 total feedback items):
 SOURCES: Patient Portal Reviews (155 items) · Hospital Survey Tickets (155 items)
 CONFIDENCE METHOD: Cosine similarity variance + cross-source corroboration + recency weighting
 
-Answer questions based ONLY on this evidence. When asked about patient issues, reference specific cluster names and confidence scores. Never mention mock data, demo data, or sample data. Respond in plain conversational text. No markdown formatting.`
+Answer questions based ONLY on this evidence. When asked about patient issues, reference specific cluster names and confidence scores. Never mention mock data, demo data, or sample data. Respond in plain conversational text only. Do not use any markdown formatting whatsoever. This means: no # headers, no ## headers, no ### headers, no * bullets, no ** bold **, no _ italic _, no - list markers at the start of lines, no numbered headers with # prefix. You may use plain numbered lists like 1. 2. 3. and plain dashes like - only as part of natural prose. Never start any line with a # character.`
 
 export default function Chat() {
   const hasData = hasUploadedData()
@@ -527,7 +527,7 @@ Cluster details: confidence ${clusterInfo?.conf ?? '?'}%, ${itemCount} feedback 
 User context:
 ${text}
 
-Provide a specific, actionable recommendation plan with clear steps. Reference the cluster evidence. Plain text only, no markdown.`
+Provide a specific, actionable recommendation plan with clear steps. Reference the cluster evidence. Respond in plain conversational text only. Do not use any markdown formatting whatsoever. This means: no # headers, no ## headers, no ### headers, no * bullets, no ** bold **, no _ italic _, no - list markers at the start of lines, no numbered headers with # prefix. You may use plain numbered lists like 1. 2. 3. and plain dashes like - only as part of natural prose. Never start any line with a # character.`
         setAwaitingContext(null)
 
         setProgressLabel('')
