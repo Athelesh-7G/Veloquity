@@ -141,15 +141,21 @@ function hasGuidedTrigger(text: string): boolean {
 
 function detectClusters(
   query: string,
-  _responseText: string,
+  responseText: string,
   dataset: 'app_product' | 'hospital_survey' | null,
 ): string[] {
-  // Scan query only — response text is too broad and causes false cluster matches
   const keyMap = dataset === 'hospital_survey' ? HOSPITAL_KEYWORD_MAP : APP_KEYWORD_MAP
   const found = new Set<string>()
+  // Scan query only first — response text is too broad and causes false matches
   const q = query.toLowerCase()
   for (const [kw, cluster] of keyMap) {
     if (q.includes(kw)) found.add(cluster)
+  }
+  if (found.size > 0) return [...found]
+  // Only fall back to response text if the query produced no matches
+  const r = responseText.toLowerCase()
+  for (const [kw, cluster] of keyMap) {
+    if (r.includes(kw)) found.add(cluster)
   }
   return [...found]
 }
@@ -589,7 +595,11 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
       const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }))
       const res = await sendChatMessage(text, history, systemContext)
       const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      const apiClusters = detectClusters(text, res.response, dataset)
+      let apiClusters = detectClusters(text, res.response, dataset)
+      // If no keyword match but Bedrock confirms it used evidence context, show top 1 cluster
+      if (apiClusters.length === 0 && res.context_used && res.context_used.length > 0) {
+        apiClusters = activeClusters.slice(0, 1).map((c) => c.name)
+      }
       setMessages((m) => [
         ...m.slice(0, -1),
         {
