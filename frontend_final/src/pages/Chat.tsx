@@ -30,7 +30,27 @@ const FALLBACK_RESPONSES: Record<string, string> = {
 
   'governance agent flag': `From the governance log (last run: 2026-03-10 06:00 UTC):\n\n**Actions taken:** 0 governance events fired this run.\n\n• Stale detection — 0 clusters flagged (all active, validated today)\n• Signal promotion — 0 staging rows promoted (none reached frequency ≥ 10)\n• Cost monitor — No alert triggered (55 cache rows well above the 40% threshold)\n\nThe governance agent is decision-tree based — not an LLM. The same DB state always produces the same actions, making behavior fully auditable. EventBridge fires the cron daily at 06:00 UTC.\n\nAll 6 active evidence clusters remain in status: **active**.`,
 
-  'confident': `Cluster: **App crashes on project switch**\n\n• **Confidence score:** 91% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 84% – 96%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 138 items · 94 unique users\n• **Sources:** App Store (cross-corroborated by Zendesk)\n\nThe high confidence reflects a tight cosine cluster — member vectors are very close to the centroid, indicating the feedback is semantically coherent. The cross-source corroboration from both App Store and Zendesk adds an additional +0.1 to the priority score.\n\nIn short: this is one of the strongest signals in the current corpus. High confidence, high priority, rising trend.`,
+  'confident': `Confidence is computed as clamp(1.0 - variance × 2.0, 0.0, 1.0) where variance is the mean cosine distance of each cluster member from the centroid. Tight clusters score near 1.0; loosely related items clamp toward 0.0. Clusters scoring ≥ 0.60 are auto-accepted, 0.40–0.59 go to LLM validation, and below 0.40 are staged for promotion. Ask about a specific cluster to see its exact confidence score and uncertainty band.`,
+
+  'crash or project switch': `Cluster: **App crashes on project switch**\n\n• **Confidence score:** 91% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 84% – 96%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 94 items · 94 unique users\n• **Sources:** App Store (cross-corroborated by Zendesk)\n\nThe high confidence reflects a tight cosine cluster — member vectors are very close to the centroid. Null pointer in the project context handler introduced in v2.4. Cross-source corroboration from both App Store and Zendesk adds +0.1 to the priority score.\n\nThis is the highest-priority signal in the corpus. Immediate hotfix recommended.`,
+
+  'black screen or update': `Cluster: **Black screen after latest update**\n\n• **Confidence score:** 87% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 80% – 93%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 78 items · 78 unique users\n• **Sources:** App Store (cross-corroborated by Zendesk)\n\nCold-start async init deadlock introduced in v2.4. Affects both iOS and macOS on first launch after device restart. Warm restart resolves it, which confirms an async init race condition rather than a data corruption issue.\n\nHigh urgency — impacts first-run experience for all new and returning users.`,
+
+  'dashboard or load time': `Cluster: **Dashboard load regression**\n\n• **Confidence score:** 86% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 79% – 93%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 71 items · 71 unique users\n• **Sources:** App Store + Zendesk\n\nLoad time regressed from 2s to 12s, scaling with project count. Root cause traced to a frontend render cycle change in v2.4 that forces full re-render on every project list update. Enterprise accounts with 50+ projects are fully blocked.\n\nP1 priority — fix after the crash cluster hotfix is shipped.`,
+
+  'onboarding or checklist': `Cluster: **No onboarding checklist**\n\n• **Confidence score:** 81% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 74% – 88%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 63 items · 63 unique users\n• **Sources:** App Store (rising trend)\n\nNew users report confusion during initial setup with no guided walkthrough or progress checklist. Trial conversion rate is dropping — users abandon before reaching the first meaningful action. The signal is rising, meaning more new users are hitting this gap as growth picks up.\n\nP1 priority — high trial-to-paid conversion impact.`,
+
+  'export or csv': `Cluster: **Export to CSV silently fails**\n\n• **Confidence score:** 77% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 70% – 84%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 54 items · 54 unique users\n• **Sources:** Zendesk (enterprise accounts primarily)\n\nCSV export fails with no error message or UI feedback. Success toast fires but the downloaded file is 0 bytes. Affects datasets over 5,000 rows and date ranges over 30 days. Workaround: users split exports manually. This is a blocking enterprise issue — several accounts have flagged it in renewal conversations.\n\nP2 priority — declining new reports but high enterprise retention risk.`,
+
+  'notification or mobile': `Cluster: **Notification delay on mobile**\n\n• **Confidence score:** 72% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 65% – 79%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 48 items · 48 unique users\n• **Sources:** App Store (mobile users)\n\nPush notifications arrive 3–5 hours late on iOS and Android. Affects time-sensitive alerts (deadline reminders, comment mentions). The delay correlates with device background app refresh settings, suggesting the notification delivery path is not using a persistent connection. Signal is stable — not rising, not falling.\n\nP2 priority — lower urgency than crash and dashboard clusters.`,
+
+  'wait time or emergency': `Cluster: **Extended Emergency Wait Times**\n\n• **Confidence score:** 91% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 84% – 96%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 98 items · 87 unique users\n• **Sources:** Patient Portal + Hospital Survey\n\nPatients report 4–6 hour ER waits with no staff updates during the wait. Triage delays are the dominant signal — chest pain, fractures, and pediatric fevers all appear in the corpus. The displayed wait time in the app is consistently inaccurate (shows 30 min, actual is 4+ hours).\n\nThis is the highest-priority patient experience signal in the corpus.`,
+
+  'appointment or booking': `Cluster: **Online Appointment Booking Failures**\n\n• **Confidence score:** 84% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 77% – 91%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 76 items · 71 unique users\n• **Sources:** Patient Portal + Hospital Survey\n\nBooking portal crashes on the appointment confirmation screen. Double-bookings are occurring because the availability sync is failing. No confirmation email is sent after booking, forcing patients to call the front desk to verify. Session timeout logs users out mid-booking and loses all entered insurance information.\n\nP1 priority — directly blocking patient access to care.`,
+
+  'bill or invoice': `Cluster: **Billing Statement Errors and Confusion**\n\n• **Confidence score:** 78% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 71% – 85%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 82 items · 58 unique users\n• **Sources:** Hospital Survey\n\nPatients are receiving bills for services never rendered, being billed at inpatient rates for outpatient procedures, and finding duplicate charges for the same lab test. Insurance pre-authorisation is frequently not applied. Billing dispute resolution is slow — patients report 30+ day waits with no acknowledgement.\n\nP1 priority — financial harm to patients, regulatory risk to the hospital.`,
+
+  'portal or record': `Cluster: **Medical Records Portal Access Issues**\n\n• **Confidence score:** 72% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 65% – 79%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 54 items · 44 unique users\n• **Sources:** Patient Portal\n\nMyChart login failures are the dominant signal — password reset loops leave patients locked out. Test results are delayed or missing in the portal. The Android app crashes immediately on launch. Medication lists show discontinued drugs as active. The portal app on iOS requires full re-authentication after every update.\n\nP2 priority — signal is decreasing, suggesting an ongoing fix is partially working.`,
 }
 
 const APP_CLUSTERS = [
@@ -126,8 +146,8 @@ function detectClusters(
   for (const [kw, cluster] of keyMap) {
     if (combined.includes(kw)) found.add(cluster)
   }
-  // Return only genuinely matched clusters — no top-N fallback
-  return [...found].slice(0, 2)
+  // Return all genuinely matched clusters — no artificial cap
+  return [...found]
 }
 
 // ─── Inline evidence section ──────────────────────────────────────────────────
@@ -238,13 +258,33 @@ function InlineEvidence({
   )
 }
 
-function getSmartFallback(query: string, items = 547, clusters = 6): string {
+function getSmartFallback(
+  query: string,
+  items = 547,
+  clusters = 6,
+  dataset: 'app_product' | 'hospital_survey' | null = 'app_product',
+): string {
   const q = query.toLowerCase()
   if (q.includes('top 3') || q.includes('evidence cluster')) return FALLBACK_RESPONSES['top 3 evidence clusters']
   if (q.includes('prioritize') || q.includes('sprint')) return FALLBACK_RESPONSES['prioritize this sprint']
   if (q.includes('stale')) return FALLBACK_RESPONSES['stale signals']
   if (q.includes('governance') || q.includes('flag')) return FALLBACK_RESPONSES['governance agent flag']
-  if (q.includes('confident') || q.includes('crash') || q.includes('mobile')) return FALLBACK_RESPONSES['confident']
+
+  if (dataset === 'hospital_survey') {
+    if (q.includes('wait') || q.includes('emergency') || q.includes('er ') || q.includes('triage')) return FALLBACK_RESPONSES['wait time or emergency']
+    if (q.includes('book') || q.includes('appointment') || q.includes('scheduling')) return FALLBACK_RESPONSES['appointment or booking']
+    if (q.includes('bill') || q.includes('invoice') || q.includes('insurance') || q.includes('charge')) return FALLBACK_RESPONSES['bill or invoice']
+    if (q.includes('portal') || q.includes('record') || q.includes('mychart') || q.includes('password')) return FALLBACK_RESPONSES['portal or record']
+  } else {
+    if (q.includes('crash') || q.includes('project switch')) return FALLBACK_RESPONSES['crash or project switch']
+    if (q.includes('black screen') || q.includes('cold start')) return FALLBACK_RESPONSES['black screen or update']
+    if (q.includes('dashboard') || q.includes('load time')) return FALLBACK_RESPONSES['dashboard or load time']
+    if (q.includes('onboard') || q.includes('checklist')) return FALLBACK_RESPONSES['onboarding or checklist']
+    if (q.includes('export') || q.includes('csv') || q.includes('silently fails')) return FALLBACK_RESPONSES['export or csv']
+    if (q.includes('notif') || q.includes('mobile') || q.includes('notification')) return FALLBACK_RESPONSES['notification or mobile']
+  }
+
+  if (q.includes('confident')) return FALLBACK_RESPONSES['confident']
   return `I have access to Veloquity's live evidence data. Based on the current corpus of **${items} feedback items** across ${clusters} evidence clusters:\n\n• Avg confidence: **84%** across all clusters\n• All clusters validated: **2026-03-10**\n• Pipeline status: All 4 agents healthy\n\nCould you be more specific? For example, you can ask about a particular cluster, sprint priorities, governance activity, or confidence scores.`
 }
 
@@ -484,7 +524,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
             },
           ])
         } catch {
-          const fallback = getSmartFallback(cluster, pipelineMetrics.items, pipelineMetrics.clusters)
+          const fallback = getSmartFallback(cluster, pipelineMetrics.items, pipelineMetrics.clusters, dataset)
           const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           const guidedFallbackClusters = detectClusters(cluster, fallback, dataset)
           setMessages((ms) => [
@@ -561,7 +601,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
       ])
     } catch {
       // Intelligent fallback using Veloquity data
-      const fallback = getSmartFallback(text, pipelineMetrics.items, pipelineMetrics.clusters)
+      const fallback = getSmartFallback(text, pipelineMetrics.items, pipelineMetrics.clusters, dataset)
       const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       const fallbackClusters = detectClusters(text, fallback, dataset)
       setMessages((m) => [
