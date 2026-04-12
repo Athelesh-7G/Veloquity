@@ -130,9 +130,14 @@ def chat(request: ChatRequest, conn=Depends(get_db_connection), bedrock=Depends(
             except Exception:
                 g["details"] = {}
 
-    system_prompt, context_labels = _build_system_prompt(
-        evidence_clusters, recommendations, governance_events
-    )
+    if request.system:
+        # Use the dataset-specific context injected by the frontend
+        system_prompt = request.system
+        context_labels = ["evidence clusters", "recommendations", "governance log"]
+    else:
+        system_prompt, context_labels = _build_system_prompt(
+            evidence_clusters, recommendations, governance_events
+        )
 
     messages = [
         {"role": msg.role, "content": msg.content}

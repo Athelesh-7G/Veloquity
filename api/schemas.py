@@ -88,6 +88,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     history: list[ChatMessage] = []
+    system: str | None = None
 
     model_config = {"json_schema_extra": {"examples": [{"message": "What are the top issues?", "history": []}]}}
 
