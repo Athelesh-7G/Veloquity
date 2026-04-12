@@ -1333,6 +1333,5 @@ When user asks how to overcome or fix a specific cluster, Chat detects the inten
 - 158 automated tests, 0 failures, 0.72 second runtime
 - Pipeline cost: $0.029 per full run on 547 items
 - Annual cost estimate: $5 to $20 per year
-- Competitor comparison: Qualtrics $50,000 per year
 - End-to-end pipeline: 91 seconds total
-- Cost ratio: 10,000 times cheaper per run than enterprise tools
+- Subsequent runs with cached embeddings: ~$0.013 per run
