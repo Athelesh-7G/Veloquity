@@ -126,11 +126,7 @@ function detectClusters(
   for (const [kw, cluster] of keyMap) {
     if (combined.includes(kw)) found.add(cluster)
   }
-  // If nothing matched, return the top 2 clusters by confidence
-  if (found.size === 0) {
-    const topClusters = (dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS).slice(0, 2)
-    return topClusters.map((c) => c.name)
-  }
+  // Return only genuinely matched clusters — no top-N fallback
   return [...found].slice(0, 2)
 }
 
@@ -257,6 +253,7 @@ interface Message extends ChatMessage {
   pending?: boolean
   timestamp?: string
   evidenceClusters?: string[]
+  showEvidence?: boolean
 }
 
 // ─── Context item ──────────────────────────────────────────────────────────────
@@ -474,6 +471,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }))
           const res = await sendChatMessage(enrichedPrompt, history, systemContext)
           const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          const guidedClusters = detectClusters(cluster, res.response, dataset)
           setMessages((ms) => [
             ...ms.slice(0, -1),
             {
@@ -481,12 +479,14 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               content: res.response,
               context_used: res.context_used,
               timestamp: replyTime,
-              evidenceClusters: detectClusters(cluster, res.response, dataset),
+              evidenceClusters: guidedClusters,
+              showEvidence: guidedClusters.length > 0,
             },
           ])
         } catch {
           const fallback = getSmartFallback(cluster, pipelineMetrics.items, pipelineMetrics.clusters)
           const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          const guidedFallbackClusters = detectClusters(cluster, fallback, dataset)
           setMessages((ms) => [
             ...ms.slice(0, -1),
             {
@@ -494,7 +494,8 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               content: fallback,
               context_used: [`${pipelineMetrics.clusters} evidence clusters`, `${contextInfo.recommendations} recommendations`, 'governance log'],
               timestamp: replyTime,
-              evidenceClusters: detectClusters(cluster, fallback, dataset),
+              evidenceClusters: guidedFallbackClusters,
+              showEvidence: guidedFallbackClusters.length > 0,
             },
           ])
         } finally {
@@ -542,6 +543,11 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
       const history = messages.slice(-10).map((m) => ({ role: m.role, content: m.content }))
       const res = await sendChatMessage(text, history, systemContext)
       const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      let apiClusters = detectClusters(text, res.response, dataset)
+      // If no keyword match but Bedrock confirms it used evidence context, show top 1 cluster
+      if (apiClusters.length === 0 && res.context_used && res.context_used.length > 0) {
+        apiClusters = activeClusters.slice(0, 1).map((c) => c.name)
+      }
       setMessages((m) => [
         ...m.slice(0, -1),
         {
@@ -549,13 +555,15 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           content: res.response,
           context_used: res.context_used,
           timestamp: replyTime,
-          evidenceClusters: detectClusters(text, res.response, dataset),
+          evidenceClusters: apiClusters,
+          showEvidence: apiClusters.length > 0,
         },
       ])
     } catch {
       // Intelligent fallback using Veloquity data
       const fallback = getSmartFallback(text, pipelineMetrics.items, pipelineMetrics.clusters)
       const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      const fallbackClusters = detectClusters(text, fallback, dataset)
       setMessages((m) => [
         ...m.slice(0, -1),
         {
@@ -563,7 +571,8 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           content: fallback,
           context_used: [`${pipelineMetrics.clusters} evidence clusters`, `${contextInfo.recommendations} recommendations`, 'governance log'],
           timestamp: replyTime,
-          evidenceClusters: detectClusters(text, fallback, dataset),
+          evidenceClusters: fallbackClusters,
+          showEvidence: fallbackClusters.length > 0,
         },
       ])
     } finally {
@@ -782,9 +791,9 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
                     </div>
                   )}
 
-                  {/* Evidence drill-down */}
+                  {/* Evidence drill-down — only when keyword-matched or API returned evidence context */}
                   {m.role === 'assistant' && !m.pending && hasData &&
-                    m.evidenceClusters && m.evidenceClusters.length > 0 && (
+                    m.showEvidence && m.evidenceClusters && m.evidenceClusters.length > 0 && (
                     <InlineEvidence
                       clusterNames={m.evidenceClusters}
                       dataset={dataset}
