@@ -292,14 +292,19 @@ export default function Agents() {
         setLastRanAt(ranAtMap)
       }
 
-      // Health check with up to 10 retries, 3s apart
+      // Health check with up to 8 retries, 1.5s apart
       let healthy = false
-      for (let attempt = 1; attempt <= 10; attempt++) {
-        if (cancelled) return
-        setHealthAttempt(attempt)
-        healthy = await checkHealth()
-        if (healthy) break
-        if (attempt < 10) await new Promise<void>(r => setTimeout(r, 3000))
+      if (sessionStorage.getItem('veloquity_health_ready') === '1') {
+        healthy = true
+      } else {
+        for (let attempt = 1; attempt <= 8; attempt++) {
+          if (cancelled) return
+          setHealthAttempt(attempt)
+          healthy = await checkHealth(2500)
+          if (healthy) break
+          if (attempt < 8) await new Promise<void>(r => setTimeout(r, 1500))
+        }
+        if (healthy) sessionStorage.setItem('veloquity_health_ready', '1')
       }
 
       if (cancelled) return
@@ -360,7 +365,7 @@ export default function Agents() {
         <XCircle className="w-8 h-8 text-red-500" />
         <div className="text-center">
           <p className="text-foreground font-medium">Could not reach the intelligence engine</p>
-          <p className="text-muted-foreground text-sm mt-1">Backend did not respond after 10 attempts.</p>
+          <p className="text-muted-foreground text-sm mt-1">Backend did not respond after 8 attempts.</p>
         </div>
         <Button
           onClick={() => setRetryKey(k => k + 1)}
@@ -375,13 +380,11 @@ export default function Agents() {
   if (loading) {
     return (
       <div className="p-6 space-y-6 bg-background">
-        {healthStatus === 'checking' && (
+        {healthStatus === 'checking' && healthAttempt >= 3 && (
           <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
             <Loader2 className="w-4 h-4 text-amber-500 shrink-0 animate-spin" />
             <p className="text-sm text-amber-600 dark:text-amber-400">
-              {healthAttempt <= 1
-                ? 'Connecting to intelligence engine…'
-                : `Waking up inference engine… (attempt ${healthAttempt}/10)`}
+              Waking up inference engine… (attempt {healthAttempt}/8)
             </p>
           </div>
         )}

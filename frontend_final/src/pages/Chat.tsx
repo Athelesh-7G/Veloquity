@@ -467,35 +467,62 @@ export default function Chat() {
   const [awaitingContext, setAwaitingContext] = useState<{ cluster: string } | null>(null)
 
   // Cold start state
-  const [healthReady, setHealthReady]       = useState(false)
-  const [healthFailed, setHealthFailed]     = useState(false)
-  const [healthAttempt, setHealthAttempt]   = useState(0)
-  const [healthWarming, setHealthWarming]   = useState(false)
-  const [progressLabel, setProgressLabel]   = useState('')
+  const [healthReady, setHealthReady]           = useState(false)
+  const [healthFailed, setHealthFailed]         = useState(false)
+  const [healthAttempt, setHealthAttempt]       = useState(0)
+  const [healthWarming, setHealthWarming]       = useState(false)
+  const [optimisticReady, setOptimisticReady]   = useState(false)
+  const [progressLabel, setProgressLabel]       = useState('')
 
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef  = useRef<HTMLInputElement>(null)
+  const bottomRef      = useRef<HTMLDivElement>(null)
+  const inputRef       = useRef<HTMLInputElement>(null)
+  const pendingMessage = useRef<string | null>(null)
+  const sendRef        = useRef<((text: string) => Promise<void>) | null>(null)
 
-  // Cold start: ping /health up to 10 times with 3s gaps
+  // Cold start: ping /health up to 8 times with 1.5s gaps
   const runHealthCheck = useCallback(async () => {
+    if (sessionStorage.getItem('veloquity_health_ready') === '1') {
+      setHealthReady(true)
+      return
+    }
     setHealthFailed(false)
     setHealthReady(false)
-    setHealthWarming(true)
     setHealthAttempt(0)
-    for (let attempt = 1; attempt <= 10; attempt++) {
+    for (let attempt = 1; attempt <= 8; attempt++) {
       setHealthAttempt(attempt)
+      if (attempt >= 3) setHealthWarming(true)
       try {
-        const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(4000) })
-        if (res.ok) { setHealthReady(true); setHealthWarming(false); return }
+        const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2500) })
+        if (res.ok) {
+          sessionStorage.setItem('veloquity_health_ready', '1')
+          setHealthReady(true)
+          setHealthWarming(false)
+          return
+        }
       } catch {}
-      if (attempt < 10) await new Promise<void>(r => setTimeout(r, 3000))
+      if (attempt < 8) await new Promise<void>(r => setTimeout(r, 1500))
     }
-    // All 10 retries failed — show error state, do not allow sending
+    // All 8 retries failed — show error state
     setHealthFailed(true)
     setHealthWarming(false)
   }, [])
 
   useEffect(() => { runHealthCheck() }, [runHealthCheck])
+
+  // Optimistic unlock after 4s — allow input while health check is still retrying
+  useEffect(() => {
+    const t = setTimeout(() => setOptimisticReady(true), 4000)
+    return () => clearTimeout(t)
+  }, [])
+
+  // Auto-send queued message once health is confirmed
+  useEffect(() => {
+    if (healthReady && pendingMessage.current) {
+      const msg = pendingMessage.current
+      pendingMessage.current = null
+      sendRef.current?.(msg)
+    }
+  }, [healthReady])
 
   // Load live context (falls back to Veloquity defaults)
   useEffect(() => {
@@ -514,6 +541,12 @@ export default function Chat() {
 
   async function send(text: string) {
     if (!text.trim() || sending) return
+    // Queue if optimistically unlocked but health not yet confirmed
+    if (!healthReady && optimisticReady) {
+      pendingMessage.current = text
+      setInput('')
+      return
+    }
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
     const userMsg: Message = { role: 'user', content: text, timestamp: now }
@@ -687,6 +720,8 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }
+
+  sendRef.current = send
 
   return (
     <>
@@ -917,14 +952,12 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           <div ref={bottomRef} />
         </div>
 
-        {/* Warming up banner */}
-        {healthWarming && (
+        {/* Warming up banner — only shown from attempt 3 onward */}
+        {healthWarming && healthAttempt >= 3 && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-500/30 bg-amber-500/8 mb-2">
             <Loader2 className="w-4 h-4 text-amber-500 shrink-0 animate-spin" />
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              {healthAttempt <= 1
-                ? 'Warming up AI engine…'
-                : `Waking up inference engine… (attempt ${healthAttempt}/10)`}
+              Waking up inference engine… (attempt {healthAttempt}/8)
             </p>
           </div>
         )}
@@ -934,7 +967,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/8 mb-2">
             <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
             <p className="text-xs text-red-600 dark:text-red-400 flex-1">
-              Could not reach the AI engine after 10 attempts.
+              Could not reach the AI engine after 8 attempts.
             </p>
             <button
               type="button"
@@ -962,8 +995,8 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send(input)}
-              disabled={sending || !healthReady || healthFailed}
-              placeholder={healthFailed ? "AI engine unreachable — click Retry above" : healthReady ? "Ask about evidence clusters, sprint priorities, governance activity…" : "Warming up AI engine…"}
+              disabled={sending || (!healthReady && !optimisticReady) || healthFailed}
+              placeholder={healthFailed ? "AI engine unreachable — click Retry above" : healthReady ? "Ask about evidence clusters, sprint priorities, governance activity…" : optimisticReady ? "AI engine warming up — message will send when ready" : "Warming up AI engine…"}
               className="w-full rounded-xl px-4 py-3 pr-12 text-sm border border-border bg-card text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20 transition-all disabled:opacity-60"
             />
             {input.trim() && !sending && (
@@ -978,7 +1011,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           </div>
           <Button
             onClick={() => send(input)}
-            disabled={sending || !input.trim() || !healthReady || healthFailed}
+            disabled={sending || !input.trim() || (!healthReady && !optimisticReady) || healthFailed}
             className="rounded-xl px-4 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white disabled:opacity-40 shrink-0"
           >
             {sending

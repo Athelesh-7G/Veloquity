@@ -157,10 +157,10 @@ export const updateConstraints = (updates: Record<string, unknown>) =>
 // Aliases used in some pages
 export const sendChat = sendChatMessage
 
-export async function checkHealth(): Promise<boolean> {
+export async function checkHealth(timeoutMs = 5000): Promise<boolean> {
   try {
     const res = await fetch(`${BASE}/health`, {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(timeoutMs),
     })
     return res.ok
   } catch {
