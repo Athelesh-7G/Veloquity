@@ -12,12 +12,20 @@ const BASE = (import.meta as unknown as { env: Record<string, string> }).env?.VI
 const NO_DATA_RESPONSE = 'No feedback data has been uploaded yet. Please visit the Import Sources page to upload your App Store and Zendesk feedback files. Once uploaded, I can provide evidence-based recommendations and insights from your data.'
 
 // ─── Veloquity-aligned starter questions ─────────────────────────────────────
-const STARTERS = [
+const APP_STARTERS = [
   { icon: Shield,   text: 'What are the top 3 evidence clusters right now?' },
   { icon: BarChart3,text: 'Which recommendation should we prioritize this sprint?' },
   { icon: Activity, text: 'Are there any stale signals I should review?' },
   { icon: Database, text: 'What did the governance agent flag in the last run?' },
   { icon: Layers,   text: 'How confident are we in the app crash findings?' },
+]
+
+const HOSPITAL_STARTERS = [
+  { icon: Shield,   text: 'What are the top 3 patient feedback clusters right now?' },
+  { icon: BarChart3,text: 'Which patient issue should we prioritize this sprint?' },
+  { icon: Activity, text: 'Are there any stale signals in the hospital feedback?' },
+  { icon: Database, text: 'What did the governance agent flag in the last run?' },
+  { icon: Layers,   text: 'How confident are we in the emergency wait time findings?' },
 ]
 
 // ─── Veloquity-aligned fallback response map ──────────────────────────────────
@@ -55,6 +63,10 @@ const FALLBACK_RESPONSES: Record<string, string> = {
   'hospital top 3': `Here are the top 4 evidence clusters ranked by priority score:\n\n1. **Extended Emergency Wait Times** — Confidence: 91% · Patient safety risk\n   98 feedback items · 87 unique users · Patient Portal + Hospital Survey. ER wait times of 4–6 hours with no staff communication. Inaccurate wait time display in app (shows 30 min, actual 4+ hours). Triage delays affecting chest pain, fractures, and pediatric fevers. Rising trend.\n\n2. **Online Appointment Booking Failures** — Confidence: 84%\n   76 feedback items · 71 unique users. Portal crashes on confirmation screen, double-bookings from failed availability sync, no confirmation email sent. Patients forced to call front desk to verify every booking.\n\n3. **Billing Statement Errors and Confusion** — Confidence: 78%\n   82 feedback items · 58 unique users. Wrong amounts billed, insurance pre-auth not applied, duplicate charges for same lab test, inpatient rates charged for outpatient procedures. 30+ day dispute resolution delays.\n\n4. **Medical Records Portal Access Issues** — Confidence: 72%\n   54 feedback items · 44 unique users. MyChart login failures, missing test results, Android app crash on launch, outdated medication lists. Signal is decreasing — fix appears to be partially working.`,
 
   'hospital prioritize': `Based on current priority scores, here is the recommended action plan:\n\n**P0 — Immediate (patient safety risk):**\n• Extended Emergency Wait Times (Confidence: 91%, 87 users, rising) — ER triage delays and inaccurate wait time display are a patient safety issue. Escalate to operations and clinical leadership. Fix the app wait time display as a quick win while systemic triage improvements are planned.\n\n**P1 — This Sprint:**\n• Online Appointment Booking Failures (Confidence: 84%, 71 users) — portal crash on confirmation is directly blocking patient access to care. Fix availability sync and add confirmation email fallback.\n• Billing Statement Errors and Confusion (Confidence: 78%, 58 users) — financial harm to patients and regulatory risk. Prioritise insurance pre-auth application and duplicate charge detection.\n\n**P2 — Next Sprint:**\n• Medical Records Portal Access Issues (Confidence: 72%, 44 users) — signal is decreasing, suggesting an in-progress fix is working. Verify MyChart login fix covers all device types and close out the Android crash.\n\nAll P1 items are independent and can be worked in parallel across two engineering tracks.`,
+
+  'hospital stale signals': `Governance agent last ran at 06:00 UTC on 2026-03-10.\n\n**Stale detection result:** ✅ No stale signals detected.\nAll 4 evidence clusters were validated within the last 24 hours (2026-03-10). The stale threshold is 30 days — no clusters are at risk.\n\n**Signal promotion check:** No staging signals promoted.\nNo low-confidence staging rows have reached frequency ≥ 10. Current staging is empty.\n\n**Cache health:** ✅ No cost alert triggered.\nEmbedding cache hit rate is high (91%). Bedrock call volume is within expected range for 310 feedback items across 4 clusters.\n\nNext governance run scheduled: 2026-03-11 at 06:00 UTC.`,
+
+  'hospital governance flag': `From the governance log (last run: 2026-03-10 06:00 UTC):\n\n**Actions taken:** 0 governance events fired this run.\n\n• Stale detection — 0 clusters flagged (all active, validated today)\n• Signal promotion — 0 staging rows promoted (none reached frequency ≥ 10)\n• Cost monitor — No alert triggered (55 cache rows well above the 40% threshold)\n\nThe governance agent is decision-tree based — not an LLM. The same DB state always produces the same actions, making behavior fully auditable. EventBridge fires the cron daily at 06:00 UTC.\n\nAll 4 active evidence clusters remain in status: **active**.`,
 }
 
 const APP_CLUSTERS = [
@@ -279,8 +291,10 @@ function getSmartFallback(
     return dataset === 'hospital_survey' ? FALLBACK_RESPONSES['hospital top 3'] : FALLBACK_RESPONSES['top 3 evidence clusters']
   if (q.includes('prioritize') || q.includes('sprint'))
     return dataset === 'hospital_survey' ? FALLBACK_RESPONSES['hospital prioritize'] : FALLBACK_RESPONSES['prioritize this sprint']
-  if (q.includes('stale')) return FALLBACK_RESPONSES['stale signals']
-  if (q.includes('governance') || q.includes('flag')) return FALLBACK_RESPONSES['governance agent flag']
+  if (q.includes('stale'))
+    return dataset === 'hospital_survey' ? FALLBACK_RESPONSES['hospital stale signals'] : FALLBACK_RESPONSES['stale signals']
+  if (q.includes('governance') || q.includes('flag'))
+    return dataset === 'hospital_survey' ? FALLBACK_RESPONSES['hospital governance flag'] : FALLBACK_RESPONSES['governance agent flag']
 
   if (dataset === 'hospital_survey') {
     if (q.includes('wait') || q.includes('emergency') || q.includes('er ') || q.includes('triage')) return FALLBACK_RESPONSES['wait time or emergency']
@@ -413,6 +427,7 @@ export default function Chat() {
     ? { items: 310, clusters: 4 }
     : { items: 547, clusters: 6 }
   const activeClusters = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
+  const starters = dataset === 'hospital_survey' ? HOSPITAL_STARTERS : APP_STARTERS
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput]       = useState('')
   const [sending, setSending]   = useState(false)
@@ -756,14 +771,15 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               <div className="text-center max-w-sm">
                 <h3 className="font-semibold text-foreground text-lg mb-1">Veloquity AI</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Ask anything about your {pipelineMetrics.clusters} evidence clusters, sprint priorities,
-                  governance activity, or confidence scores.
+                  {dataset === 'hospital_survey'
+                    ? `Ask anything about your ${pipelineMetrics.clusters} patient feedback clusters, sprint priorities, governance activity, or confidence scores.`
+                    : `Ask anything about your ${pipelineMetrics.clusters} evidence clusters, sprint priorities, governance activity, or confidence scores.`}
                 </p>
               </div>
 
               {/* Starter questions */}
               <div className="grid grid-cols-2 gap-2 w-full max-w-xl">
-                {STARTERS.map(({ icon: Icon, text }) => (
+                {starters.map(({ icon: Icon, text }) => (
                   <motion.button
                     key={text}
                     whileHover={{ y: -2, scale: 1.01 }}
