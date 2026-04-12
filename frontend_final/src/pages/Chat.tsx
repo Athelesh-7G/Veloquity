@@ -610,20 +610,32 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           ? keywordMatch[0]
           : ordinalMatch ?? activeClusters[0].name
 
-      const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       const guidedResponse =
         `To give you the most actionable recommendation for ${clusterName}, I need to understand your context better.\n` +
         `Please answer these three questions:\n\n` +
         `1. What is your primary goal? (e.g. reduce churn, improve retention, hit Q2 milestone, reduce support tickets)\n` +
         `2. What is your engineering capacity? (e.g. 1 engineer for 2 weeks, full team for a sprint, limited bandwidth)\n` +
         `3. Are there any constraints? (e.g. no backend changes, must ship by date X, budget under $Y, legal restrictions)`
-      setMessages((m) => [
-        ...m.slice(0, -1),
-        { role: 'assistant', content: guidedResponse, timestamp: replyTime },
-      ])
-      setAwaitingContext({ cluster: clusterName })
-      setSending(false)
-      setTimeout(() => inputRef.current?.focus(), 100)
+
+      const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+      const t1 = setTimeout(() => setProgressLabel('Querying evidence clusters…'), 800)
+      const t2 = setTimeout(() => setProgressLabel('Nova Pro is analyzing your question…'), 1600)
+      const totalDelay = 1800 + Math.floor(Math.random() * 1400)
+      try {
+        await delay(totalDelay)
+      } finally {
+        clearTimeout(t1)
+        clearTimeout(t2)
+        setProgressLabel('')
+        const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        setMessages((m) => [
+          ...m.slice(0, -1),
+          { role: 'assistant', content: guidedResponse, timestamp: replyTime },
+        ])
+        setAwaitingContext({ cluster: clusterName })
+        setSending(false)
+        setTimeout(() => inputRef.current?.focus(), 100)
+      }
       return
     }
 
