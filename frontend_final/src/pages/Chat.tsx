@@ -51,6 +51,10 @@ const FALLBACK_RESPONSES: Record<string, string> = {
   'bill or invoice': `Cluster: **Billing Statement Errors and Confusion**\n\n• **Confidence score:** 78% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 71% – 85%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 82 items · 58 unique users\n• **Sources:** Hospital Survey\n\nPatients are receiving bills for services never rendered, being billed at inpatient rates for outpatient procedures, and finding duplicate charges for the same lab test. Insurance pre-authorisation is frequently not applied. Billing dispute resolution is slow — patients report 30+ day waits with no acknowledgement.\n\nP1 priority — financial harm to patients, regulatory risk to the hospital.`,
 
   'portal or record': `Cluster: **Medical Records Portal Access Issues**\n\n• **Confidence score:** 72% (clamp(1.0 - variance × 2.0, 0.0, 1.0))\n• **Uncertainty band:** 65% – 79%\n• **Classification:** Auto-accepted (≥ 0.60 threshold)\n• **Feedback count:** 54 items · 44 unique users\n• **Sources:** Patient Portal\n\nMyChart login failures are the dominant signal — password reset loops leave patients locked out. Test results are delayed or missing in the portal. The Android app crashes immediately on launch. Medication lists show discontinued drugs as active. The portal app on iOS requires full re-authentication after every update.\n\nP2 priority — signal is decreasing, suggesting an ongoing fix is partially working.`,
+
+  'hospital top 3': `Here are the top 4 evidence clusters ranked by priority score:\n\n1. **Extended Emergency Wait Times** — Confidence: 91% · Patient safety risk\n   98 feedback items · 87 unique users · Patient Portal + Hospital Survey. ER wait times of 4–6 hours with no staff communication. Inaccurate wait time display in app (shows 30 min, actual 4+ hours). Triage delays affecting chest pain, fractures, and pediatric fevers. Rising trend.\n\n2. **Online Appointment Booking Failures** — Confidence: 84%\n   76 feedback items · 71 unique users. Portal crashes on confirmation screen, double-bookings from failed availability sync, no confirmation email sent. Patients forced to call front desk to verify every booking.\n\n3. **Billing Statement Errors and Confusion** — Confidence: 78%\n   82 feedback items · 58 unique users. Wrong amounts billed, insurance pre-auth not applied, duplicate charges for same lab test, inpatient rates charged for outpatient procedures. 30+ day dispute resolution delays.\n\n4. **Medical Records Portal Access Issues** — Confidence: 72%\n   54 feedback items · 44 unique users. MyChart login failures, missing test results, Android app crash on launch, outdated medication lists. Signal is decreasing — fix appears to be partially working.`,
+
+  'hospital prioritize': `Based on current priority scores, here is the recommended action plan:\n\n**P0 — Immediate (patient safety risk):**\n• Extended Emergency Wait Times (Confidence: 91%, 87 users, rising) — ER triage delays and inaccurate wait time display are a patient safety issue. Escalate to operations and clinical leadership. Fix the app wait time display as a quick win while systemic triage improvements are planned.\n\n**P1 — This Sprint:**\n• Online Appointment Booking Failures (Confidence: 84%, 71 users) — portal crash on confirmation is directly blocking patient access to care. Fix availability sync and add confirmation email fallback.\n• Billing Statement Errors and Confusion (Confidence: 78%, 58 users) — financial harm to patients and regulatory risk. Prioritise insurance pre-auth application and duplicate charge detection.\n\n**P2 — Next Sprint:**\n• Medical Records Portal Access Issues (Confidence: 72%, 44 users) — signal is decreasing, suggesting an in-progress fix is working. Verify MyChart login fix covers all device types and close out the Android crash.\n\nAll P1 items are independent and can be worked in parallel across two engineering tracks.`,
 }
 
 const APP_CLUSTERS = [
@@ -65,7 +69,7 @@ const APP_CLUSTERS = [
 const HOSPITAL_CLUSTERS = [
   { name: 'Extended Emergency Wait Times',        conf: 91 },
   { name: 'Online Appointment Booking Failures',  conf: 84 },
-  { name: 'Billing Statement Errors',             conf: 78 },
+  { name: 'Billing Statement Errors and Confusion', conf: 78 },
   { name: 'Medical Records Portal Access Issues', conf: 72 },
 ]
 
@@ -265,8 +269,10 @@ function getSmartFallback(
   dataset: 'app_product' | 'hospital_survey' | null = 'app_product',
 ): string {
   const q = query.toLowerCase()
-  if (q.includes('top 3') || q.includes('evidence cluster')) return FALLBACK_RESPONSES['top 3 evidence clusters']
-  if (q.includes('prioritize') || q.includes('sprint')) return FALLBACK_RESPONSES['prioritize this sprint']
+  if (q.includes('top 3') || q.includes('evidence cluster'))
+    return dataset === 'hospital_survey' ? FALLBACK_RESPONSES['hospital top 3'] : FALLBACK_RESPONSES['top 3 evidence clusters']
+  if (q.includes('prioritize') || q.includes('sprint'))
+    return dataset === 'hospital_survey' ? FALLBACK_RESPONSES['hospital prioritize'] : FALLBACK_RESPONSES['prioritize this sprint']
   if (q.includes('stale')) return FALLBACK_RESPONSES['stale signals']
   if (q.includes('governance') || q.includes('flag')) return FALLBACK_RESPONSES['governance agent flag']
 
