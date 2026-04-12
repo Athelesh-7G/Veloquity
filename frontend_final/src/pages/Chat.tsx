@@ -144,13 +144,19 @@ function detectClusters(
   responseText: string,
   dataset: 'app_product' | 'hospital_survey' | null,
 ): string[] {
-  const combined = (query + ' ' + responseText).toLowerCase()
   const keyMap = dataset === 'hospital_survey' ? HOSPITAL_KEYWORD_MAP : APP_KEYWORD_MAP
   const found = new Set<string>()
+  // Scan query only first — response text is too broad and causes false matches
+  const q = query.toLowerCase()
   for (const [kw, cluster] of keyMap) {
-    if (combined.includes(kw)) found.add(cluster)
+    if (q.includes(kw)) found.add(cluster)
   }
-  // Return all genuinely matched clusters — no artificial cap
+  if (found.size > 0) return [...found]
+  // Only fall back to response text if the query produced no matches
+  const r = responseText.toLowerCase()
+  for (const [kw, cluster] of keyMap) {
+    if (r.includes(kw)) found.add(cluster)
+  }
   return [...found]
 }
 
