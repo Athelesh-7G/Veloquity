@@ -471,10 +471,7 @@ export default function ConfidenceScores() {
             Per-cluster certainty from Titan Embed V2 cosine variance · priority formula breakdown
           </p>
         </div>
-        {hasData
-          ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Demo Data Active</Badge>
-          : <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>
-        }
+        {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
       </div>
 
       {!hasData && (

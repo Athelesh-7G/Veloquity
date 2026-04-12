@@ -555,10 +555,7 @@ export default function EvidenceGrid() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {hasData
-            ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">Demo Data Active</Badge>
-            : <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>
-          }
+          {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
           <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
             <Shield className="w-4 h-4 mr-2" />Create Evidence
           </Button>

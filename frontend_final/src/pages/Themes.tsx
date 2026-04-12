@@ -400,10 +400,7 @@ export default function Themes() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold text-foreground">Themes</h1>
-            {!hasData
-              ? <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 border">No Data — Upload to Begin</Badge>
-              : <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 border">Demo Data Active</Badge>
-            }
+            {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 border">No Data — Upload to Begin</Badge>}
           </div>
           <p className="text-muted-foreground mt-1">Clustered feedback signals · pgvector cosine · Titan Embed V2</p>
         </div>
