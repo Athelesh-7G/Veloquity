@@ -33,7 +33,7 @@ export const mockFeedback: FeedbackItem[] = [
   {
     id: 'fb-001',
     title: 'Mobile app crashes on login',
-    source: 'Zendesk',
+    source: 'Support Tickets',
     content: 'Users report intermittent crashes when attempting to log in via mobile app. Affects iOS 17+ devices primarily.',
     date: '2026-01-12',
     tags: ['bug', 'mobile', 'critical'],
@@ -73,7 +73,7 @@ export const mockFeedback: FeedbackItem[] = [
   {
     id: 'fb-005',
     title: 'Dashboard load time slow',
-    source: 'Zendesk',
+    source: 'Support Tickets',
     content: 'Enterprise customers with large datasets experiencing 8-12 second load times on main dashboard.',
     date: '2026-01-08',
     tags: ['performance', 'enterprise'],
@@ -96,7 +96,7 @@ export const mockEvidence: EvidenceItem[] = [
   {
     id: 'ev-001',
     title: 'Mobile Stability Issues',
-    sources: ['Zendesk', 'App Store Reviews', 'Crash Reports'],
+    sources: ['Support Tickets', 'App Store Reviews', 'Crash Reports'],
     confidence: 89,
     uncertaintyRange: [84, 94],
     linkedFeedback: ['fb-001'],
@@ -114,7 +114,7 @@ export const mockEvidence: EvidenceItem[] = [
   {
     id: 'ev-003',
     title: 'Export Reliability',
-    sources: ['Support Email', 'Zendesk'],
+    sources: ['Support Email', 'Support Tickets'],
     confidence: 76,
     uncertaintyRange: [68, 84],
     linkedFeedback: ['fb-003'],
@@ -123,7 +123,7 @@ export const mockEvidence: EvidenceItem[] = [
   {
     id: 'ev-004',
     title: 'Enterprise Performance',
-    sources: ['Zendesk', 'Customer Success', 'APM Logs'],
+    sources: ['Support Tickets', 'Customer Success', 'APM Logs'],
     confidence: 91,
     uncertaintyRange: [87, 95],
     linkedFeedback: ['fb-005'],
@@ -139,7 +139,7 @@ export const mockThemes: Theme[] = [
   { id: 'th-005', name: 'Onboarding', feedbackCount: 15, avgConfidence: 68, trend: 'stable' },
 ]
 
-export const allSources = ['Zendesk', 'Intercom', 'Support Email', 'NPS Survey', 'User Interview', 'App Store Reviews']
+export const allSources = ['Support Tickets', 'Intercom', 'Support Email', 'NPS Survey', 'User Interview', 'App Store Reviews']
 export const allTags = [
   'bug',
   'feature-request',

@@ -19,14 +19,14 @@ export interface EvidenceItem {
 
 const SOURCE_DISPLAY: Record<string, string> = {
   appstore:        'App Store',
-  zendesk:         'Zendesk',
+  support_tickets: 'Support Tickets',
   patient_portal:  'Patient Portal',
   hospital_survey: 'Hospital Survey',
 }
 
 const SOURCE_BADGE: Record<string, string> = {
   'App Store':      'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30',
-  'Zendesk':        'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30',
+  'Support Tickets':'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30',
   'Patient Portal': 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30',
   'Hospital Survey':'bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30',
 }

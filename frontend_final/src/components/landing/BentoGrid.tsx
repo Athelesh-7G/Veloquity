@@ -5,8 +5,8 @@ const features = [
   {
     icon: Database,
     title: 'Evidence Ingestion',
-    subtitle: 'App Store + Zendesk, PII-safe, SHA-256 dedup',
-    description: 'Connect feedback from App Store reviews and Zendesk tickets. PII-safe ingestion with SHA-256 deduplication. Our engine normalizes unstructured data into analyzable signals.',
+    subtitle: 'App Store + Support Tickets, PII-safe, SHA-256 dedup',
+    description: 'Connect feedback from App Store reviews and Support Tickets tickets. PII-safe ingestion with SHA-256 deduplication. Our engine normalizes unstructured data into analyzable signals.',
     gradient: 'from-blue-500 to-cyan-500',
     bgGradient: 'from-blue-500/10 to-cyan-500/10',
   },

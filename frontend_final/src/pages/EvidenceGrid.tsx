@@ -18,7 +18,7 @@ type EvidenceTrend    = 'rising' | 'stable' | 'declining'
 interface LinkedFeedbackItem {
   id: string
   title: string
-  source: 'App Store' | 'Zendesk'
+  source: 'App Store' | 'Support Tickets'
   date: string
   confidenceScore: number
 }
@@ -27,7 +27,7 @@ interface EvidenceItem {
   id: string
   clusterId: string
   title: string
-  sources: ('App Store' | 'Zendesk')[]
+  sources: ('App Store' | 'Support Tickets')[]
   confidence: number
   uncertaintyRange: [number, number]
   feedbackCount: number
@@ -44,7 +44,7 @@ const EVIDENCE_DATA: EvidenceItem[] = [
   {
     id: 'ev1', clusterId: 'c1',
     title: 'App crashes on project switch',
-    sources: ['App Store', 'Zendesk'],
+    sources: ['App Store', 'Support Tickets'],
     confidence: 91,
     uncertaintyRange: [84, 96],
     feedbackCount: 138,
@@ -58,15 +58,15 @@ const EVIDENCE_DATA: EvidenceItem[] = [
     ],
     linkedFeedback: [
       { id: 'f001', title: 'App crashes every time I switch between projects',    source: 'App Store', date: '2026-03-10', confidenceScore: 93 },
-      { id: 'f002', title: 'Fatal crash when navigating between workspaces',       source: 'Zendesk',   date: '2026-03-09', confidenceScore: 91 },
+      { id: 'f002', title: 'Fatal crash when navigating between workspaces',       source: 'Support Tickets',   date: '2026-03-09', confidenceScore: 91 },
       { id: 'f003', title: 'Switching projects = instant crash, 1 star',           source: 'App Store', date: '2026-03-08', confidenceScore: 89 },
-      { id: 'f004', title: 'Project context crash - reproducible steps attached',  source: 'Zendesk',   date: '2026-03-07', confidenceScore: 94 },
+      { id: 'f004', title: 'Project context crash - reproducible steps attached',  source: 'Support Tickets',   date: '2026-03-07', confidenceScore: 94 },
     ],
   },
   {
     id: 'ev2', clusterId: 'c2',
     title: 'Black screen after latest update',
-    sources: ['App Store', 'Zendesk'],
+    sources: ['App Store', 'Support Tickets'],
     confidence: 87,
     uncertaintyRange: [80, 93],
     feedbackCount: 112,
@@ -80,14 +80,14 @@ const EVIDENCE_DATA: EvidenceItem[] = [
     ],
     linkedFeedback: [
       { id: 'f005', title: 'Black screen on launch after updating to 2.4',          source: 'App Store', date: '2026-03-10', confidenceScore: 88 },
-      { id: 'f006', title: 'App stuck on black screen - multiple users affected',    source: 'Zendesk',   date: '2026-03-09', confidenceScore: 87 },
+      { id: 'f006', title: 'App stuck on black screen - multiple users affected',    source: 'Support Tickets',   date: '2026-03-09', confidenceScore: 87 },
       { id: 'f007', title: 'Broken since update - black screen every morning',       source: 'App Store', date: '2026-03-08', confidenceScore: 85 },
     ],
   },
   {
     id: 'ev3', clusterId: 'c3',
     title: 'Dashboard load time regression',
-    sources: ['App Store', 'Zendesk'],
+    sources: ['App Store', 'Support Tickets'],
     confidence: 86,
     uncertaintyRange: [79, 91],
     feedbackCount: 94,
@@ -100,15 +100,15 @@ const EVIDENCE_DATA: EvidenceItem[] = [
       'Enterprise workspace (200+ projects) takes 12–15 seconds. Scales badly.',
     ],
     linkedFeedback: [
-      { id: 'f008', title: 'Dashboard load jumped from 2s to 12s after v2.4',         source: 'Zendesk',   date: '2026-03-10', confidenceScore: 86 },
+      { id: 'f008', title: 'Dashboard load jumped from 2s to 12s after v2.4',         source: 'Support Tickets',   date: '2026-03-10', confidenceScore: 86 },
       { id: 'f009', title: 'App feels sluggish - dashboard takes forever',             source: 'App Store', date: '2026-03-09', confidenceScore: 83 },
-      { id: 'f010', title: 'Dashboard performance degradation - enterprise blocked',   source: 'Zendesk',   date: '2026-03-07', confidenceScore: 88 },
+      { id: 'f010', title: 'Dashboard performance degradation - enterprise blocked',   source: 'Support Tickets',   date: '2026-03-07', confidenceScore: 88 },
     ],
   },
   {
     id: 'ev4', clusterId: 'c4',
     title: 'No onboarding checklist for new users',
-    sources: ['App Store', 'Zendesk'],
+    sources: ['App Store', 'Support Tickets'],
     confidence: 81,
     uncertaintyRange: [74, 87],
     feedbackCount: 82,
@@ -122,14 +122,14 @@ const EVIDENCE_DATA: EvidenceItem[] = [
     ],
     linkedFeedback: [
       { id: 'f011', title: 'No guidance when starting from scratch - very confusing', source: 'App Store', date: '2026-03-10', confidenceScore: 82 },
-      { id: 'f012', title: 'New team members struggle to get started',                source: 'Zendesk',   date: '2026-03-08', confidenceScore: 79 },
+      { id: 'f012', title: 'New team members struggle to get started',                source: 'Support Tickets',   date: '2026-03-08', confidenceScore: 79 },
       { id: 'f013', title: 'Needs an interactive setup wizard',                       source: 'App Store', date: '2026-03-06', confidenceScore: 81 },
     ],
   },
   {
     id: 'ev5', clusterId: 'c5',
     title: 'Export to CSV silently fails',
-    sources: ['App Store', 'Zendesk'],
+    sources: ['App Store', 'Support Tickets'],
     confidence: 77,
     uncertaintyRange: [69, 84],
     feedbackCount: 58,
@@ -142,15 +142,15 @@ const EVIDENCE_DATA: EvidenceItem[] = [
       'Works for <100 rows, silently fails for 5000+. Must be timing out server-side.',
     ],
     linkedFeedback: [
-      { id: 'f014', title: 'CSV export says success but file is empty',           source: 'Zendesk',   date: '2026-03-10', confidenceScore: 78 },
+      { id: 'f014', title: 'CSV export says success but file is empty',           source: 'Support Tickets',   date: '2026-03-10', confidenceScore: 78 },
       { id: 'f015', title: 'Export broken - no error shown',                      source: 'App Store', date: '2026-03-09', confidenceScore: 75 },
-      { id: 'f016', title: 'Data export pipeline broken for large datasets',      source: 'Zendesk',   date: '2026-03-07', confidenceScore: 77 },
+      { id: 'f016', title: 'Data export pipeline broken for large datasets',      source: 'Support Tickets',   date: '2026-03-07', confidenceScore: 77 },
     ],
   },
   {
     id: 'ev6', clusterId: 'c6',
     title: 'Notification delay on mobile',
-    sources: ['App Store', 'Zendesk'],
+    sources: ['App Store', 'Support Tickets'],
     confidence: 72,
     uncertaintyRange: [63, 80],
     feedbackCount: 37,
@@ -164,7 +164,7 @@ const EVIDENCE_DATA: EvidenceItem[] = [
     ],
     linkedFeedback: [
       { id: 'f017', title: 'Push notifications arrive 30 minutes late',              source: 'App Store', date: '2026-03-09', confidenceScore: 73 },
-      { id: 'f018', title: 'Mobile notification latency - team coordination impacted', source: 'Zendesk', date: '2026-03-08', confidenceScore: 71 },
+      { id: 'f018', title: 'Mobile notification latency - team coordination impacted', source: 'Support Tickets', date: '2026-03-08', confidenceScore: 71 },
     ],
   },
 ]
@@ -176,7 +176,7 @@ const HOSPITAL_EVIDENCE_DATA: EvidenceItem[] = [
   {
     id: 'hev1', clusterId: 'hc1',
     title: 'Extended Emergency Wait Times',
-    sources: ['App Store', 'Zendesk'],
+    sources: ['App Store', 'Support Tickets'],
     confidence: 91,
     uncertaintyRange: [83, 96],
     feedbackCount: 98,
@@ -190,14 +190,14 @@ const HOSPITAL_EVIDENCE_DATA: EvidenceItem[] = [
     ],
     linkedFeedback: [
       { id: 'hf001', title: 'ER wait 4+ hours — when does triage actually start?', source: 'App Store', date: '2026-03-14', confidenceScore: 92 },
-      { id: 'hf002', title: 'Wait time tripled since last year — systemic issue', source: 'Zendesk', date: '2026-03-13', confidenceScore: 91 },
+      { id: 'hf002', title: 'Wait time tripled since last year — systemic issue', source: 'Support Tickets', date: '2026-03-13', confidenceScore: 91 },
       { id: 'hf003', title: 'Elderly parent sat 5 hours on hard chair in waiting room', source: 'App Store', date: '2026-03-12', confidenceScore: 89 },
     ],
   },
   {
     id: 'hev2', clusterId: 'hc2',
     title: 'Online Appointment Booking Failures',
-    sources: ['App Store', 'Zendesk'],
+    sources: ['App Store', 'Support Tickets'],
     confidence: 84,
     uncertaintyRange: [77, 90],
     feedbackCount: 76,
@@ -211,14 +211,14 @@ const HOSPITAL_EVIDENCE_DATA: EvidenceItem[] = [
     ],
     linkedFeedback: [
       { id: 'hf004', title: 'Portal crashes on appointment confirmation screen', source: 'App Store', date: '2026-03-14', confidenceScore: 85 },
-      { id: 'hf005', title: 'Double booking through online system — second time this month', source: 'Zendesk', date: '2026-03-13', confidenceScore: 84 },
+      { id: 'hf005', title: 'Double booking through online system — second time this month', source: 'Support Tickets', date: '2026-03-13', confidenceScore: 84 },
       { id: 'hf006', title: 'No confirmation email — never know if booking went through', source: 'App Store', date: '2026-03-12', confidenceScore: 82 },
     ],
   },
   {
     id: 'hev3', clusterId: 'hc3',
     title: 'Billing Statement Errors and Confusion',
-    sources: ['Zendesk'],
+    sources: ['Support Tickets'],
     confidence: 78,
     uncertaintyRange: [71, 85],
     feedbackCount: 82,
@@ -231,9 +231,9 @@ const HOSPITAL_EVIDENCE_DATA: EvidenceItem[] = [
       'Insurance was not applied to my bill despite being pre-approved',
     ],
     linkedFeedback: [
-      { id: 'hf007', title: 'Billed for procedure I never had — dispute unanswered', source: 'Zendesk', date: '2026-03-14', confidenceScore: 79 },
-      { id: 'hf008', title: 'Insurance pre-auth ignored — billed full rate', source: 'Zendesk', date: '2026-03-13', confidenceScore: 78 },
-      { id: 'hf009', title: 'Two bills for same hospital stay — which is correct?', source: 'Zendesk', date: '2026-03-11', confidenceScore: 77 },
+      { id: 'hf007', title: 'Billed for procedure I never had — dispute unanswered', source: 'Support Tickets', date: '2026-03-14', confidenceScore: 79 },
+      { id: 'hf008', title: 'Insurance pre-auth ignored — billed full rate', source: 'Support Tickets', date: '2026-03-13', confidenceScore: 78 },
+      { id: 'hf009', title: 'Two bills for same hospital stay — which is correct?', source: 'Support Tickets', date: '2026-03-11', confidenceScore: 77 },
     ],
   },
   {

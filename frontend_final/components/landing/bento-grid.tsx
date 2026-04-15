@@ -9,7 +9,7 @@ const features = [
     title: "Input",
     subtitle: "Ingest Any Signal",
     description:
-      "Connect feedback from Zendesk, Intercom, surveys, interviews, and more. Our engine normalizes messy, unstructured data into analyzable signals.",
+      "Connect feedback from Support Tickets, Intercom, surveys, interviews, and more. Our engine normalizes messy, unstructured data into analyzable signals.",
     gradient: "from-blue-500 to-cyan-500",
     bgGradient: "from-blue-500/10 to-cyan-500/10",
   },

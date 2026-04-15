@@ -38,7 +38,7 @@ const themes: ThemeItem[] = [
     feedbackCount: 138, uniqueUsers: 94, confidence: 91,
     sentiment: 'negative', trend: 'rising',
     keywords: ['crash', 'project switch', 'null pointer', 'v2.4', 'fatal'],
-    color: 'bg-red-500', sources: ['App Store', 'Zendesk'], category: 'Technical',
+    color: 'bg-red-500', sources: ['App Store', 'Support Tickets'], category: 'Technical',
     representativeQuotes: [
       'Crashes every time I switch between projects — started after v2.4.',
       'Fatal crash on workspace navigation. Null pointer in project context handler.',
@@ -52,7 +52,7 @@ const themes: ThemeItem[] = [
     feedbackCount: 112, uniqueUsers: 78, confidence: 87,
     sentiment: 'negative', trend: 'rising',
     keywords: ['black screen', 'launch', 'cold start', 'v2.4', 'deadlock'],
-    color: 'bg-orange-500', sources: ['App Store', 'Zendesk'], category: 'Technical',
+    color: 'bg-orange-500', sources: ['App Store', 'Support Tickets'], category: 'Technical',
     representativeQuotes: [
       'Black screen for 15–20 seconds on every cold start since v2.4.',
       'All 12 users on our account hit black screen on launch.',
@@ -66,7 +66,7 @@ const themes: ThemeItem[] = [
     feedbackCount: 94, uniqueUsers: 61, confidence: 86,
     sentiment: 'negative', trend: 'stable',
     keywords: ['slow', 'dashboard', 'loading', '12 seconds', 'enterprise'],
-    color: 'bg-blue-400', sources: ['App Store', 'Zendesk'], category: 'Technical',
+    color: 'bg-blue-400', sources: ['App Store', 'Support Tickets'], category: 'Technical',
     representativeQuotes: [
       'Dashboard went from 2s to 12s after v2.4. Backend response times are fine.',
       'Enterprise workspace (200+ projects) takes 12–15 seconds. Scales badly.',
@@ -79,7 +79,7 @@ const themes: ThemeItem[] = [
     feedbackCount: 82, uniqueUsers: 67, confidence: 81,
     sentiment: 'mixed', trend: 'rising',
     keywords: ['onboarding', 'checklist', 'new user', 'setup', 'welcome tour'],
-    color: 'bg-blue-500', sources: ['App Store', 'Zendesk'], category: 'UX',
+    color: 'bg-blue-500', sources: ['App Store', 'Support Tickets'], category: 'UX',
     representativeQuotes: [
       'Signed up, had no idea where to start. No checklist, no welcome tour.',
       'Every new team member needs a 30-min walkthrough. No in-app onboarding exists.',
@@ -92,7 +92,7 @@ const themes: ThemeItem[] = [
     feedbackCount: 58, uniqueUsers: 39, confidence: 77,
     sentiment: 'negative', trend: 'declining',
     keywords: ['export', 'CSV', 'silent failure', 'empty file', 'timeout'],
-    color: 'bg-violet-500', sources: ['App Store', 'Zendesk'], category: 'Feature',
+    color: 'bg-violet-500', sources: ['App Store', 'Support Tickets'], category: 'Feature',
     representativeQuotes: [
       'Export shows success toast but file is 0 bytes. Tried Chrome, Safari, Firefox.',
       'Works for <100 rows, silently fails for 5000+. Must be timing out server-side.',
@@ -105,7 +105,7 @@ const themes: ThemeItem[] = [
     feedbackCount: 37, uniqueUsers: 28, confidence: 72,
     sentiment: 'mixed', trend: 'stable',
     keywords: ['notifications', 'push', 'delay', 'mobile', 'iOS', 'Android'],
-    color: 'bg-cyan-500', sources: ['App Store', 'Zendesk'], category: 'Feature',
+    color: 'bg-cyan-500', sources: ['App Store', 'Support Tickets'], category: 'Feature',
     representativeQuotes: [
       'Push notifications arrive 20–40 minutes late. Email is instant but push is broken.',
       'Both iOS and Android affected. Background refresh is on. Latency issue is server-side.',

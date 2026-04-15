@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FeedbackStatus = 'new' | 'processing' | 'analyzed' | 'archived'
-type FeedbackSource = 'App Store' | 'Zendesk' | 'Patient Portal' | 'Hospital Survey'
+type FeedbackSource = 'App Store' | 'Support Tickets' | 'Patient Portal' | 'Hospital Survey'
 
 interface FeedbackItem {
   id: string
@@ -39,7 +39,7 @@ interface FeedbackItem {
 }
 
 // ─── Veloquity-aligned mock feedback (547 items represented via 24 rich cards) ─
-// feedbackCount distribution matches Dashboard: App Store ~275, Zendesk ~272
+// feedbackCount distribution matches Dashboard: App Store ~275, Support Tickets ~272
 const MOCK_FEEDBACK: FeedbackItem[] = [
   // Cluster 1 — App crashes on project switch (138 items)
   {
@@ -50,7 +50,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     clusterId: 'c1', clusterName: 'App crashes on project switch',
   },
   {
-    id: 'f002', source: 'Zendesk', date: '2026-03-09', status: 'analyzed',
+    id: 'f002', source: 'Support Tickets', date: '2026-03-09', status: 'analyzed',
     title: 'Fatal crash when navigating between workspaces',
     content: 'Our whole team is affected. Moving between workspaces triggers an unrecoverable crash. We\'ve filed 3 tickets now. The crash log points to a null pointer in the project context handler.',
     tags: ['crash', 'workspace', 'team-impact', 'regression'], confidenceScore: 91,
@@ -64,7 +64,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     clusterId: 'c1', clusterName: 'App crashes on project switch',
   },
   {
-    id: 'f004', source: 'Zendesk', date: '2026-03-07', status: 'analyzed',
+    id: 'f004', source: 'Support Tickets', date: '2026-03-07', status: 'analyzed',
     title: 'Project context crash - reproducible steps attached',
     content: 'Attaching full crash log. Steps: open project A > create item > immediately switch to project B > crash. Reproducible on iOS 17.3 and 17.4. Seems like the context isn\'t being flushed before the switch.',
     tags: ['crash', 'ios', 'reproducible', 'debug-log'], confidenceScore: 94,
@@ -79,7 +79,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     clusterId: 'c2', clusterName: 'Black screen after latest update',
   },
   {
-    id: 'f006', source: 'Zendesk', date: '2026-03-09', status: 'analyzed',
+    id: 'f006', source: 'Support Tickets', date: '2026-03-09', status: 'analyzed',
     title: 'App stuck on black screen - multiple users affected',
     content: 'We have 12 users on our account all reporting the same black screen on launch since the 2.4 update on March 8. Cold start only - warm restart works. Suspect an async init deadlock.',
     tags: ['black-screen', 'cold-start', 'team-impact', 'deadlock'], confidenceScore: 87,
@@ -94,7 +94,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
   },
   // Cluster 3 — Dashboard load time regression (94 items)
   {
-    id: 'f008', source: 'Zendesk', date: '2026-03-10', status: 'analyzed',
+    id: 'f008', source: 'Support Tickets', date: '2026-03-10', status: 'analyzed',
     title: 'Dashboard load jumped from 2s to 12s after v2.4',
     content: 'We measured load times before and after the update. Dashboard went from ~2 seconds to 10-14 seconds. Checked network - not the issue. Backend response times are fine. Something changed in the frontend render cycle.',
     tags: ['performance', 'dashboard', 'load-time', 'v2.4', 'regression'], confidenceScore: 86,
@@ -108,7 +108,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     clusterId: 'c3', clusterName: 'Dashboard load time regression',
   },
   {
-    id: 'f010', source: 'Zendesk', date: '2026-03-07', status: 'analyzed',
+    id: 'f010', source: 'Support Tickets', date: '2026-03-07', status: 'analyzed',
     title: 'Dashboard performance degradation - enterprise users blocked',
     content: 'Our enterprise workspace with 200+ active projects now takes 12-15 seconds to load the dashboard. This is blocking daily standups. Smaller workspaces seem fine - seems to scale badly with project count.',
     tags: ['performance', 'enterprise', 'scale', 'dashboard'], confidenceScore: 88,
@@ -123,7 +123,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     clusterId: 'c4', clusterName: 'No onboarding checklist for new users',
   },
   {
-    id: 'f012', source: 'Zendesk', date: '2026-03-08', status: 'analyzed',
+    id: 'f012', source: 'Support Tickets', date: '2026-03-08', status: 'analyzed',
     title: 'New team members struggle to get started',
     content: 'Every time we add someone new to the team, they need a 30-minute walkthrough from an existing user. There\'s no onboarding flow, no "start here" checklist, and the docs are hard to find from inside the app.',
     tags: ['onboarding', 'team', 'new-user', 'documentation'], confidenceScore: 79,
@@ -138,7 +138,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
   },
   // Cluster 5 — Export to CSV silently fails (58 items)
   {
-    id: 'f014', source: 'Zendesk', date: '2026-03-10', status: 'analyzed',
+    id: 'f014', source: 'Support Tickets', date: '2026-03-10', status: 'analyzed',
     title: 'CSV export says success but file is empty',
     content: 'Exporting any dataset to CSV shows a success toast but the downloaded file is 0 bytes. Tried on Chrome, Safari, and Firefox. Same result. This is blocking our weekly reporting process completely.',
     tags: ['export', 'csv', 'bug', 'reporting'], confidenceScore: 78,
@@ -152,7 +152,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     clusterId: 'c5', clusterName: 'Export to CSV silently fails',
   },
   {
-    id: 'f016', source: 'Zendesk', date: '2026-03-07', status: 'analyzed',
+    id: 'f016', source: 'Support Tickets', date: '2026-03-07', status: 'analyzed',
     title: 'Data export pipeline completely broken for large datasets',
     content: 'Export works for small datasets (<100 rows) but silently fails for anything larger. We need to export 5,000+ rows weekly. No error message, no email, nothing. The job must be timing out server-side with no fallback.',
     tags: ['export', 'csv', 'large-dataset', 'timeout'], confidenceScore: 77,
@@ -167,7 +167,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     clusterId: 'c6', clusterName: 'Notification delay on mobile',
   },
   {
-    id: 'f018', source: 'Zendesk', date: '2026-03-08', status: 'analyzed',
+    id: 'f018', source: 'Support Tickets', date: '2026-03-08', status: 'analyzed',
     title: 'Mobile notification latency - team coordination impacted',
     content: 'Our team relies on mobile push for urgent task assignments. Notifications are arriving 15-45 minutes late on both iOS and Android. We\'ve checked device settings - push is enabled and background refresh is on.',
     tags: ['notifications', 'push', 'android', 'ios', 'latency'], confidenceScore: 71,
@@ -181,7 +181,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     tags: ['dark-mode', 'accessibility', 'ui', 'contrast'], confidenceScore: 61,
   },
   {
-    id: 'f020', source: 'Zendesk', date: '2026-03-11', status: 'new',
+    id: 'f020', source: 'Support Tickets', date: '2026-03-11', status: 'new',
     title: 'API rate limit errors hitting production',
     content: 'Our integration is hitting 429 errors more frequently since March 9. We haven\'t changed our request volume. Either the rate limits were lowered or something is counting requests differently now.',
     tags: ['api', 'rate-limit', 'integration', '429'], confidenceScore: 58,
@@ -193,7 +193,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     tags: ['search', 'bug', 'indexing'], confidenceScore: 64,
   },
   {
-    id: 'f022', source: 'Zendesk', date: '2026-03-10', status: 'processing',
+    id: 'f022', source: 'Support Tickets', date: '2026-03-10', status: 'processing',
     title: 'SSO login loop affecting enterprise users',
     content: 'Enterprise users on our SAML SSO configuration are getting stuck in an auth loop after session expiry. They are redirected to the IdP, authenticate, then redirected back to the login screen again.',
     tags: ['sso', 'auth', 'enterprise', 'saml', 'loop'], confidenceScore: 66,
@@ -205,7 +205,7 @@ const MOCK_FEEDBACK: FeedbackItem[] = [
     tags: ['sync', 'resolved', 'multi-user'], confidenceScore: 55,
   },
   {
-    id: 'f024', source: 'Zendesk', date: '2026-03-04', status: 'archived',
+    id: 'f024', source: 'Support Tickets', date: '2026-03-04', status: 'archived',
     title: 'Calendar integration not loading - fixed',
     content: 'Google Calendar integration was failing to load events for dates beyond 90 days. This was resolved by the team on March 5 - confirmed working now.',
     tags: ['calendar', 'google', 'integration', 'resolved'], confidenceScore: 52,
@@ -223,7 +223,7 @@ const HOSPITAL_MOCK_FEEDBACK: FeedbackItem[] = [
     clusterId: 'hc1', clusterName: 'Extended Emergency Wait Times',
   },
   {
-    id: 'hf002', source: 'Zendesk', date: '2026-03-13', status: 'analyzed',
+    id: 'hf002', source: 'Support Tickets', date: '2026-03-13', status: 'analyzed',
     title: 'ER wait times have doubled — systemic failure',
     content: 'We have filed 5 complaints this year about emergency wait times. Average wait before initial assessment has gone from 1.5 hours to over 3.5 hours. This is a systemic issue affecting patient safety.',
     tags: ['er-wait', 'systemic', 'safety', 'complaint'], confidenceScore: 91,
@@ -245,7 +245,7 @@ const HOSPITAL_MOCK_FEEDBACK: FeedbackItem[] = [
     clusterId: 'hc2', clusterName: 'Online Appointment Booking Failures',
   },
   {
-    id: 'hf005', source: 'Zendesk', date: '2026-03-13', status: 'analyzed',
+    id: 'hf005', source: 'Support Tickets', date: '2026-03-13', status: 'analyzed',
     title: 'Double-booked twice through online system',
     content: 'The online booking system double-booked me twice in one month. First with my GP, then with the cardiologist. I showed up and there was another patient in the same slot. This wastes everyone\'s time and causes real distress.',
     tags: ['booking', 'double-booking', 'system-error', 'patient-impact'], confidenceScore: 84,
@@ -260,21 +260,21 @@ const HOSPITAL_MOCK_FEEDBACK: FeedbackItem[] = [
   },
   // Cluster 3 — Billing Statement Errors
   {
-    id: 'hf007', source: 'Zendesk', date: '2026-03-14', status: 'analyzed',
+    id: 'hf007', source: 'Support Tickets', date: '2026-03-14', status: 'analyzed',
     title: 'Billed for a procedure I never received',
     content: 'I received a bill for an MRI scan I was never given. I was scheduled for it but the appointment was cancelled. I filed a dispute 3 weeks ago and have heard nothing. The amount is $1,200.',
     tags: ['billing-error', 'dispute', 'mri', 'phantom-charge'], confidenceScore: 79,
     clusterId: 'hc3', clusterName: 'Billing Statement Errors and Confusion',
   },
   {
-    id: 'hf008', source: 'Zendesk', date: '2026-03-12', status: 'analyzed',
+    id: 'hf008', source: 'Support Tickets', date: '2026-03-12', status: 'analyzed',
     title: 'Insurance pre-auth ignored — billed full rate',
     content: 'My insurance company pre-authorized the entire procedure. The hospital still billed me at the full uninsured rate. I have called 4 times and each person says the previous person should have fixed it. This has been ongoing for 2 months.',
     tags: ['billing-error', 'insurance', 'pre-auth', 'dispute'], confidenceScore: 78,
     clusterId: 'hc3', clusterName: 'Billing Statement Errors and Confusion',
   },
   {
-    id: 'hf009', source: 'Zendesk', date: '2026-03-10', status: 'analyzed',
+    id: 'hf009', source: 'Support Tickets', date: '2026-03-10', status: 'analyzed',
     title: 'Two separate bills for the same hospital stay',
     content: 'After a 3-night inpatient stay I received two separate bills totaling different amounts for the same dates. I don\'t know which one is correct or whether I owe both. No one has been able to explain this to me.',
     tags: ['billing-error', 'duplicate-bill', 'inpatient', 'confusing'], confidenceScore: 77,
@@ -303,7 +303,7 @@ const HOSPITAL_MOCK_FEEDBACK: FeedbackItem[] = [
     tags: ['parking', 'accessibility', 'outpatient', 'facility'], confidenceScore: 45,
   },
   {
-    id: 'hf013', source: 'Zendesk', date: '2026-03-15', status: 'new',
+    id: 'hf013', source: 'Support Tickets', date: '2026-03-15', status: 'new',
     title: 'Discharge instructions were not provided',
     content: 'I was discharged after a day procedure with no written instructions about medication or follow-up. I had to call back twice to get the information I needed. This is a patient safety risk.',
     tags: ['discharge', 'instructions', 'patient-safety', 'documentation'], confidenceScore: 62,
@@ -315,7 +315,7 @@ const HOSPITAL_MOCK_FEEDBACK: FeedbackItem[] = [
     tags: ['referral', 'cardiology', 'wait-time', 'communication'], confidenceScore: 58,
   },
   {
-    id: 'hf015', source: 'Zendesk', date: '2026-03-10', status: 'processing',
+    id: 'hf015', source: 'Support Tickets', date: '2026-03-10', status: 'processing',
     title: 'Cafeteria closed during evening visiting hours',
     content: 'The main cafeteria closes at 6pm. Visiting hours run until 9pm. Family members who visit after work have no food options. A vending machine with limited options is not adequate.',
     tags: ['cafeteria', 'visiting-hours', 'facility', 'family'], confidenceScore: 42,
@@ -331,7 +331,7 @@ const HOSPITAL_MOCK_FEEDBACK: FeedbackItem[] = [
 // ─── Adapter: FeedbackDataItem → FeedbackItem ─────────────────────────────────
 const SOURCE_DISPLAY: Record<string, FeedbackSource> = {
   appstore:        'App Store',
-  zendesk:         'Zendesk',
+  support_tickets: 'Support Tickets',
   patient_portal:  'Patient Portal',
   hospital_survey: 'Hospital Survey',
 }
@@ -406,7 +406,7 @@ function adaptItem(item: FeedbackDataItem): FeedbackItem {
 const APP_FEEDBACK_LIST: FeedbackItem[]      = APP_PRODUCT_ITEMS.map(adaptItem)
 const HOSPITAL_FEEDBACK_LIST: FeedbackItem[] = HOSPITAL_ITEMS.map(adaptItem)
 
-const ALL_SOURCES: FeedbackSource[] = ['App Store', 'Zendesk', 'Patient Portal', 'Hospital Survey']
+const ALL_SOURCES: FeedbackSource[] = ['App Store', 'Support Tickets', 'Patient Portal', 'Hospital Survey']
 const ALL_STATUSES: FeedbackStatus[] = ['new', 'processing', 'analyzed', 'archived']
 
 const CLUSTER_MAP: Record<string, string> = {
@@ -762,7 +762,7 @@ export default function DataStudio() {
   const { searchQuery } = useApp()
   const activeSources: FeedbackSource[] = dataset === 'hospital_survey'
     ? ['Patient Portal', 'Hospital Survey']
-    : ['App Store', 'Zendesk']
+    : ['App Store', 'Support Tickets']
   const clusterCount = dataset === 'hospital_survey' ? 4 : 6
   const [localSearch, setLocalSearch]       = useState('')
   const [selectedSources, setSelectedSources] = useState<FeedbackSource[]>([])

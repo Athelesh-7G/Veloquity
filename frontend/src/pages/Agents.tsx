@@ -111,7 +111,7 @@ export default function Agents() {
 
           {/* Source nodes */}
           <div className="flex items-center gap-3 mb-1">
-            {['App Store Reviews', 'Zendesk Tickets'].map((src) => (
+            {['App Store Reviews', 'Support Tickets'].map((src) => (
               <div
                 key={src}
                 className="rounded-lg px-4 py-2 border text-xs font-medium text-slate-400"
@@ -244,7 +244,7 @@ export default function Agents() {
         <h3 className="text-sm font-semibold text-slate-300 mb-3">Architecture</h3>
         <p className="text-sm text-slate-400 leading-relaxed">
           Veloquity operates as a four-agent pipeline. The <strong className="text-slate-300">Ingestion Agent</strong> normalises
-          raw feedback from App Store and Zendesk, applies regex PII redaction, deduplicates by SHA-256 hash, and
+          raw feedback from App Store and Support Tickets, applies regex PII redaction, deduplicates by SHA-256 hash, and
           stores cleaned items to S3. The <strong className="text-slate-300">Evidence Intelligence Agent</strong> embeds feedback
           via Amazon Bedrock Titan Embed V2 (1024-dimensional vectors), clusters semantically using greedy cosine similarity,
           scores cluster confidence, and writes accepted clusters to PostgreSQL with full item-level provenance. The{' '}

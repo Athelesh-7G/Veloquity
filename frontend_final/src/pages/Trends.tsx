@@ -49,50 +49,50 @@ const trendsData = [
 ]
 
 // ─── Interactive chart: feedback volume by day/week/month ──────────────────────
-const CHART_DATA: Record<string, { label: string; appStore: number; zendesk: number }[]> = {
+const CHART_DATA: Record<string, { label: string; appStore: number; supportTickets: number }[]> = {
   '7d': [
-    { label: 'Mar 4',  appStore: 18, zendesk: 16 },
-    { label: 'Mar 5',  appStore: 22, zendesk: 19 },
-    { label: 'Mar 6',  appStore: 17, zendesk: 21 },
-    { label: 'Mar 7',  appStore: 25, zendesk: 23 },
-    { label: 'Mar 8',  appStore: 28, zendesk: 26 },
-    { label: 'Mar 9',  appStore: 31, zendesk: 28 },
-    { label: 'Mar 10', appStore: 34, zendesk: 30 },
+    { label: 'Mar 4',  appStore: 18, supportTickets:16 },
+    { label: 'Mar 5',  appStore: 22, supportTickets:19 },
+    { label: 'Mar 6',  appStore: 17, supportTickets:21 },
+    { label: 'Mar 7',  appStore: 25, supportTickets:23 },
+    { label: 'Mar 8',  appStore: 28, supportTickets:26 },
+    { label: 'Mar 9',  appStore: 31, supportTickets:28 },
+    { label: 'Mar 10', appStore: 34, supportTickets:30 },
   ],
   '30d': [
-    { label: 'Feb 9',  appStore: 52, zendesk: 48 },
-    { label: 'Feb 16', appStore: 61, zendesk: 57 },
-    { label: 'Feb 23', appStore: 74, zendesk: 69 },
-    { label: 'Mar 1',  appStore: 88, zendesk: 82 },
-    { label: 'Mar 10', appStore: 96, zendesk: 91 },
+    { label: 'Feb 9',  appStore: 52, supportTickets:48 },
+    { label: 'Feb 16', appStore: 61, supportTickets:57 },
+    { label: 'Feb 23', appStore: 74, supportTickets:69 },
+    { label: 'Mar 1',  appStore: 88, supportTickets:82 },
+    { label: 'Mar 10', appStore: 96, supportTickets:91 },
   ],
   '90d': [
-    { label: 'Wk 1',  appStore: 28, zendesk: 24 },
-    { label: 'Wk 2',  appStore: 33, zendesk: 29 },
-    { label: 'Wk 3',  appStore: 38, zendesk: 34 },
-    { label: 'Wk 4',  appStore: 42, zendesk: 39 },
-    { label: 'Wk 5',  appStore: 47, zendesk: 43 },
-    { label: 'Wk 6',  appStore: 53, zendesk: 49 },
-    { label: 'Wk 7',  appStore: 58, zendesk: 54 },
-    { label: 'Wk 8',  appStore: 64, zendesk: 60 },
-    { label: 'Wk 9',  appStore: 70, zendesk: 65 },
-    { label: 'Wk 10', appStore: 76, zendesk: 71 },
-    { label: 'Wk 11', appStore: 83, zendesk: 78 },
-    { label: 'Wk 12', appStore: 96, zendesk: 91 },
+    { label: 'Wk 1',  appStore: 28, supportTickets:24 },
+    { label: 'Wk 2',  appStore: 33, supportTickets:29 },
+    { label: 'Wk 3',  appStore: 38, supportTickets:34 },
+    { label: 'Wk 4',  appStore: 42, supportTickets:39 },
+    { label: 'Wk 5',  appStore: 47, supportTickets:43 },
+    { label: 'Wk 6',  appStore: 53, supportTickets:49 },
+    { label: 'Wk 7',  appStore: 58, supportTickets:54 },
+    { label: 'Wk 8',  appStore: 64, supportTickets:60 },
+    { label: 'Wk 9',  appStore: 70, supportTickets:65 },
+    { label: 'Wk 10', appStore: 76, supportTickets:71 },
+    { label: 'Wk 11', appStore: 83, supportTickets:78 },
+    { label: 'Wk 12', appStore: 96, supportTickets:91 },
   ],
   '1y': [
-    { label: 'Apr',   appStore: 38, zendesk: 34 },
-    { label: 'May',   appStore: 47, zendesk: 42 },
-    { label: 'Jun',   appStore: 55, zendesk: 50 },
-    { label: 'Jul',   appStore: 63, zendesk: 58 },
-    { label: 'Aug',   appStore: 72, zendesk: 67 },
-    { label: 'Sep',   appStore: 80, zendesk: 74 },
-    { label: 'Oct',   appStore: 86, zendesk: 80 },
-    { label: 'Nov',   appStore: 91, zendesk: 85 },
-    { label: 'Dec',   appStore: 96, zendesk: 89 },
-    { label: 'Jan',   appStore: 101, zendesk: 94 },
-    { label: 'Feb',   appStore: 112, zendesk: 105 },
-    { label: 'Mar',   appStore: 118, zendesk: 110 },
+    { label: 'Apr',   appStore: 38, supportTickets:34 },
+    { label: 'May',   appStore: 47, supportTickets:42 },
+    { label: 'Jun',   appStore: 55, supportTickets:50 },
+    { label: 'Jul',   appStore: 63, supportTickets:58 },
+    { label: 'Aug',   appStore: 72, supportTickets:67 },
+    { label: 'Sep',   appStore: 80, supportTickets:74 },
+    { label: 'Oct',   appStore: 86, supportTickets:80 },
+    { label: 'Nov',   appStore: 91, supportTickets:85 },
+    { label: 'Dec',   appStore: 96, supportTickets:89 },
+    { label: 'Jan',   appStore: 101, supportTickets:94 },
+    { label: 'Feb',   appStore: 112, supportTickets:105 },
+    { label: 'Mar',   appStore: 118, supportTickets:110 },
   ],
 }
 
@@ -100,7 +100,7 @@ const INSIGHTS = [
   {
     icon: TrendingUp, color: 'emerald',
     title: 'Feedback corpus grew 12.1% this period',
-    desc: '547 items ingested — App Store (275) and Zendesk (272). Cross-source corroboration strengthens cluster confidence.',
+    desc: '547 items ingested — App Store (275) and Support Tickets (272). Cross-source corroboration strengthens cluster confidence.',
   },
   {
     icon: TrendingUp, color: 'emerald',
@@ -151,10 +151,10 @@ export default function Trends() {
   const activeInsights = !hasData ? [] : dataset === 'hospital_survey' ? HOSPITAL_INSIGHTS : INSIGHTS
   const activeChartMap = dataset === 'hospital_survey' ? HOSPITAL_CHART_DATA : CHART_DATA
   const src1Label      = dataset === 'hospital_survey' ? 'Patient Portal'  : 'App Store'
-  const src2Label      = dataset === 'hospital_survey' ? 'Hospital Survey' : 'Zendesk'
+  const src2Label      = dataset === 'hospital_survey' ? 'Hospital Survey' : 'Support Tickets'
 
   const chartData = activeChartMap[timeRange]
-  const chartMax  = hasData ? Math.max(...chartData.map((d) => d.appStore + d.zendesk)) : 100
+  const chartMax  = hasData ? Math.max(...chartData.map((d) => d.appStore + d.supportTickets)) : 100
 
   return (
     <div className="p-6 space-y-6">
@@ -257,7 +257,7 @@ export default function Trends() {
           <CardDescription>
             {dataset === 'hospital_survey'
               ? 'Monthly patient feedback — Patient Portal vs Hospital Survey'
-              : 'Daily feedback submissions — App Store vs Zendesk'}
+              : 'Daily feedback submissions — App Store vs Support Tickets'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -273,7 +273,7 @@ export default function Trends() {
             </div>
             <span className="text-xs text-muted-foreground ml-auto">
               {hasData
-                ? `Total: ${chartData.reduce((s, d) => s + d.appStore + d.zendesk, 0)} items`
+                ? `Total: ${chartData.reduce((s, d) => s + d.appStore + d.supportTickets, 0)} items`
                 : 'No data yet'}
             </span>
           </div>
@@ -302,10 +302,10 @@ export default function Trends() {
                 {/* Bars */}
                 <div className="absolute inset-x-3 bottom-7 top-2 flex items-end gap-1.5">
                   {chartData.map((d, i) => {
-                    const total = d.appStore + d.zendesk
+                    const total = d.appStore + d.supportTickets
                     const totalH = (total / chartMax) * 100
                     const appH   = (d.appStore / total) * totalH
-                    const zenH   = (d.zendesk  / total) * totalH
+                    const suppH  = (d.supportTickets  / total) * totalH
                     const isHov  = hoveredBar === i
                     return (
                       <div
@@ -325,7 +325,7 @@ export default function Trends() {
                             </div>
                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                               <div className="w-2 h-2 rounded-sm bg-blue-400/70" />
-                              {src2Label}: <span className="font-medium text-foreground">{d.zendesk}</span>
+                              {src2Label}: <span className="font-medium text-foreground">{d.supportTickets}</span>
                             </div>
                             <div className="border-t border-border mt-1 pt-1 text-xs font-semibold text-foreground">Total: {total}</div>
                           </div>
@@ -335,7 +335,7 @@ export default function Trends() {
                           <motion.div
                             className="w-full bg-blue-400/70"
                             initial={{ height: 0 }}
-                            animate={{ height: `${zenH / totalH * 100}%` }}
+                            animate={{ height: `${suppH / totalH * 100}%` }}
                             transition={{ duration: 0.5, delay: i * 0.04 }}
                           />
                           <motion.div

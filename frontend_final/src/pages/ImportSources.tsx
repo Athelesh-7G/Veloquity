@@ -30,7 +30,7 @@ const PHASES: Phase[] = [
 ]
 const CONNECT_TOTAL_MS = 16000
 
-type SourceId = 'appstore' | 'zendesk' | 'patient_portal' | 'hospital_survey_ticket'
+type SourceId = 'appstore' | 'support_tickets' | 'patient_portal' | 'hospital_survey_ticket'
 
 function cleanFilename(name: string): string {
   return name.replace(/[_-]?sample[_-]?/gi, '')
@@ -280,7 +280,7 @@ export default function ImportSources() {
   const [sources, setSources] = useState<UploadedSource[]>(getUploadedSources)
 
   const appstoreSource        = sources.find(s => s.source === 'appstore')          ?? null
-  const zendeskSource         = sources.find(s => s.source === 'zendesk')           ?? null
+  const support_ticketsSource         = sources.find(s => s.source === 'support_tickets')           ?? null
   const patientPortalSource   = sources.find(s => s.source === 'patient_portal')    ?? null
   const hospitalSurveySource  = sources.find(s => s.source === 'hospital_survey_ticket') ?? null
 
@@ -345,12 +345,12 @@ export default function ImportSources() {
             onDisconnect={handleDisconnect}
           />
           <SourceCard
-            id="zendesk"
-            label="Zendesk Tickets"
-            description="Upload a CSV export of customer support tickets from Zendesk"
+            id="support_tickets"
+            label="Support Tickets"
+            description="Upload a CSV export of customer support tickets"
             Icon={Ticket}
-            connected={zendeskSource}
-            blockedMessage={zendeskSource ? undefined : appBlocked}
+            connected={support_ticketsSource}
+            blockedMessage={support_ticketsSource ? undefined : appBlocked}
             onConnect={handleConnect}
             onDisconnect={handleDisconnect}
           />
@@ -404,10 +404,10 @@ export default function ImportSources() {
               Download App Store CSV
             </Button>
           </a>
-          <a href="/samples/zendesk_sample.csv" download>
+          <a href="/samples/support_tickets_sample.csv" download>
             <Button variant="outline" className="bg-transparent gap-2">
               <Ticket className="w-4 h-4" />
-              Download Zendesk CSV
+              Download Support Tickets CSV
             </Button>
           </a>
           <a href="/samples/patient_portal_sample.csv" download>

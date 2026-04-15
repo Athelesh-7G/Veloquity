@@ -104,7 +104,7 @@ export default function Docs() {
           </p>
           <p>
             The <strong className="text-slate-100">Ingestion Agent</strong> is the system's entry point. It accepts
-            raw feedback payloads from App Store reviews and Zendesk tickets, applies PII redaction via deterministic
+            raw feedback payloads from App Store reviews and Support Tickets tickets, applies PII redaction via deterministic
             regex patterns (covering emails, phone numbers, SSNs, IPs, and credit cards), normalises each item into
             a common schema, computes a SHA-256 hash on the cleaned text for deduplication, and writes unique items
             to S3 with date-partitioned keys. The dedup table tracks how many times identical feedback recurs —
@@ -181,7 +181,7 @@ confidence = clamp(1.0 - variance * 2.0, 0.0, 1.0)`}</CodeBlock>
     + recency_score         × 0.20   # linear decay over 90 days
 )`}</CodeBlock>
           <p>
-            Source corroboration rewards clusters that appear in both App Store and Zendesk — a theme reported
+            Source corroboration rewards clusters that appear in both App Store and Support Tickets — a theme reported
             by multiple channels is more likely a real product problem than source-specific noise. Recency score
             decays linearly to zero over 90 days, ensuring old signals don't perpetually dominate rankings.
           </p>

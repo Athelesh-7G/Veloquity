@@ -18,7 +18,7 @@ const AGENT_CONFIG = [
     display: 'Ingestion Agent',
     subtitle: 'PII Redaction · Dedup · SHA-256 · S3 Landing',
     tags: ['AWS Lambda', 'S3', 'SHA-256', 'PII Redact'],
-    description: 'Ingests App Store reviews and Zendesk tickets. Applies PII redaction and SHA-256 deduplication before landing to S3.',
+    description: 'Ingests App Store reviews and support tickets. Applies PII redaction and SHA-256 deduplication before landing to S3.',
     Icon: Zap,
     accent: '#6366f1',
   },
@@ -57,7 +57,7 @@ const AGENT_CONFIG = [
 // ─── Canonical per-agent output lines ────────────────────────────────────────
 const AGENT_FALLBACK_LINES: Record<string, string[]> = {
   ingestion: [
-    '547 feedback items ingested  (App Store: 275 · Zendesk: 272)',
+    '547 feedback items ingested  (App Store: 275 · Support Tickets: 272)',
     '49 PII fields redacted via Amazon Comprehend',
     '20 SHA-256 duplicates removed',
     '527 records landed to s3://veloquity-raw-dev-082228066878',
@@ -254,7 +254,7 @@ export default function Agents() {
   const activeMockAgents = dataset === 'hospital_survey' ? HOSPITAL_MOCK_AGENTS : MOCK_AGENTS
   const pipelineMetrics = dataset === 'hospital_survey'
     ? { items: 310, clusters: 4, sourceNodes: [{ label: 'Patient Portal · 155', icon: '🏥' }, { label: 'Hospital Survey · 155', icon: '📋' }] }
-    : { items: 547, clusters: 6, sourceNodes: [{ label: 'App Store Reviews · 275', icon: '📱' }, { label: 'Zendesk Tickets · 272', icon: '🎫' }] }
+    : { items: 547, clusters: 6, sourceNodes: [{ label: 'App Store Reviews · 275', icon: '📱' }, { label: 'Support Tickets · 272', icon: '🎫' }] }
   const activeFallbackLines = dataset === 'hospital_survey' ? HOSPITAL_FALLBACK_LINES : AGENT_FALLBACK_LINES
   const activeFallbacks     = dataset === 'hospital_survey' ? HOSPITAL_FALLBACKS : AGENT_FALLBACKS
   const [agents, setAgents]         = useState<AgentStatus[]>([])

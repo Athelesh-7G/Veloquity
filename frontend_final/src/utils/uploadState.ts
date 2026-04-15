@@ -1,5 +1,5 @@
 export type UploadedSource = {
-  source: 'appstore' | 'zendesk' | 'patient_portal' | 'hospital_survey_ticket'
+  source: 'appstore' | 'support_tickets' | 'patient_portal' | 'hospital_survey_ticket'
   filename: string
   rowCount: number
   uploadedAt: string
@@ -16,7 +16,7 @@ export function getUploadedSources(): UploadedSource[] {
 
 const MOCK_ITEM_COUNTS: Record<string, number> = {
   appstore:              275,
-  zendesk:               272,
+  support_tickets:               272,
   patient_portal:        155,
   hospital_survey_ticket: 155,
 }
@@ -41,7 +41,7 @@ export function hasUploadedData(): boolean {
   return getUploadedSources().length > 0
 }
 
-export function hasSource(source: 'appstore' | 'zendesk' | 'patient_portal' | 'hospital_survey_ticket'): boolean {
+export function hasSource(source: 'appstore' | 'support_tickets' | 'patient_portal' | 'hospital_survey_ticket'): boolean {
   return getUploadedSources().some(x => x.source === source)
 }
 

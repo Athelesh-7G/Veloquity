@@ -135,7 +135,7 @@ recency_score       = max(0, 1 - days_since_validated / 90)
 
 Veloquity is domain-agnostic. The same pipeline processes completely different kinds of feedback without code changes.
 
-**Software Product Teams** — 547 items · 6 clusters · App Store Reviews + Zendesk Tickets
+**Software Product Teams** — 547 items · 6 clusters · App Store Reviews + Support Tickets Tickets
 
 Six evidence clusters identified: app crashes on project switch (91% conf, 94 users), black screen after latest update (87%, 78 users), dashboard load regression (86%, 71 users), no onboarding checklist (81%, 63 users), export to CSV silently fails (77%, 54 users), notification delay on mobile (72%, 48 users). The Reasoning Agent identified that clusters 1 and 2 share a root cause and recommended a single P0 hotfix.
 
@@ -228,6 +228,6 @@ Every production failure below was real, encountered during build, and resolved:
 
 [veloquity1.vercel.app](https://veloquity1.vercel.app)
 
-Upload App Store or Zendesk feedback and watch the full pipeline run. Explore evidence clusters, get AI recommendations with source traceability, and drill down to individual feedback items from the chat interface.
+Upload App Store or Support Tickets feedback and watch the full pipeline run. Explore evidence clusters, get AI recommendations with source traceability, and drill down to individual feedback items from the chat interface.
 
 Switch to Patient Portal and Hospital Survey data to see the same pipeline process a completely different domain with zero code changes.

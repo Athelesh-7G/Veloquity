@@ -5,7 +5,7 @@ import ConfidenceBar from '../components/ConfidenceBar'
 
 const SOURCE_COLOR: Record<string, string> = {
   app_store: '#3B82F6',
-  zendesk:   '#8B5CF6',
+  support_tickets:   '#8B5CF6',
 }
 
 function SourceBadge({ source }: { source: string }) {
@@ -15,7 +15,7 @@ function SourceBadge({ source }: { source: string }) {
       className="text-xs px-2 py-0.5 rounded-full font-medium"
       style={{ background: `${color}20`, color }}
     >
-      {source === 'app_store' ? 'App Store' : source === 'zendesk' ? 'Zendesk' : source}
+      {source === 'app_store' ? 'App Store' : source === 'support_tickets' ? 'Support Tickets' : source}
     </span>
   )
 }
@@ -107,7 +107,7 @@ export default function Evidence() {
       {/* Filter bar */}
       <div className="flex items-center gap-3">
         <div className="flex gap-1 p-1 rounded-lg" style={{ background: 'var(--card)' }}>
-          {['all', 'app_store', 'zendesk'].map((s) => (
+          {['all', 'app_store', 'support_tickets'].map((s) => (
             <button
               key={s}
               onClick={() => setSourceFilter(s)}
@@ -119,7 +119,7 @@ export default function Evidence() {
                 cursor: 'pointer',
               }}
             >
-              {s === 'all' ? 'All Sources' : s === 'app_store' ? 'App Store' : 'Zendesk'}
+              {s === 'all' ? 'All Sources' : s === 'app_store' ? 'App Store' : 'Support Tickets'}
             </button>
           ))}
         </div>
