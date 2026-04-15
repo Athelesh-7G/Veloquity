@@ -398,25 +398,25 @@ export default function ImportSources() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <a href="/samples/appstore_sample.csv" download>
+          <a href="/samples/app_store_reviews.csv" download>
             <Button variant="outline" className="bg-transparent gap-2">
               <Smartphone className="w-4 h-4" />
               Download App Store CSV
             </Button>
           </a>
-          <a href="/samples/support_tickets_sample.csv" download>
+          <a href="/samples/support_tickets.csv" download>
             <Button variant="outline" className="bg-transparent gap-2">
               <Ticket className="w-4 h-4" />
               Download Support Tickets CSV
             </Button>
           </a>
-          <a href="/samples/patient_portal_sample.csv" download>
+          <a href="/samples/patient_portal.csv" download>
             <Button variant="outline" className="bg-transparent gap-2">
               <Hospital className="w-4 h-4" />
               Download Patient Portal CSV
             </Button>
           </a>
-          <a href="/samples/hospital_survey_sample.csv" download>
+          <a href="/samples/hospital_survey.csv" download>
             <Button variant="outline" className="bg-transparent gap-2">
               <ClipboardList className="w-4 h-4" />
               Download Hospital Survey CSV
