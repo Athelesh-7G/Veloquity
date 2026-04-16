@@ -218,10 +218,9 @@ function InlineEvidence({
       {clusterNames.map((clusterName) => {
         const items = allItems.filter((i) => i.cluster === clusterName)
         const displayCount = CLUSTER_ITEM_COUNTS[clusterName] ?? items.length
-        const repItems = items.slice(0, 10)
         const isExpanded = expanded[clusterName] ?? false
-        const shown = isExpanded ? repItems : repItems.slice(0, 3)
-        const hiddenCount = repItems.length - 3
+        const shown = isExpanded ? items : items.slice(0, 3)
+        const hiddenCount = items.length - 3
         const conf = clusterConf(clusterName)
 
         return (
