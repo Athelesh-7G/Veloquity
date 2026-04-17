@@ -277,7 +277,7 @@ function InlineEvidence({
                 Show {hiddenCount} more quote{hiddenCount !== 1 ? 's' : ''}
               </button>
             )}
-            {isExpanded && repItems.length > 3 && (
+            {isExpanded && items.length > 3 && (
               <button
                 type="button"
                 onClick={() => setExpanded((e) => ({ ...e, [clusterName]: false }))}
