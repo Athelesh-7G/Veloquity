@@ -62,7 +62,7 @@ echo "  Template valid."
 echo "[4/5] Deploying CloudFormation stack: ${STACK_NAME}..."
 
 # Convert parameters.json array to Key=Value pairs for `aws cloudformation deploy`
-PARAM_OVERRIDES=$("/c/Program Files/Python311/python" -c "
+PARAM_OVERRIDES=$(python3 -c "
 import json, sys
 params = json.load(open('${PARAMS}'))
 print(' '.join(p['ParameterKey']+'='+p['ParameterValue'] for p in params))
@@ -99,8 +99,8 @@ DB_CREDS=$(aws secretsmanager get-secret-value \
   --output text \
   --region ${REGION})
 
-DB_USER=$(echo $DB_CREDS | "/c/Program Files/Python311/python" -c "import sys,json; print(json.load(sys.stdin)['username'])")
-DB_PASS=$(echo $DB_CREDS | "/c/Program Files/Python311/python" -c "import sys,json; print(json.load(sys.stdin)['password'])")
+DB_USER=$(echo $DB_CREDS | python3 -c "import sys,json; print(json.load(sys.stdin)['username'])")
+DB_PASS=$(echo $DB_CREDS | python3 -c "import sys,json; print(json.load(sys.stdin)['password'])")
 DB_NAME="veloquity"
 
 export PGPASSWORD=${DB_PASS}
