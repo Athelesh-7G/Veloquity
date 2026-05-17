@@ -478,7 +478,7 @@ export default function Chat() {
   const pendingMessage = useRef<string | null>(null)
   const sendRef        = useRef<((text: string) => Promise<void>) | null>(null)
 
-  // Cold start: ping /health up to 8 times with 1.5s gaps
+  // Cold start: ping /health up to 20 times with 2s gaps (40s total — covers Render free tier cold start)
   const runHealthCheck = useCallback(async () => {
     if (sessionStorage.getItem('veloquity_health_ready') === '1') {
       setHealthReady(true)
@@ -487,9 +487,9 @@ export default function Chat() {
     setHealthFailed(false)
     setHealthReady(false)
     setHealthAttempt(0)
-    for (let attempt = 1; attempt <= 8; attempt++) {
+    for (let attempt = 1; attempt <= 20; attempt++) {
       setHealthAttempt(attempt)
-      if (attempt >= 3) setHealthWarming(true)
+      if (attempt >= 2) setHealthWarming(true)
       try {
         const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(2500) })
         if (res.ok) {
@@ -499,9 +499,9 @@ export default function Chat() {
           return
         }
       } catch {}
-      if (attempt < 8) await new Promise<void>(r => setTimeout(r, 1500))
+      if (attempt < 20) await new Promise<void>(r => setTimeout(r, 2000))
     }
-    // All 8 retries failed — show error state
+    // All 20 retries failed — show error state
     setHealthFailed(true)
     setHealthWarming(false)
   }, [])
@@ -952,11 +952,11 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
         </div>
 
         {/* Warming up banner — only shown from attempt 3 onward */}
-        {healthWarming && healthAttempt >= 3 && (
+        {healthWarming && healthAttempt >= 2 && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-500/30 bg-amber-500/8 mb-2">
             <Loader2 className="w-4 h-4 text-amber-500 shrink-0 animate-spin" />
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              Waking up inference engine… (attempt {healthAttempt}/8)
+              Waking up inference engine… (attempt {healthAttempt}/20)
             </p>
           </div>
         )}
@@ -966,7 +966,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/8 mb-2">
             <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
             <p className="text-xs text-red-600 dark:text-red-400 flex-1">
-              Could not reach the AI engine after 8 attempts.
+              Could not reach the AI engine after 20 attempts.
             </p>
             <button
               type="button"
