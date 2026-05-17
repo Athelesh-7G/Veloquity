@@ -292,17 +292,17 @@ export default function Agents() {
         setLastRanAt(ranAtMap)
       }
 
-      // Health check with up to 20 retries, 2s apart (40s total — covers Render free tier cold start)
+      // Health check with up to 8 retries, 1.5s apart
       let healthy = false
       if (sessionStorage.getItem('veloquity_health_ready') === '1') {
         healthy = true
       } else {
-        for (let attempt = 1; attempt <= 20; attempt++) {
+        for (let attempt = 1; attempt <= 8; attempt++) {
           if (cancelled) return
           setHealthAttempt(attempt)
           healthy = await checkHealth(2500)
           if (healthy) break
-          if (attempt < 20) await new Promise<void>(r => setTimeout(r, 2000))
+          if (attempt < 8) await new Promise<void>(r => setTimeout(r, 1500))
         }
         if (healthy) sessionStorage.setItem('veloquity_health_ready', '1')
       }
@@ -365,7 +365,7 @@ export default function Agents() {
         <XCircle className="w-8 h-8 text-red-500" />
         <div className="text-center">
           <p className="text-foreground font-medium">Could not reach the intelligence engine</p>
-          <p className="text-muted-foreground text-sm mt-1">Backend did not respond after 20 attempts.</p>
+          <p className="text-muted-foreground text-sm mt-1">Backend did not respond after 8 attempts.</p>
         </div>
         <Button
           onClick={() => setRetryKey(k => k + 1)}
@@ -380,11 +380,11 @@ export default function Agents() {
   if (loading) {
     return (
       <div className="p-6 space-y-6 bg-background">
-        {healthStatus === 'checking' && healthAttempt >= 2 && (
+        {healthStatus === 'checking' && healthAttempt >= 3 && (
           <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
             <Loader2 className="w-4 h-4 text-amber-500 shrink-0 animate-spin" />
             <p className="text-sm text-amber-600 dark:text-amber-400">
-              Waking up inference engine… (attempt {healthAttempt}/20)
+              Waking up inference engine… (attempt {healthAttempt}/8)
             </p>
           </div>
         )}

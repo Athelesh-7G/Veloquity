@@ -1,6 +1,6 @@
 {
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "env": {
-    "VITE_API_URL": "your-render-api-url-here"
+    "VITE_API_URL": "https://veloquity-api.onrender.com"
   }
 }
