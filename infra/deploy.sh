@@ -16,29 +16,48 @@ echo "=================================================="
 echo " Veloquity Deploy — ENV=${ENV}  REGION=${REGION}"
 echo "=================================================="
 
-# 1. Package Lambda code — zip each module
+# 1. Package Lambda code — all 4 Lambdas import api.db (Secrets Manager + psycopg2)
+#    so every zip must bundle: the Lambda's own package(s) + api/ + psycopg2-binary (Linux).
 echo "[1/5] Packaging Lambda functions..."
 mkdir -p .build
 
-zip -r .build/ingestion.zip ingestion/ -x "*.pyc" -x "__pycache__/*"
-zip -r .build/evidence.zip evidence/ -x "*.pyc" -x "__pycache__/*"
-zip -r .build/governance.zip governance/ -x "*.pyc" -x "__pycache__/*"
-
-# Reasoning Lambda requires api/ (for api.db) and psycopg2 bundled.
-# Install psycopg2-binary for Linux x86_64 (the Lambda runtime), then add source packages.
-echo "  Building reasoning.zip with api/ and psycopg2..."
-rm -rf .build/reasoning_pkg
-mkdir -p .build/reasoning_pkg
+# Shared step: install psycopg2-binary for Linux x86_64 into a reusable deps dir.
+echo "  Installing psycopg2-binary (Linux x86_64) for Lambda bundling..."
+rm -rf .build/deps
+mkdir -p .build/deps
 python3 -m pip install psycopg2-binary \
   --platform manylinux2014_x86_64 \
   --python-version 3.12 \
   --only-binary=:all: \
-  -t .build/reasoning_pkg \
+  -t .build/deps \
   --quiet
-cp -r reasoning .build/reasoning_pkg/
-cp -r lambda_reasoning .build/reasoning_pkg/
-cp -r api .build/reasoning_pkg/
-cd .build/reasoning_pkg && zip -r ../reasoning.zip . -x "*.pyc" -x "*__pycache__*" && cd ../..
+
+# Helper: build a Lambda zip from one or more source dirs.
+# Usage: build_lambda_zip <output.zip> <src_dir> [<src_dir> ...]
+build_lambda_zip() {
+  local zipfile="$1"; shift
+  local pkgdir=".build/pkg_$(basename ${zipfile%.zip})"
+  rm -rf "$pkgdir"
+  cp -r .build/deps "$pkgdir"
+  for srcdir in "$@"; do
+    cp -r "$srcdir" "$pkgdir/"
+  done
+  cp -r api "$pkgdir/"
+  (cd "$pkgdir" && zip -r "../$(basename $zipfile)" . -x "*.pyc" -x "*__pycache__*") > /dev/null
+  echo "  Built $zipfile ($(du -sh .build/$(basename $zipfile) | cut -f1))"
+}
+
+echo "  Building ingestion.zip..."
+build_lambda_zip .build/ingestion.zip ingestion
+
+echo "  Building evidence.zip..."
+build_lambda_zip .build/evidence.zip evidence
+
+echo "  Building governance.zip..."
+build_lambda_zip .build/governance.zip governance output
+
+echo "  Building reasoning.zip..."
+build_lambda_zip .build/reasoning.zip reasoning lambda_reasoning
 
 # 2. Upload Lambda zips to a deployment S3 bucket
 DEPLOY_BUCKET="veloquity-deploy-${ENV}-$(aws sts get-caller-identity --query Account --output text)"
