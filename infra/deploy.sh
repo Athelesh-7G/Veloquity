@@ -22,8 +22,23 @@ mkdir -p .build
 
 zip -r .build/ingestion.zip ingestion/ -x "*.pyc" -x "__pycache__/*"
 zip -r .build/evidence.zip evidence/ -x "*.pyc" -x "__pycache__/*"
-zip -r .build/reasoning.zip reasoning/ lambda_reasoning/ -x "*.pyc" -x "__pycache__/*"
 zip -r .build/governance.zip governance/ -x "*.pyc" -x "__pycache__/*"
+
+# Reasoning Lambda requires api/ (for api.db) and psycopg2 bundled.
+# Install psycopg2-binary for Linux x86_64 (the Lambda runtime), then add source packages.
+echo "  Building reasoning.zip with api/ and psycopg2..."
+rm -rf .build/reasoning_pkg
+mkdir -p .build/reasoning_pkg
+python3 -m pip install psycopg2-binary \
+  --platform manylinux2014_x86_64 \
+  --python-version 3.12 \
+  --only-binary=:all: \
+  -t .build/reasoning_pkg \
+  --quiet
+cp -r reasoning .build/reasoning_pkg/
+cp -r lambda_reasoning .build/reasoning_pkg/
+cp -r api .build/reasoning_pkg/
+cd .build/reasoning_pkg && zip -r ../reasoning.zip . -x "*.pyc" -x "*__pycache__*" && cd ../..
 
 # 2. Upload Lambda zips to a deployment S3 bucket
 DEPLOY_BUCKET="veloquity-deploy-${ENV}-$(aws sts get-caller-identity --query Account --output text)"

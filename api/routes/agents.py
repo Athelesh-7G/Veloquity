@@ -39,8 +39,9 @@ _AGENT_CONFIG = {
         "display_name": "Reasoning Agent",
         "lambda_function_name": "veloquity-reasoning-dev",
         "description": (
-            "Scores evidence clusters by priority formula. Calls Bedrock Claude 3 Haiku "
-            "to generate ranked, explainable product recommendations with effort and impact estimates."
+            "Scores evidence clusters by priority formula. Calls Amazon Bedrock Nova Pro "
+            "(us.amazon.nova-pro-v1:0) via ReAct reasoning loop to generate ranked, "
+            "evidence-backed product decisions with composite priority scoring."
         ),
     },
     "governance": {

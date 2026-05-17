@@ -54,8 +54,11 @@ Thumbs.db
 .aws/
 *.pem
 
-# Lambda build artifacts
+# Lambda build artifacts — never commit
 .build/
+lambda_reasoning.zip
+lambda_governance.zip
+*.zip
 
 # Local only — not for repo
 CLAUDE.md

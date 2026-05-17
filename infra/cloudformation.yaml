@@ -215,13 +215,16 @@ Resources:
                   - !Sub ${RawFeedbackBucket.Arn}/*
                   - !GetAtt ReportBucket.Arn
                   - !Sub ${ReportBucket.Arn}/*
-              # Bedrock access
+              # Bedrock access — foundation-model ARNs for direct invocation;
+              # inference-profile ARN covers cross-region routing for Nova Pro
+              # (us.amazon.nova-pro-v1:0 routes via inference-profile resource type).
               - Effect: Allow
                 Action:
                   - bedrock:InvokeModel
                 Resource:
-                  - !Sub arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0
-                  - !Sub arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.nova-pro-v1:0
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.nova-pro-v1:0"
+                  - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/us.amazon.nova-pro-v1:0"
               # Secrets Manager
               - Effect: Allow
                 Action:
@@ -252,10 +255,8 @@ Resources:
         S3Key: lambda/ingestion.zip
       Timeout: 300
       MemorySize: 512
-      VpcConfig:
-        SecurityGroupIds:
-          - !Ref SecurityGroupId
-        SubnetIds: !Ref SubnetIds
+      # No VpcConfig — Lambda runs outside VPC so it can reach Secrets Manager
+      # directly. RDS is PubliclyAccessible for MVP.
       Environment:
         Variables:
           ENV: !Ref Env
@@ -365,10 +366,8 @@ Resources:
         S3Key: lambda/governance.zip
       Timeout: 300
       MemorySize: 256
-      VpcConfig:
-        SecurityGroupIds:
-          - !Ref SecurityGroupId
-        SubnetIds: !Ref SubnetIds
+      # No VpcConfig — Lambda runs outside VPC so it can reach Secrets Manager
+      # and S3 (HTML report upload) directly. Same fix applied to EvidenceLambda.
       Environment:
         Variables:
           ENV: !Ref Env

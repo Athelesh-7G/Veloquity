@@ -18,8 +18,8 @@ from reasoning.agent import run_reasoning_agent
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-BUCKET = "veloquity-reports-dev-082228066878"
-REGION = os.environ.get("AWS_REGION_NAME", "us-east-1")
+BUCKET = os.environ.get("REPORT_BUCKET", "veloquity-reports-dev-082228066878")
+REGION = os.environ.get("AWS_REGION", os.environ.get("AWS_REGION_NAME", "us-east-1"))
 
 
 def handler(event: dict, context: Any) -> dict:
@@ -39,7 +39,7 @@ def handler(event: dict, context: Any) -> dict:
     conn = None
     try:
         conn = get_conn()
-        bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
+        bedrock = boto3.client("bedrock-runtime", region_name=REGION)
         s3 = boto3.client("s3", region_name=REGION)
 
         result = run_reasoning_agent(conn, bedrock, s3, BUCKET)
