@@ -16,15 +16,19 @@ logger = logging.getLogger(__name__)
 
 # Keys tried in order when extracting body text per source.
 _TEXT_KEYS = {
-    "app_store": ["body", "review", "text", "content", "description"],
-    "zendesk":   ["description", "body", "comment", "text", "content"],
+    "app_store":      ["body", "review", "text", "content", "description"],
+    "zendesk":        ["description", "body", "comment", "text", "content"],
+    "patient_portal": ["review", "body", "text", "content", "description"],
+    "hospital_survey":["description", "body", "text", "review", "content"],
 }
 _TEXT_KEYS_FALLBACK = ["body", "text", "description", "review", "content", "comment"]
 
 # Keys tried in order when extracting timestamp per source.
 _TS_KEYS = {
-    "app_store": ["date", "updated", "created_at", "timestamp"],
-    "zendesk":   ["created_at", "updated_at", "date", "timestamp"],
+    "app_store":      ["date", "updated", "created_at", "timestamp"],
+    "zendesk":        ["created_at", "updated_at", "date", "timestamp"],
+    "patient_portal": ["date", "updated", "created_at", "timestamp"],
+    "hospital_survey":["created_at", "updated_at", "date", "timestamp"],
 }
 _TS_KEYS_FALLBACK = ["created_at", "updated_at", "date", "timestamp"]
 

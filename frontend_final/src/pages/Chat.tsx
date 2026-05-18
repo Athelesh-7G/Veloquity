@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bot, Send, Sparkles, Database, Shield, BarChart3, Activity, Layers, Hash, AlertTriangle, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { type ChatMessage, getAgentStatus, getEvidence, getRecommendations, sendChatMessage } from '@/api/client'
-import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { type ChatMessage, getAgentStatus, getEvidence, getRecommendations, sendChatMessage, fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
 import { APP_PRODUCT_ITEMS, HOSPITAL_ITEMS, MOCK_EVIDENCE, HOSPITAL_MOCK_DATA } from '@/api/mockData'
 import { EvidenceDrawer, type EvidenceItem } from '@/components/EvidenceDrawer'
 
@@ -445,7 +445,7 @@ Answer questions based ONLY on this evidence. When asked about patient issues, r
 export default function Chat() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
-  const systemContext = dataset === 'hospital_survey' ? HOSPITAL_CONTEXT : APP_PRODUCT_CONTEXT
+  const mockContext = dataset === 'hospital_survey' ? HOSPITAL_CONTEXT : APP_PRODUCT_CONTEXT
   const pipelineMetrics = dataset === 'hospital_survey'
     ? { items: 310, clusters: 4 }
     : { items: 547, clusters: 6 }
@@ -464,6 +464,38 @@ export default function Chat() {
 
   // Guided recommendation flow state
   const [awaitingContext, setAwaitingContext] = useState<{ cluster: string } | null>(null)
+
+  // Live mode
+  const [liveMode, setLiveModeState]        = useState(getLiveMode())
+  const [liveEvidenceData, setLiveEvidenceData] = useState<ApiEvidenceItem[] | null>(null)
+
+  // Build live system context from real evidence clusters
+  const liveContext = liveEvidenceData && liveEvidenceData.length > 0
+    ? `You are Veloquity AI, an evidence intelligence assistant with access to LIVE pipeline data.
+
+LIVE EVIDENCE CLUSTERS (${liveEvidenceData.length} clusters from real Bedrock + pgvector pipeline):
+${liveEvidenceData.map((e, i) => {
+  const name = e.theme.split(' | ')[0].slice(0, 80)
+  const conf = Math.round(e.confidence_score * 100)
+  const sources = Object.keys(e.source_lineage ?? {}).join(', ')
+  return `${i + 1}. ${name}\n   Confidence: ${conf}% | Users: ${e.unique_user_count} | Sources: ${sources}`
+}).join('\n')}
+
+DATA SOURCES: ${[...new Set(liveEvidenceData.flatMap((e) => Object.keys(e.source_lineage ?? {})))].join(', ')}
+TOTAL UNIQUE USERS: ${liveEvidenceData.reduce((s, e) => s + e.unique_user_count, 0)}
+LAST PIPELINE RUN: ${liveEvidenceData[0]?.last_validated_at?.split('T')[0] ?? 'unknown'}
+
+Answer questions based ONLY on this live evidence. Reference specific cluster names and confidence scores. Respond in plain conversational text only. No markdown headers or bullets.`
+    : null
+
+  const systemContext = liveMode && liveContext ? liveContext : mockContext
+
+  useEffect(() => {
+    if (!liveMode) return
+    fetchLiveEvidence()
+      .then((r) => setLiveEvidenceData(r))
+      .catch(() => {})
+  }, [liveMode])
 
   // Cold start state
   const [healthReady, setHealthReady]           = useState(false)
@@ -733,11 +765,22 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
         className="w-64 flex-shrink-0 rounded-xl border border-border bg-card flex flex-col gap-4 p-4 overflow-y-auto"
       >
         <div>
-          <h2 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-            System Context
-          </h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+              System Context
+            </h2>
+            <button
+              onClick={() => { const n = !liveMode; setLiveModeState(n); setLiveMode(n) }}
+              style={{ padding:'3px 8px', borderRadius:'4px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'10px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'4px' }}
+            >
+              <span style={{ width:6, height:6, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
+              {liveMode ? 'LIVE' : 'MOCK'}
+            </button>
+          </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            The assistant has access to live Veloquity pipeline data:
+            {liveMode && liveContext
+              ? `Live pipeline: ${liveEvidenceData?.length ?? 0} real clusters`
+              : 'The assistant has access to live Veloquity pipeline data:'}
           </p>
         </div>
 

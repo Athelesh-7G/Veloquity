@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import type React from 'react'
 import { motion } from 'framer-motion'
-import { BarChart3, TrendingUp, TrendingDown, Minus, Database, Shield, ArrowUpRight, ArrowDownRight, CheckCircle2 } from 'lucide-react'
+import { BarChart3, TrendingUp, TrendingDown, Minus, Database, Shield, ArrowUpRight, ArrowDownRight, CheckCircle2, Wifi } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { MOCK_EVIDENCE, HOSPITAL_MOCK_DATA } from '@/api/mockData'
-import { getEvidence } from '@/api/client'
-import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { getEvidence, fetchLiveEvidence, fetchLiveRecommendations, type EvidenceItem, type ReasoningRun } from '@/api/client'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
 
 // ─── App product numbers ──────────────────────────────────────────────────────
 const APP_TOTAL_FEEDBACK    = 547
@@ -101,6 +101,13 @@ export default function Dashboard() {
 
   const [evidence, setEvidence] = useState(isHospital ? HOSPITAL_MOCK_DATA : MOCK_EVIDENCE)
 
+  // Live mode state
+  const [liveMode, setLiveModeState] = useState(getLiveMode())
+  const [liveEvidence, setLiveEvidence] = useState<EvidenceItem[] | null>(null)
+  const [liveRun, setLiveRun] = useState<ReasoningRun | null>(null)
+  const [liveLoading, setLiveLoading] = useState(false)
+  const [liveError, setLiveError] = useState<string | null>(null)
+
   useEffect(() => {
     if (!hasData) return
     getEvidence()
@@ -108,12 +115,36 @@ export default function Dashboard() {
       .catch(() => {})
   }, [hasData])
 
+  useEffect(() => {
+    if (!liveMode) return
+    setLiveLoading(true)
+    setLiveError(null)
+    Promise.all([fetchLiveEvidence(), fetchLiveRecommendations()])
+      .then(([ev, run]) => {
+        setLiveEvidence(ev)
+        setLiveRun(run)
+        setLiveLoading(false)
+      })
+      .catch(err => {
+        setLiveError(err.message)
+        setLiveLoading(false)
+      })
+  }, [liveMode])
+
   const bucketMax = Math.max(...CONFIDENCE_BUCKETS.map((b) => b.count))
 
-  const displayTotal      = hasData ? TOTAL_FEEDBACK    : 0
-  const displayClusters   = hasData ? EVIDENCE_CLUSTERS : 0
-  const displayConfidence = hasData ? AVG_CONFIDENCE    : 0
-  const displayAnalyzed   = hasData ? ANALYZED_PCT      : 0
+  // When live mode is active, derive display values from real API data
+  const liveClusters   = liveEvidence?.length ?? 0
+  const liveAvgConf    = liveEvidence && liveEvidence.length > 0
+    ? Math.round(liveEvidence.reduce((s, e) => s + e.confidence_score * 100, 0) / liveEvidence.length)
+    : 0
+  const liveTotalUsers = liveEvidence?.reduce((s, e) => s + e.unique_user_count, 0) ?? 0
+  const liveRecCount   = liveRun?.recommendations?.length ?? 0
+
+  const displayTotal      = liveMode && liveEvidence ? liveTotalUsers   : hasData ? TOTAL_FEEDBACK    : 0
+  const displayClusters   = liveMode && liveEvidence ? liveClusters     : hasData ? EVIDENCE_CLUSTERS : 0
+  const displayConfidence = liveMode && liveEvidence ? liveAvgConf      : hasData ? AVG_CONFIDENCE    : 0
+  const displayAnalyzed   = liveMode && liveEvidence ? liveRecCount > 0 ? 100 : 0 : hasData ? ANALYZED_PCT : 0
 
   return (
     <div className="p-6">
@@ -124,12 +155,61 @@ export default function Dashboard() {
             Overview of your feedback, evidence, and decision metrics
           </p>
         </div>
-        {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
+        <div className="flex items-center gap-3 flex-wrap">
+          {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
+          <button
+            onClick={() => {
+              const next = !liveMode
+              setLiveModeState(next)
+              setLiveMode(next)
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '6px',
+              border: '1px solid',
+              borderColor: liveMode ? '#22c55e' : '#6b7280',
+              background: liveMode ? '#052e16' : 'transparent',
+              color: liveMode ? '#22c55e' : '#9ca3af',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: liveMode ? '#22c55e' : '#6b7280',
+              display: 'inline-block',
+            }} />
+            {liveMode ? 'LIVE' : 'MOCK'}
+          </button>
+        </div>
       </div>
 
-      {!hasData && (
+      {/* Live mode banner */}
+      {liveMode && liveLoading && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
+          <Wifi className="w-4 h-4 animate-pulse shrink-0" />
+          Fetching live pipeline data…
+        </div>
+      )}
+      {liveMode && liveError && (
+        <div className="mb-4 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">
+          Live mode error: {liveError}
+        </div>
+      )}
+      {liveMode && liveEvidence && !liveLoading && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
+          <Wifi className="w-4 h-4 shrink-0" />
+          Live Pipeline Data — {liveClusters} clusters · {liveTotalUsers} unique users · {liveRecCount} recommendations · model: {liveRun?.model_id}
+        </div>
+      )}
+
+      {!hasData && !liveMode && (
         <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-          Upload feedback data on the Import Sources page to see insights
+          Upload feedback data on the Import Sources page, or enable LIVE mode to show real pipeline data.
         </div>
       )}
 
@@ -185,12 +265,38 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-2">
-            {!hasData && (
+            {!hasData && !liveMode && (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 Upload feedback data on the Import Sources page to see insights
               </div>
             )}
-            {hasData && VELOQUITY_THEMES.map((theme, i) => {
+            {liveMode && liveEvidence && liveEvidence.map((ev, i) => {
+              const confPct = Math.round(ev.confidence_score * 100)
+              return (
+                <motion.div
+                  key={ev.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.07 }}
+                  className="flex items-center justify-between p-4 rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500/10 to-emerald-500/10 flex items-center justify-center">
+                      <span className="text-sm font-bold text-foreground">{i + 1}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground text-sm leading-snug line-clamp-2">{ev.theme.split(' | ')[0]}</p>
+                      <p className="text-sm text-muted-foreground">{ev.unique_user_count} unique users · {Object.keys(ev.source_lineage).join(', ')}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-4">
+                    <p className="font-bold text-foreground">{confPct}%</p>
+                    <p className="text-xs text-muted-foreground">confidence</p>
+                  </div>
+                </motion.div>
+              )
+            })}
+            {!liveMode && hasData && VELOQUITY_THEMES.map((theme, i) => {
               const TrendIcon =
                 theme.trend === 'rising'    ? TrendingUp  :
                 theme.trend === 'declining' ? TrendingDown : Minus

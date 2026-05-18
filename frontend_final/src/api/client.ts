@@ -167,3 +167,21 @@ export async function checkHealth(timeoutMs = 5000): Promise<boolean> {
     return false
   }
 }
+
+export async function fetchLiveEvidence(): Promise<EvidenceItem[]> {
+  const res = await fetch(`${BASE}/api/v1/evidence/`)
+  if (!res.ok) throw new Error(`Evidence API error: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchLiveRecommendations(): Promise<ReasoningRun> {
+  const res = await fetch(`${BASE}/api/v1/recommendations/`)
+  if (!res.ok) throw new Error(`Recommendations API error: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchLiveAgentStatus(): Promise<AgentStatus[]> {
+  const res = await fetch(`${BASE}/api/v1/agents/status`)
+  if (!res.ok) throw new Error(`Agent status API error: ${res.status}`)
+  return res.json()
+}

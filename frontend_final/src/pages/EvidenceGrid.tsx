@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Shield, TrendingUp, ExternalLink, Layers, ChevronRight,
-  Info, Link2, BarChart3, CheckCircle2, Users, Hash
+  Info, Link2, BarChart3, CheckCircle2, Users, Hash, Wifi
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { MOCK_EVIDENCE } from '@/api/mockData'
-import { getEvidence } from '@/api/client'
+import { getEvidence, fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { cn } from '@/lib/utils'
-import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EvidenceCategory = 'Technical' | 'Feature' | 'UX'
@@ -492,6 +492,33 @@ function EvidenceCard({
   )
 }
 
+// ─── Map real API evidence to local EvidenceItem shape ───────────────────────
+function mapApiToEvidenceItem(e: ApiEvidenceItem): EvidenceItem {
+  const confPct = Math.round(e.confidence_score * 100)
+  // theme is a pipe-joined quote dump — use first segment as title
+  const title = e.theme.split(' | ')[0].trim()
+  return {
+    id: e.id,
+    clusterId: e.id,
+    title,
+    sources: Object.keys(e.source_lineage ?? {}) as any,
+    confidence: confPct,
+    uncertaintyRange: [
+      Math.max(0,   confPct - 8),
+      Math.min(100, confPct + 5),
+    ] as [number, number],
+    feedbackCount: e.unique_user_count,
+    uniqueUsers: e.unique_user_count,
+    category: 'Technical' as EvidenceCategory,
+    trend: 'stable' as EvidenceTrend,
+    lastValidated: (e.last_validated_at ?? '').split('T')[0],
+    representativeQuotes: Array.isArray(e.representative_quotes)
+      ? e.representative_quotes.map((q: any) => (typeof q === 'string' ? q : q.text ?? ''))
+      : [],
+    linkedFeedback: [],
+  }
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function EvidenceGrid() {
   const hasData = hasUploadedData()
@@ -500,6 +527,12 @@ export default function EvidenceGrid() {
   const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>(
     dataset === 'hospital_survey' ? HOSPITAL_EVIDENCE_DATA : EVIDENCE_DATA
   )
+
+  // Live mode state
+  const [liveMode, setLiveModeState] = useState(getLiveMode())
+  const [liveList, setLiveList] = useState<EvidenceItem[] | null>(null)
+  const [liveLoading, setLiveLoading] = useState(false)
+  const [liveError, setLiveError] = useState<string | null>(null)
 
   // Only replace mock data if the API returns well-formed evidence clusters.
   useEffect(() => {
@@ -534,15 +567,32 @@ export default function EvidenceGrid() {
       .catch(() => {})  // silently keep mock data on any error
   }, [])
 
+  useEffect(() => {
+    if (!liveMode) return
+    setLiveLoading(true)
+    setLiveError(null)
+    fetchLiveEvidence()
+      .then((r) => {
+        setLiveList(r.map(mapApiToEvidenceItem))
+        setLiveLoading(false)
+      })
+      .catch((err: Error) => {
+        setLiveError(err.message)
+        setLiveLoading(false)
+      })
+  }, [liveMode])
+
   const toggleExpand = (id: string) =>
     setExpandedId(expandedId === id ? null : id)
 
-  const avgConf = Math.round(
-    evidenceList.reduce((s, e) => s + e.confidence, 0) / evidenceList.length,
-  )
-  const totalFbClustered = evidenceList.reduce((s, e) => s + e.feedbackCount, 0)
+  const activeList = liveMode && liveList ? liveList : evidenceList
 
-  const displayList = hasData ? evidenceList : []
+  const avgConf = activeList.length > 0
+    ? Math.round(activeList.reduce((s, e) => s + e.confidence, 0) / activeList.length)
+    : 0
+  const totalFbClustered = activeList.reduce((s, e) => s + e.feedbackCount, 0)
+
+  const displayList = liveMode ? activeList : hasData ? evidenceList : []
 
   return (
     <div className="p-6">
@@ -554,17 +604,62 @@ export default function EvidenceGrid() {
             pgvector cosine clusters · Titan Embed V2 · confidence ≥ 0.60 auto-accept
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
+        <div className="flex items-center gap-3 flex-wrap">
+          {!hasData && !liveMode && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
+          <button
+            onClick={() => {
+              const next = !liveMode
+              setLiveModeState(next)
+              setLiveMode(next)
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '6px',
+              border: '1px solid',
+              borderColor: liveMode ? '#22c55e' : '#6b7280',
+              background: liveMode ? '#052e16' : 'transparent',
+              color: liveMode ? '#22c55e' : '#9ca3af',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: liveMode ? '#22c55e' : '#6b7280',
+              display: 'inline-block',
+            }} />
+            {liveMode ? 'LIVE' : 'MOCK'}
+          </button>
           <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
             <Shield className="w-4 h-4 mr-2" />Create Evidence
           </Button>
         </div>
       </div>
 
-      {!hasData && (
+      {liveMode && liveLoading && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
+          <Wifi className="w-4 h-4 animate-pulse shrink-0" />
+          Fetching live evidence clusters…
+        </div>
+      )}
+      {liveMode && liveError && (
+        <div className="mb-4 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">
+          Live mode error: {liveError}
+        </div>
+      )}
+      {liveMode && liveList && !liveLoading && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
+          <Wifi className="w-4 h-4 shrink-0" />
+          Live Pipeline Data — {liveList.length} clusters from real Bedrock + pgvector pipeline
+        </div>
+      )}
+      {!hasData && !liveMode && (
         <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-          Upload feedback data on the Import Sources page to see insights
+          Upload feedback data on the Import Sources page, or enable LIVE mode to show real pipeline data.
         </div>
       )}
 
@@ -572,19 +667,19 @@ export default function EvidenceGrid() {
       <div className="grid sm:grid-cols-4 gap-4 mb-8">
         {[
           {
-            icon: Shield,       label: 'Evidence Clusters',  value: hasData ? evidenceList.length : 0,
+            icon: Shield,       label: 'Evidence Clusters',  value: (liveMode || hasData) ? activeList.length : 0,
             gradient: 'from-blue-500/5 to-blue-500/10',      iconColor: 'text-blue-600',
           },
           {
-            icon: TrendingUp,   label: 'Avg Confidence',     value: hasData ? `${avgConf}%` : '0%',
+            icon: TrendingUp,   label: 'Avg Confidence',     value: (liveMode || hasData) ? `${avgConf}%` : '0%',
             gradient: 'from-violet-500/5 to-violet-500/10',  iconColor: 'text-violet-600',
           },
           {
-            icon: Layers,       label: 'Feedback Clustered', value: hasData ? totalFbClustered.toLocaleString() : '0',
+            icon: Layers,       label: 'Feedback Clustered', value: (liveMode || hasData) ? totalFbClustered.toLocaleString() : '0',
             gradient: 'from-green-500/5 to-green-500/10',    iconColor: 'text-green-600',
           },
           {
-            icon: ExternalLink, label: 'Unique Sources',     value: hasData ? UNIQUE_SOURCES : 0,
+            icon: ExternalLink, label: 'Unique Sources',     value: (liveMode || hasData) ? UNIQUE_SOURCES : 0,
             gradient: 'from-orange-500/5 to-orange-500/10',  iconColor: 'text-orange-600',
           },
         ].map(({ icon: Icon, label, value, gradient, iconColor }) => (
@@ -626,9 +721,9 @@ export default function EvidenceGrid() {
             onToggle={() => toggleExpand(item.id)}
           />
         ))}
-        {!hasData && displayList.length === 0 && (
+        {!hasData && !liveMode && displayList.length === 0 && (
           <div className="lg:col-span-2 text-center py-16 text-muted-foreground text-sm">
-            Upload feedback data on the Import Sources page to see insights
+            Upload feedback data on the Import Sources page, or enable LIVE mode to show real pipeline data.
           </div>
         )}
       </div>

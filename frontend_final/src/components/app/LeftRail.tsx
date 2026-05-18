@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useApp } from '@/lib/app-context'
+import { getLiveMode, setLiveMode } from '@/utils/uploadState'
 
 interface NavSection {
   title: string
@@ -79,6 +80,7 @@ export default function LeftRail() {
   const location = useLocation()
   const { sidebarCollapsed, setSidebarCollapsed } = useApp()
   const [expandedSections, setExpandedSections] = useState<string[]>(navSections.map((s) => s.title))
+  const [liveMode, setLiveModeState] = useState(getLiveMode())
 
   const toggleSection = (title: string) => {
     setExpandedSections((prev) => (prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]))
@@ -171,6 +173,32 @@ export default function LeftRail() {
           </div>
         ))}
       </nav>
+
+      {/* Live mode indicator */}
+      <div className="px-2 pb-1 border-t border-border pt-2">
+        <button
+          onClick={() => {
+            const next = !liveMode
+            setLiveModeState(next)
+            setLiveMode(next)
+          }}
+          className={cn(
+            'w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm font-medium',
+            liveMode
+              ? 'border border-green-500/40 bg-green-500/8 text-green-600 dark:text-green-400 hover:bg-green-500/15'
+              : 'border border-border text-muted-foreground hover:text-foreground hover:bg-accent',
+          )}
+          title={liveMode ? 'Switch to mock data' : 'Switch to live pipeline data'}
+        >
+          <span
+            className={cn('shrink-0 rounded-full', liveMode ? 'animate-pulse' : '')}
+            style={{ width: 8, height: 8, background: liveMode ? '#22c55e' : '#6b7280', display: 'inline-block', borderRadius: '50%' }}
+          />
+          {!sidebarCollapsed && (
+            <span>{liveMode ? 'LIVE' : 'MOCK'}</span>
+          )}
+        </button>
+      </div>
 
       {/* Collapse toggle */}
       <div className="p-2 border-t border-border">

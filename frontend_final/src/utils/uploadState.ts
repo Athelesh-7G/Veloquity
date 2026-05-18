@@ -55,3 +55,11 @@ export function getActiveDataset(): 'app_product' | 'hospital_survey' | null {
 export function clearAll(): void {
   try { localStorage.removeItem(KEY) } catch {}
 }
+
+export function getLiveMode(): boolean {
+  return localStorage.getItem('veloquity_live_mode') === 'true'
+}
+
+export function setLiveMode(enabled: boolean): void {
+  localStorage.setItem('veloquity_live_mode', enabled ? 'true' : 'false')
+}
