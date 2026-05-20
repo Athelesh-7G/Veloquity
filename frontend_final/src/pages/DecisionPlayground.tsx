@@ -543,11 +543,19 @@ export default function DecisionPlayground() {
   const dataset = getActiveDataset()
   const mockClusters = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
 
-  // Live mode
+  // Live mode — reads from localStorage on mount so toggling on another
+  // page persists correctly when the user navigates here.
   const [liveMode,      setLiveModeState]  = useState(getLiveMode())
   const [liveClusters,  setLiveClusters]   = useState<Cluster[] | null>(null)
   const [liveLoading,   setLiveLoading]    = useState(false)
   const [liveError,     setLiveError]      = useState<string | null>(null)
+
+  // Re-sync liveMode when another tab/window changes the localStorage value.
+  useEffect(() => {
+    const handleStorage = () => setLiveModeState(getLiveMode())
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
 
   useEffect(() => {
     if (!liveMode) return

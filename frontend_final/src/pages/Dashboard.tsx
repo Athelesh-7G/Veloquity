@@ -138,7 +138,11 @@ export default function Dashboard() {
   const liveAvgConf    = liveEvidence && liveEvidence.length > 0
     ? Math.round(liveEvidence.reduce((s, e) => s + e.confidence_score * 100, 0) / liveEvidence.length)
     : 0
-  const liveTotalUsers = liveEvidence?.reduce((s, e) => s + e.unique_user_count, 0) ?? 0
+  // Use item_count (provenance rows in evidence_item_map) when available;
+  // falls back to unique_user_count so the stat degrades gracefully.
+  const liveTotalUsers = liveEvidence?.reduce(
+    (s, e) => s + (e.item_count > 0 ? e.item_count : e.unique_user_count), 0
+  ) ?? 0
   const liveRecCount   = liveRun?.recommendations?.length ?? 0
 
   const displayTotal      = liveMode && liveEvidence ? liveTotalUsers   : hasData ? TOTAL_FEEDBACK    : 0

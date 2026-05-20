@@ -273,6 +273,87 @@ def _synthesize_cluster_name(quotes: list[dict], bedrock_client) -> str:
         return _build_theme(quotes, max_len=80)
 
 
+def rename_existing_clusters(conn, bedrock_client) -> dict:
+    """One-time rename of clusters whose theme is still raw quote text.
+
+    Identifies active clusters with themes longer than 60 chars or
+    containing sentence-end punctuation — signatures of raw quote dumps
+    produced before _synthesize_cluster_name() was added. Calls Nova Pro
+    once per cluster to generate a clean 4-8 word title-case name.
+
+    Args:
+        conn:           Live psycopg2 connection (caller owns the lifecycle).
+        bedrock_client: Boto3 bedrock-runtime client.
+
+    Returns:
+        {"renamed": int, "total_checked": int, "skipped": int}
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, theme, representative_quotes
+            FROM evidence
+            WHERE status = 'active'
+            AND (
+                LENGTH(theme) > 60
+                OR theme LIKE '%.%'
+                OR theme LIKE '%?%'
+                OR theme LIKE '%!%'
+            )
+            ORDER BY confidence_score DESC
+            """,
+        )
+        rows = cur.fetchall()
+
+    renamed = 0
+    skipped = 0
+
+    with conn.cursor() as cur:
+        for row in rows:
+            evidence_id = row[0]
+            old_theme   = row[1]
+            quotes_raw  = row[2]
+
+            try:
+                # representative_quotes stored as JSONB — psycopg2 returns a list.
+                if isinstance(quotes_raw, list):
+                    quotes = quotes_raw
+                elif isinstance(quotes_raw, str):
+                    quotes = json.loads(quotes_raw)
+                else:
+                    quotes = []
+
+                new_name = _synthesize_cluster_name(quotes, bedrock_client)
+
+                # Accept the new name only if it is genuinely shorter/cleaner.
+                if new_name and new_name != old_theme and len(new_name) < len(old_theme):
+                    cur.execute(
+                        "UPDATE evidence SET theme = %s WHERE id = %s",
+                        (new_name, evidence_id),
+                    )
+                    logger.info(
+                        "rename_existing_clusters: id=%s '%s' → '%s'",
+                        evidence_id, old_theme[:60], new_name,
+                    )
+                    renamed += 1
+                else:
+                    skipped += 1
+
+            except Exception as exc:
+                logger.warning(
+                    "rename_existing_clusters: skipping id=%s error=%s",
+                    evidence_id, exc,
+                )
+                skipped += 1
+
+    conn.commit()
+    logger.info(
+        "rename_existing_clusters: total=%d renamed=%d skipped=%d",
+        len(rows), renamed, skipped,
+    )
+    return {"renamed": renamed, "total_checked": len(rows), "skipped": skipped}
+
+
 def _vector_to_pg(vector: list[float]) -> str:
     """Format a list of floats as a pgvector literal string.
 
