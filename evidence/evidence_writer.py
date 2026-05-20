@@ -359,6 +359,13 @@ def write_evidence(cluster: dict[str, Any], confidence_score: float) -> str:
                     NOW(),
                     NOW()
                 )
+                ON CONFLICT (theme) DO UPDATE SET
+                    confidence_score      = EXCLUDED.confidence_score,
+                    unique_user_count     = EXCLUDED.unique_user_count,
+                    source_lineage        = EXCLUDED.source_lineage,
+                    representative_quotes = EXCLUDED.representative_quotes,
+                    last_validated_at     = NOW(),
+                    status                = 'active'
                 RETURNING id
                 """,
                 (
