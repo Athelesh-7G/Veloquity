@@ -223,6 +223,56 @@ def _build_theme(quotes: list[dict], max_len: int = 500) -> str:
     return joined[: max_len - 1] + "\u2026"
 
 
+def _synthesize_cluster_name(quotes: list[dict], bedrock_client) -> str:
+    """Use Nova Pro to synthesize a short formal cluster name from quotes.
+
+    Falls back to truncated first quote if Bedrock call fails or no client.
+    Format: 4-8 words, title case, describes the issue not the complaint.
+
+    Args:
+        quotes:         List of {"text": str, "source": str} dicts.
+        bedrock_client: Boto3 bedrock-runtime client, or None.
+
+    Returns:
+        A 4-8 word title-case cluster name, or a truncated first quote on failure.
+    """
+    if not quotes or not bedrock_client:
+        return _build_theme(quotes, max_len=80)
+
+    sample_texts = [q.get("text", "")[:200] for q in quotes[:5] if q]
+    sample_texts = [t for t in sample_texts if t]
+
+    if not sample_texts:
+        return _build_theme(quotes, max_len=80)
+
+    prompt = (
+        "You are analyzing product feedback clusters. "
+        "Given these user feedback samples from the same cluster, "
+        "generate a concise formal cluster name (4-8 words, title case) "
+        "that describes the underlying issue, not the complaint. "
+        "Return ONLY the cluster name, nothing else.\n\n"
+        "Feedback samples:\n"
+        + "\n".join(f"- {t}" for t in sample_texts)
+    )
+
+    try:
+        response = bedrock_client.invoke_model(
+            modelId="us.amazon.nova-pro-v1:0",
+            body=json.dumps({
+                "messages": [{"role": "user", "content": [{"text": prompt}]}],
+                "inferenceConfig": {"maxTokens": 30, "temperature": 0.1},
+            }),
+            contentType="application/json",
+            accept="application/json",
+        )
+        raw = json.loads(response["body"].read())
+        name = raw["output"]["message"]["content"][0]["text"].strip().strip("\"'").strip()
+        return name[:80] if name else _build_theme(quotes, max_len=80)
+    except Exception as exc:
+        logger.warning("_synthesize_cluster_name failed, using fallback: %s", exc)
+        return _build_theme(quotes, max_len=80)
+
+
 def _vector_to_pg(vector: list[float]) -> str:
     """Format a list of floats as a pgvector literal string.
 
@@ -303,16 +353,22 @@ def write_item_map(conn, evidence_id: str, cluster_items: list[dict]) -> int:
     return inserted
 
 
-def write_evidence(cluster: dict[str, Any], confidence_score: float) -> str:
+def write_evidence(
+    cluster: dict[str, Any],
+    confidence_score: float,
+    bedrock_client=None,
+) -> str:
     """Insert an accepted cluster into the evidence table.
 
     Computes source lineage, extracts representative quotes (JSONB),
-    derives a theme, inserts the evidence row, and bulk-inserts the
-    item-to-evidence map — all within a single atomic transaction.
+    synthesizes a formal cluster name via Nova Pro (falls back to raw quotes),
+    inserts the evidence row, and bulk-inserts the item-to-evidence map —
+    all within a single atomic transaction.
 
     Args:
         cluster:          Cluster dict with 'items' and 'centroid_vector' keys.
         confidence_score: Float in [0.0, 1.0] from compute_confidence().
+        bedrock_client:   Optional boto3 bedrock-runtime client for name synthesis.
 
     Returns:
         String UUID of the newly inserted evidence row.
@@ -327,13 +383,27 @@ def write_evidence(cluster: dict[str, Any], confidence_score: float) -> str:
 
     source_lineage = compute_source_lineage(items)
     quotes = _extract_quotes(items, max_quotes=5)
-    theme = _build_theme(quotes)
+    # Synthesize a formal cluster name; falls back to raw quote concat on error.
+    theme = _synthesize_cluster_name(quotes, bedrock_client)
     unique_user_count = len(items)
     vector_str = _vector_to_pg(centroid)
 
     conn = get_conn()
     try:
         with conn.cursor() as cur:
+            # If a cluster with the same first-3-word prefix already exists,
+            # reuse its canonical name so ON CONFLICT (theme) fires correctly
+            # even when Nova Pro generates a slightly different phrasing.
+            first_words = " ".join(theme.split()[:3]).lower()
+            cur.execute(
+                "SELECT theme FROM evidence "
+                "WHERE LOWER(theme) LIKE %s AND status = 'active' LIMIT 1",
+                (first_words + "%",),
+            )
+            existing = cur.fetchone()
+            if existing:
+                theme = existing[0]
+
             cur.execute(
                 """
                 INSERT INTO evidence (

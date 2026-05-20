@@ -421,7 +421,7 @@ def _cluster_and_write_embeddings(vector_items: list[dict]) -> dict:
             result = evaluate_cluster(cluster, score)
 
             if result["decision"] == "accept":
-                write_evidence(cluster, score)
+                write_evidence(cluster, score, bedrock_client=_get_bedrock())
                 accepted += 1
             else:
                 write_staging(cluster, score)
