@@ -13,6 +13,7 @@ export interface EvidenceItem {
   theme: string
   confidence_score: number
   unique_user_count: number
+  item_count: number
   source_lineage: Record<string, number>
   representative_quotes: Array<{ text: string; source: string }>
   status: string

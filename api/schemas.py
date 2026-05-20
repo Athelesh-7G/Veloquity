@@ -16,6 +16,7 @@ class EvidenceItem(BaseModel):
     theme: str
     confidence_score: float
     unique_user_count: int
+    item_count: int = 0
     source_lineage: dict[str, Any]
     representative_quotes: list[dict[str, Any]]
     status: str

@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   FlaskConical, Plus, Play, Copy, Trash2, ArrowRight,
   CheckCircle2, Clock, XCircle, TrendingUp, TrendingDown,
   Minus, ChevronDown, ChevronUp, BarChart3, Zap, X,
-  Shield, Users, Hash, Target
+  Shield, Users, Hash, Target, Wifi
 } from 'lucide-react'
-import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
+import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -45,6 +46,32 @@ const HOSPITAL_CLUSTERS: ScenarioCluster[] = [
   { id: 'hc3', name: 'Billing Statement Errors and Confusion', confidence: 78, uncertainty: 10, feedbackCount: 82, uniqueUsers: 58, priorityScore: 71, effort: 'medium', impact: 'medium', trend: 'stable'   },
   { id: 'hc4', name: 'Medical Records Portal Access Issues',   confidence: 72, uncertainty: 11, feedbackCount: 54, uniqueUsers: 44, priorityScore: 66, effort: 'low',    impact: 'medium', trend: 'declining'},
 ]
+
+// ─── Map real API evidence to ScenarioCluster ────────────────────────────────
+function mapApiToScenarioCluster(ev: ApiEvidenceItem): ScenarioCluster {
+  const score      = Math.round(ev.confidence_score * 100)
+  const userCount  = ev.unique_user_count
+  const multiSrc   = Object.keys(ev.source_lineage ?? {}).length > 1
+  const wConf      = score * 0.35
+  const wUser      = Math.min(userCount / 50, 1.0) * 0.25 * 100
+  const wCorr      = multiSrc ? 0.1 * 0.20 * 100 : 0
+  const wRec       = 0.95 * 0.20 * 100
+  const daysSince  = ev.last_validated_at
+    ? Math.floor((Date.now() - new Date(ev.last_validated_at).getTime()) / 86_400_000)
+    : 999
+  return {
+    id:             ev.id,
+    name:           ev.theme.split(' | ')[0].slice(0, 60),
+    confidence:     score,
+    uncertainty:    8,
+    feedbackCount:  ev.item_count > 0 ? ev.item_count : ev.unique_user_count,
+    uniqueUsers:    userCount,
+    priorityScore:  Math.round(wConf + wUser + wCorr + wRec),
+    effort:         score > 85 ? 'high' : score >= 70 ? 'medium' : 'low',
+    impact:         userCount > 50 ? 'high' : userCount >= 20 ? 'medium' : 'low',
+    trend:          daysSince <= 7 ? 'rising' : 'stable',
+  }
+}
 
 type ClusterDecision = 'prioritize' | 'consider' | 'defer'
 
@@ -711,7 +738,25 @@ function ComparisonTable({ scenarios, clusters }: { scenarios: Scenario[]; clust
 export default function Scenarios() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
-  const clusters = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
+  const mockClusters = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
+
+  // Live mode
+  const [liveMode,     setLiveModeState]  = useState(getLiveMode())
+  const [liveClusters, setLiveClusters]   = useState<ScenarioCluster[] | null>(null)
+  const [liveLoading,  setLiveLoading]    = useState(false)
+  const [liveError,    setLiveError]      = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!liveMode) return
+    setLiveLoading(true)
+    setLiveError(null)
+    fetchLiveEvidence()
+      .then((r) => { setLiveClusters(r.map(mapApiToScenarioCluster)); setLiveLoading(false) })
+      .catch((err: Error) => { setLiveError(err.message); setLiveLoading(false) })
+  }, [liveMode])
+
+  const clusters = liveMode && liveClusters ? liveClusters : mockClusters
+
   const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS)
   const [showForm, setShowForm]   = useState(false)
   const [appliedId, setAppliedId] = useState<string | null>(null)
@@ -751,8 +796,15 @@ export default function Scenarios() {
         </p>
       </div>
 
-      <div className="flex items-center gap-3">
-        {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
+      <div className="flex items-center gap-3 flex-wrap">
+        {!hasData && !liveMode && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
+        <button
+          onClick={() => { const n = !liveMode; setLiveModeState(n); setLiveMode(n) }}
+          style={{ padding:'6px 14px', borderRadius:'6px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'12px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
+        >
+          <span style={{ width:8, height:8, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
+          {liveMode ? 'LIVE' : 'MOCK'}
+        </button>
         <Button
           onClick={() => setShowForm((p) => !p)}
           className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 gap-2"
@@ -763,9 +815,25 @@ export default function Scenarios() {
       </div>
     </div>
 
-    {!hasData && (
+    {liveMode && liveLoading && (
+      <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
+        <Wifi className="w-4 h-4 animate-pulse shrink-0" />Fetching live evidence clusters…
+      </div>
+    )}
+    {liveMode && liveError && (
+      <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">
+        Live mode error: {liveError}
+      </div>
+    )}
+    {liveMode && liveClusters && !liveLoading && (
+      <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
+        <Wifi className="w-4 h-4 shrink-0" />
+        Live Pipeline Data — {liveClusters.length} clusters from real Bedrock + pgvector pipeline
+      </div>
+    )}
+    {!hasData && !liveMode && (
       <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-        Upload feedback data on the Import Sources page to see insights
+        Upload feedback data on the Import Sources page, or enable LIVE mode to see real pipeline data.
       </div>
     )}
 
@@ -807,9 +875,9 @@ export default function Scenarios() {
 
       <div className="grid lg:grid-cols-2 gap-4">
 
-        {!hasData ? (
+        {(!hasData && !liveMode) ? (
           <div className="lg:col-span-2 text-center py-16 text-muted-foreground text-sm">
-            Upload feedback data on the Import Sources page to see insights
+            Upload feedback data on the Import Sources page, or enable LIVE mode to see real pipeline data.
           </div>
         ) : (
           <AnimatePresence>
@@ -835,7 +903,7 @@ export default function Scenarios() {
 
       </div>
 
-      {hasData && scenarios.length === 0 && (
+      {(hasData || liveMode) && scenarios.length === 0 && (
         <div className="text-center py-12 text-gray-500 dark:text-slate-500">
           <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">
@@ -847,7 +915,7 @@ export default function Scenarios() {
     </div>
 
     {/* Comparison table */}
-    {hasData && scenarios.length > 1 && (
+    {(hasData || liveMode) && scenarios.length > 1 && (
       <ComparisonTable scenarios={scenarios} clusters={clusters} />
     )}
 

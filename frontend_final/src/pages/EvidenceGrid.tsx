@@ -507,7 +507,7 @@ function mapApiToEvidenceItem(e: ApiEvidenceItem): EvidenceItem {
       Math.max(0,   confPct - 8),
       Math.min(100, confPct + 5),
     ] as [number, number],
-    feedbackCount: e.unique_user_count,
+    feedbackCount: e.item_count > 0 ? e.item_count : e.unique_user_count,
     uniqueUsers: e.unique_user_count,
     category: 'Technical' as EvidenceCategory,
     trend: 'stable' as EvidenceTrend,

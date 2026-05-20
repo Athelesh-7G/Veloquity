@@ -50,6 +50,7 @@ def _row_to_evidence(row: dict) -> EvidenceItem:
         theme=row["theme"] or "",
         confidence_score=float(row["confidence_score"] or 0),
         unique_user_count=int(row["unique_user_count"] or 0),
+        item_count=int(row.get("item_count") or 0),
         source_lineage=lineage,
         representative_quotes=quotes,
         status=row["status"] or "active",
@@ -69,7 +70,9 @@ def list_evidence(
         cur.execute(
             f"""
             SELECT id, theme, confidence_score, unique_user_count,
-                   source_lineage, representative_quotes, status, last_validated_at
+                   source_lineage, representative_quotes, status, last_validated_at,
+                   (SELECT COUNT(*) FROM evidence_item_map
+                    WHERE evidence_item_map.evidence_id = evidence.id) AS item_count
             FROM evidence
             WHERE status = 'active'
             ORDER BY {order}
