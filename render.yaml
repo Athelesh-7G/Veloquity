@@ -16,3 +16,7 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      - key: EVIDENCE_LAMBDA_NAME
+        value: veloquity-evidence-dev
+      - key: S3_RAW_BUCKET
+        value: veloquity-raw-dev-082228066878

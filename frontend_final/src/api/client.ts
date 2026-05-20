@@ -186,3 +186,17 @@ export async function fetchLiveAgentStatus(): Promise<AgentStatus[]> {
   if (!res.ok) throw new Error(`Agent status API error: ${res.status}`)
   return res.json()
 }
+
+export async function triggerLivePipeline(activeSources: string[]): Promise<{
+  status: string
+  active_sources: string[]
+  keys_queued: number
+}> {
+  const res = await fetch(`${BASE}/api/v1/agents/pipeline/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ active_sources: activeSources }),
+  })
+  if (!res.ok) throw new Error(`Pipeline trigger error: ${res.status}`)
+  return res.json()
+}

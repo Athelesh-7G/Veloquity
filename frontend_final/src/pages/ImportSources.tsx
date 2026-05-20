@@ -10,9 +10,11 @@ import {
 } from 'lucide-react'
 import {
   getUploadedSources, addUploadedSource, removeUploadedSource,
-  type UploadedSource,
+  type UploadedSource, addActiveSource, removeActiveSource,
+  getActiveSources, getLiveMode,
 } from '@/utils/uploadState'
 import { setAgentsDone, clearAgentRunState } from '@/utils/agentRunState'
+import { triggerLivePipeline } from '@/api/client'
 
 // ─── Phase definitions ────────────────────────────────────────────────────────
 interface Phase {
@@ -275,13 +277,21 @@ function SourceCard({
   )
 }
 
+// Maps UI SourceId → pipeline source_type string stored in S3 keys
+const SOURCE_TYPE_MAP: Record<SourceId, string> = {
+  appstore:               'app_store',
+  support_tickets:        'zendesk',
+  patient_portal:         'patient_portal',
+  hospital_survey_ticket: 'hospital_survey',
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ImportSources() {
   const [sources, setSources] = useState<UploadedSource[]>(getUploadedSources)
 
-  const appstoreSource        = sources.find(s => s.source === 'appstore')          ?? null
-  const support_ticketsSource         = sources.find(s => s.source === 'support_tickets')           ?? null
-  const patientPortalSource   = sources.find(s => s.source === 'patient_portal')    ?? null
+  const appstoreSource        = sources.find(s => s.source === 'appstore')              ?? null
+  const support_ticketsSource = sources.find(s => s.source === 'support_tickets')       ?? null
+  const patientPortalSource   = sources.find(s => s.source === 'patient_portal')        ?? null
   const hospitalSurveySource  = sources.find(s => s.source === 'hospital_survey_ticket') ?? null
 
   const appCount      = sources.filter(s => s.dataset === 'app_product').length
@@ -305,10 +315,22 @@ export default function ImportSources() {
     addUploadedSource(entry)
     setAgentsDone(new Date().toISOString())
     setSources(getUploadedSources())
+
+    // Track source_type for pipeline filtering
+    const sourceType = SOURCE_TYPE_MAP[source]
+    addActiveSource(sourceType)
+
+    // Trigger live pipeline if LIVE mode is on
+    if (getLiveMode()) {
+      const activeSources = getActiveSources()
+      triggerLivePipeline(activeSources).catch(console.error)
+    }
   }
 
   function handleDisconnect(source: SourceId) {
     removeUploadedSource(source)
+    const sourceType = SOURCE_TYPE_MAP[source]
+    removeActiveSource(sourceType)
     const remaining = getUploadedSources().filter(s => s.source !== source)
     if (remaining.length === 0) clearAgentRunState()
     setSources(getUploadedSources())

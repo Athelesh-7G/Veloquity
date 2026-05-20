@@ -507,6 +507,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     # ------------------------------------------------------------------ #
     # Default: full_pipeline (existing behaviour)                         #
     # ------------------------------------------------------------------ #
+    active_sources: list[str] = event.get("active_sources") or []
+
     if "s3_key" in event:
         s3_keys = [event["s3_key"]]
     elif "batch" in event and isinstance(event["batch"], list):
@@ -518,6 +520,45 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             "accepted": 0, "rejected": 0, "errors": 0,
             "message": "event must contain 's3_key' or 'batch'",
         }
+
+    # Filter S3 keys to only the requested sources when specified.
+    if active_sources:
+        original_count = len(s3_keys)
+        s3_keys = [
+            k for k in s3_keys
+            if (k.split("/")[0] if "/" in k else "") in active_sources
+        ]
+        logger.info(
+            "active_sources filter: %d → %d keys for sources=%s",
+            original_count, len(s3_keys), active_sources,
+        )
+
+        # Remove evidence clusters whose source_lineage contains ONLY sources
+        # that are no longer active (stale after a source disconnect).
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM evidence
+                    WHERE status = 'active'
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM jsonb_object_keys(source_lineage) AS src
+                        WHERE src = ANY(%s)
+                    )
+                    """,
+                    (active_sources,),
+                )
+                deleted = cur.rowcount if cur.rowcount != -1 else 0
+                if deleted > 0:
+                    logger.info("Removed %d stale clusters from inactive sources", deleted)
+            conn.commit()
+        except Exception as exc:
+            logger.warning("Stale cluster cleanup failed: %s", exc)
+            conn.rollback()
+        finally:
+            release_conn(conn)
 
     total = len(s3_keys)
     logger.info("Phase 2 pipeline start: model=%s keys=%d", model_version, total)

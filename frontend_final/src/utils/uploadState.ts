@@ -63,3 +63,31 @@ export function getLiveMode(): boolean {
 export function setLiveMode(enabled: boolean): void {
   localStorage.setItem('veloquity_live_mode', enabled ? 'true' : 'false')
 }
+
+// ── Active pipeline sources (source_type strings sent to evidence Lambda) ────
+
+const ACTIVE_SOURCES_KEY = 'veloquity_active_sources'
+
+export function getActiveSources(): string[] {
+  try {
+    const stored = localStorage.getItem(ACTIVE_SOURCES_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+export function setActiveSources(sources: string[]): void {
+  localStorage.setItem(ACTIVE_SOURCES_KEY, JSON.stringify(sources))
+}
+
+export function addActiveSource(source: string): void {
+  const current = getActiveSources()
+  if (!current.includes(source)) {
+    setActiveSources([...current, source])
+  }
+}
+
+export function removeActiveSource(source: string): void {
+  setActiveSources(getActiveSources().filter(s => s !== source))
+}
