@@ -509,6 +509,30 @@ def write_evidence(
     conn = get_conn()
     try:
         with conn.cursor() as cur:
+            # Domain-suffix guard: if a cluster with the EXACT same synthesized
+            # name already exists but comes from a completely different domain
+            # (no source overlap), add a domain suffix so hospital clusters
+            # don't overwrite app-product clusters with the same name.
+            cur.execute(
+                "SELECT id, source_lineage FROM evidence "
+                "WHERE theme = %s AND status = 'active' LIMIT 1",
+                (theme,),
+            )
+            exact_match = cur.fetchone()
+            if exact_match:
+                existing_sources = set((exact_match[1] or {}).keys())
+                new_sources = set(source_lineage.keys())
+                if (existing_sources != new_sources
+                        and not existing_sources.intersection(new_sources)):
+                    # Completely different domain — append a disambiguating suffix.
+                    domain = list(new_sources)[0].split("_")[0]
+                    theme = f"{theme} ({domain.title()})"
+                    logger.info(
+                        "write_evidence: domain suffix applied theme='%s' "
+                        "existing_sources=%s new_sources=%s",
+                        theme, existing_sources, new_sources,
+                    )
+
             # If a cluster with the same first-3-word prefix already exists,
             # reuse its canonical name so ON CONFLICT (theme) fires correctly
             # even when Nova Pro generates a slightly different phrasing.
