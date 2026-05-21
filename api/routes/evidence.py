@@ -87,6 +87,35 @@ def list_evidence(
     return [_row_to_evidence(r) for r in rows]
 
 
+@router.get("/stats")
+def get_evidence_stats(conn=Depends(get_db_connection)):
+    """Return aggregate evidence pipeline statistics."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    (SELECT COUNT(*) FROM embedding_cache) AS total_embedded,
+                    (SELECT COUNT(*) FROM evidence WHERE status = 'active') AS active_clusters,
+                    (SELECT COALESCE(SUM(cnt), 0) FROM (
+                        SELECT COUNT(*) AS cnt FROM evidence_item_map
+                        GROUP BY evidence_id
+                    ) t) AS mapped_items,
+                    (SELECT ROUND(AVG(confidence_score)::numeric * 100, 1)
+                     FROM evidence WHERE status = 'active') AS avg_confidence
+                """
+            )
+            row = cur.fetchone()
+        return {
+            "total_embedded":  int(row[0] or 0),
+            "active_clusters": int(row[1] or 0),
+            "mapped_items":    int(row[2] or 0),
+            "avg_confidence":  float(row[3] or 0),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @router.get("/{evidence_id}/items", response_model=list[EvidenceMapItem])
 def get_evidence_items(evidence_id: str, conn=Depends(get_db_connection)):
     """Return all raw feedback items that contributed to an evidence cluster."""

@@ -187,6 +187,17 @@ export async function fetchLiveAgentStatus(): Promise<AgentStatus[]> {
   return res.json()
 }
 
+export async function fetchLiveStats(): Promise<{
+  total_embedded: number
+  active_clusters: number
+  mapped_items: number
+  avg_confidence: number
+}> {
+  const res = await fetch(`${BASE}/api/v1/evidence/stats`)
+  if (!res.ok) throw new Error(`Stats error: ${res.status}`)
+  return res.json()
+}
+
 export async function triggerLivePipeline(activeSources: string[]): Promise<{
   status: string
   active_sources: string[]

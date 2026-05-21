@@ -545,9 +545,9 @@ export default function DecisionPlayground() {
 
   // Live mode — reads from localStorage on mount so toggling on another
   // page persists correctly when the user navigates here.
-  const [liveMode,      setLiveModeState]  = useState(getLiveMode())
+  const [liveMode,      setLiveModeState]  = useState(() => getLiveMode())
   const [liveClusters,  setLiveClusters]   = useState<Cluster[] | null>(null)
-  const [liveLoading,   setLiveLoading]    = useState(false)
+  const [liveLoading,   setLiveLoading]    = useState(() => getLiveMode())
   const [liveError,     setLiveError]      = useState<string | null>(null)
 
   // Re-sync liveMode when another tab/window changes the localStorage value.

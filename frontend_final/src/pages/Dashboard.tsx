@@ -102,10 +102,10 @@ export default function Dashboard() {
   const [evidence, setEvidence] = useState(isHospital ? HOSPITAL_MOCK_DATA : MOCK_EVIDENCE)
 
   // Live mode state
-  const [liveMode, setLiveModeState] = useState(getLiveMode())
+  const [liveMode, setLiveModeState] = useState(() => getLiveMode())
   const [liveEvidence, setLiveEvidence] = useState<EvidenceItem[] | null>(null)
   const [liveRun, setLiveRun] = useState<ReasoningRun | null>(null)
-  const [liveLoading, setLiveLoading] = useState(false)
+  const [liveLoading, setLiveLoading] = useState(() => getLiveMode())
   const [liveError, setLiveError] = useState<string | null>(null)
 
   useEffect(() => {

@@ -191,12 +191,14 @@ function MiniArc({ value, size = 44 }: { value: number; size?: number }) {
 
 // ─── Scenario results breakdown ───────────────────────────────────────────────
 function ScenarioResults({ params, compact = false, clusters }: { params: ScenarioParams; compact?: boolean; clusters: ScenarioCluster[] }) {
-  const results = useMemo(() =>
-    clusters.map((c) => ({
+  const results = useMemo(() => {
+    const isLive = getLiveMode()
+    const minEv  = isLive ? Math.min(params.minEvidence, 5) : params.minEvidence
+    return clusters.map((c) => ({
       cluster: c,
-      decision: computeDecision(c, params.confidenceThreshold, params.uncertaintyTolerance, params.minEvidence, params.effortCap),
-    })),
-  [params, clusters])
+      decision: computeDecision(c, params.confidenceThreshold, params.uncertaintyTolerance, minEv, params.effortCap),
+    }))
+  }, [params, clusters])
 
   const counts = {
     prioritize: results.filter((r) => r.decision === 'prioritize').length,
@@ -277,7 +279,9 @@ function ScenarioCard({
   const [expanded, setExpanded] = useState(false)
 
   const counts = useMemo(() => {
-    const results = clusters.map((c) => computeDecision(c, scenario.params.confidenceThreshold, scenario.params.uncertaintyTolerance, scenario.params.minEvidence, scenario.params.effortCap))
+    const isLive = getLiveMode()
+    const minEv  = isLive ? Math.min(scenario.params.minEvidence, 5) : scenario.params.minEvidence
+    const results = clusters.map((c) => computeDecision(c, scenario.params.confidenceThreshold, scenario.params.uncertaintyTolerance, minEv, scenario.params.effortCap))
     return {
       prioritize: results.filter((d) => d === 'prioritize').length,
       consider:   results.filter((d) => d === 'consider').length,
@@ -285,10 +289,12 @@ function ScenarioCard({
     }
   }, [scenario.params, clusters])
 
-  const usersUnblocked = useMemo(() =>
-    clusters.filter((c) => computeDecision(c, scenario.params.confidenceThreshold, scenario.params.uncertaintyTolerance, scenario.params.minEvidence, scenario.params.effortCap) === 'prioritize')
-      .reduce((s, c) => s + c.uniqueUsers, 0),
-  [scenario.params, clusters])
+  const usersUnblocked = useMemo(() => {
+    const isLive = getLiveMode()
+    const minEv  = isLive ? Math.min(scenario.params.minEvidence, 5) : scenario.params.minEvidence
+    return clusters.filter((c) => computeDecision(c, scenario.params.confidenceThreshold, scenario.params.uncertaintyTolerance, minEv, scenario.params.effortCap) === 'prioritize')
+      .reduce((s, c) => s + c.uniqueUsers, 0)
+  }, [scenario.params, clusters])
 
   return (
     <motion.div
@@ -404,12 +410,14 @@ function NewScenarioForm({ onAdd, onClose, clusters }: { onAdd: (s: Scenario) =>
     params: { confidenceThreshold: 75, uncertaintyTolerance: 15, minEvidence: 40, effortCap: 'any' as 'low' | 'medium' | 'high' | 'any' },
   })
 
-  const liveResults = useMemo(() =>
-    clusters.map((c) => ({
+  const liveResults = useMemo(() => {
+    const isLive = getLiveMode()
+    const minEv  = isLive ? Math.min(form.params.minEvidence, 5) : form.params.minEvidence
+    return clusters.map((c) => ({
       cluster: c,
-      decision: computeDecision(c, form.params.confidenceThreshold, form.params.uncertaintyTolerance, form.params.minEvidence, form.params.effortCap),
-    })),
-  [form.params, clusters])
+      decision: computeDecision(c, form.params.confidenceThreshold, form.params.uncertaintyTolerance, minEv, form.params.effortCap),
+    }))
+  }, [form.params, clusters])
 
   const counts = {
     prioritize: liveResults.filter((r) => r.decision === 'prioritize').length,
@@ -573,17 +581,19 @@ function NewScenarioForm({ onAdd, onClose, clusters }: { onAdd: (s: Scenario) =>
 
 // ─── Comparison table ─────────────────────────────────────────────────────────
 function ComparisonTable({ scenarios, clusters }: { scenarios: Scenario[]; clusters: ScenarioCluster[] }) {
-  const rows = useMemo(() =>
-    scenarios.map((s) => {
-      const decisions = clusters.map((c) => computeDecision(c, s.params.confidenceThreshold, s.params.uncertaintyTolerance, s.params.minEvidence, s.params.effortCap))
+  const rows = useMemo(() => {
+    const isLive = getLiveMode()
+    return scenarios.map((s) => {
+      const minEv = isLive ? Math.min(s.params.minEvidence, 5) : s.params.minEvidence
+      const decisions = clusters.map((c) => computeDecision(c, s.params.confidenceThreshold, s.params.uncertaintyTolerance, minEv, s.params.effortCap))
       const p = decisions.filter((d) => d === 'prioritize').length
       const c = decisions.filter((d) => d === 'consider').length
       const d = decisions.filter((d) => d === 'defer').length
       const users = clusters.filter((cl, i) => decisions[i] === 'prioritize').reduce((s, cl) => s + cl.uniqueUsers, 0)
       const efficiency = Math.round((p / clusters.length) * 100)
       return { scenario: s, p, c, d, users, efficiency, decisions }
-    }),
-  [scenarios, clusters])
+    })
+  }, [scenarios, clusters])
 
  return (
   <div className="bg-white dark:bg-[#0F1729] rounded-2xl border border-gray-200 dark:border-white/5 overflow-hidden">
@@ -740,11 +750,11 @@ export default function Scenarios() {
   const dataset = getActiveDataset()
   const mockClusters = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
 
-  // Live mode — reads from localStorage on mount so toggling on another
-  // page persists correctly when the user navigates here.
-  const [liveMode,     setLiveModeState]  = useState(getLiveMode())
+  // Live mode — lazy init reads localStorage synchronously on first render,
+  // eliminating the flash where mock data shows before live data loads.
+  const [liveMode,     setLiveModeState]  = useState(() => getLiveMode())
   const [liveClusters, setLiveClusters]   = useState<ScenarioCluster[] | null>(null)
-  const [liveLoading,  setLiveLoading]    = useState(false)
+  const [liveLoading,  setLiveLoading]    = useState(() => getLiveMode())
   const [liveError,    setLiveError]      = useState<string | null>(null)
 
   // Re-sync liveMode when another tab/window changes the localStorage value.
@@ -766,6 +776,24 @@ export default function Scenarios() {
   const clusters = liveMode && liveClusters ? liveClusters : mockClusters
 
   const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS)
+
+  // Auto-add a live-calibrated default scenario the first time live mode activates.
+  useEffect(() => {
+    if (!liveMode) return
+    setScenarios(prev => {
+      if (prev.some(s => s.id === 'live-default')) return prev
+      return [
+        {
+          id: 'live-default',
+          name: 'Live Pipeline Default',
+          description: 'Optimized thresholds for real pipeline data (5-44 items per cluster)',
+          params: { confidenceThreshold: 75, uncertaintyTolerance: 15, minEvidence: 5, effortCap: 'any' as const },
+          createdAt: new Date().toISOString().split('T')[0],
+        },
+        ...prev,
+      ]
+    })
+  }, [liveMode])
   const [showForm, setShowForm]   = useState(false)
   const [appliedId, setAppliedId] = useState<string | null>(null)
 

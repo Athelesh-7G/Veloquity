@@ -529,9 +529,9 @@ export default function EvidenceGrid() {
   )
 
   // Live mode state
-  const [liveMode, setLiveModeState] = useState(getLiveMode())
+  const [liveMode, setLiveModeState] = useState(() => getLiveMode())
   const [liveList, setLiveList] = useState<EvidenceItem[] | null>(null)
-  const [liveLoading, setLiveLoading] = useState(false)
+  const [liveLoading, setLiveLoading] = useState(() => getLiveMode())
   const [liveError, setLiveError] = useState<string | null>(null)
 
   // Only replace mock data if the API returns well-formed evidence clusters.

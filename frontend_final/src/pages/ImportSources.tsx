@@ -301,6 +301,8 @@ export default function ImportSources() {
   const hospitalBlocked = appCount > 0 ? 'Disconnect App Product sources first to switch datasets' : undefined
 
   function handleConnect(source: SourceId, filename: string, rowCount: number) {
+    const currentlyLive = getLiveMode()
+
     const lower = filename.toLowerCase()
     const dataset: 'app_product' | 'hospital_survey' =
       lower.includes('patient') || lower.includes('hospital') ? 'hospital_survey' : 'app_product'
@@ -320,10 +322,10 @@ export default function ImportSources() {
     const sourceType = SOURCE_TYPE_MAP[source]
     addActiveSource(sourceType)
 
-    // Trigger live pipeline if LIVE mode is on
-    if (getLiveMode()) {
-      const activeSources = getActiveSources()
-      triggerLivePipeline(activeSources).catch(console.error)
+    if (currentlyLive) {
+      // In live mode: trigger real pipeline update, skip any further mock state changes
+      triggerLivePipeline(getActiveSources()).catch(console.error)
+      return
     }
   }
 

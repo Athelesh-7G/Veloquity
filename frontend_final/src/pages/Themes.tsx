@@ -387,9 +387,9 @@ export default function Themes() {
   const [sortDir, setSortDir]           = useState<SortDir>('desc')
 
   // Live mode
-  const [liveMode, setLiveModeState]    = useState(getLiveMode())
+  const [liveMode, setLiveModeState]    = useState(() => getLiveMode())
   const [liveThemes, setLiveThemes]     = useState<ThemeItem[] | null>(null)
-  const [liveLoading, setLiveLoading]   = useState(false)
+  const [liveLoading, setLiveLoading]   = useState(() => getLiveMode())
   const [liveError, setLiveError]       = useState<string | null>(null)
 
   useEffect(() => {

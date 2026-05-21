@@ -149,9 +149,9 @@ export default function Trends() {
   const [hoveredBar, setHoveredBar] = useState<number | null>(null)
 
   // Live mode
-  const [liveMode, setLiveModeState]      = useState(getLiveMode())
+  const [liveMode, setLiveModeState]      = useState(() => getLiveMode())
   const [liveEvidence, setLiveEvidence]   = useState<ApiEvidenceItem[] | null>(null)
-  const [liveLoading, setLiveLoading]     = useState(false)
+  const [liveLoading, setLiveLoading]     = useState(() => getLiveMode())
   const [liveError, setLiveError]         = useState<string | null>(null)
 
   useEffect(() => {

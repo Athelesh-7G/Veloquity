@@ -480,9 +480,9 @@ export default function ConfidenceScores() {
   const [threshold, setThreshold]         = useState([60])   // default: Veloquity's auto-accept threshold
 
   // Live mode
-  const [liveMode, setLiveModeState]   = useState(getLiveMode())
+  const [liveMode, setLiveModeState]   = useState(() => getLiveMode())
   const [liveMetrics, setLiveMetrics]  = useState<ConfidenceMetric[] | null>(null)
-  const [liveLoading, setLiveLoading]  = useState(false)
+  const [liveLoading, setLiveLoading]  = useState(() => getLiveMode())
   const [liveError, setLiveError]      = useState<string | null>(null)
 
   useEffect(() => {
