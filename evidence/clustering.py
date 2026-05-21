@@ -1,191 +1,190 @@
-# =============================================================
-# evidence/clustering.py
-# Greedy cosine-similarity clustering of embedding vectors.
-# Pure Python — no external ML libraries.
-# =============================================================
-
+"""
+evidence/clustering.py
+Two-stage clustering: PCA dimensionality reduction + HDBSCAN density clustering.
+Replaces greedy cosine similarity. HDBSCAN naturally handles variable cluster
+sizes, noise rejection, and semantic grouping without a fixed threshold.
+"""
 import logging
-import math
-import os
-import uuid
-from typing import Any
+import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import normalize
+import hdbscan as hdbscan_lib
 
 logger = logging.getLogger(__name__)
 
+PCA_COMPONENTS = 50
+MIN_CLUSTER_SIZE = 5
+MIN_SAMPLES = 2
+CLUSTER_SELECTION_EPSILON = 0.3
+
 
 # ---------------------------------------------------------------------------
-# Vector math — pure Python, no numpy
+# Backward-compatibility shim used by evidence/confidence.py
 # ---------------------------------------------------------------------------
 
-def _dot(a: list[float], b: list[float]) -> float:
-    """Return the dot product of two equal-length vectors.
+def cosine_similarity(a, b) -> float:
+    """Cosine similarity between two vectors (list or ndarray).
 
-    Args:
-        a: First vector.
-        b: Second vector.
-
-    Returns:
-        Scalar dot product.
+    Kept for backward compatibility with evidence/confidence.py which imports
+    this function to compute per-item distances inside compute_confidence().
     """
-    return sum(x * y for x, y in zip(a, b))
-
-
-def _norm(v: list[float]) -> float:
-    """Return the L2 norm (Euclidean magnitude) of a vector.
-
-    Args:
-        v: Input vector.
-
-    Returns:
-        Non-negative float. Returns 0.0 for zero vectors.
-    """
-    return math.sqrt(_dot(v, v))
-
-
-def cosine_similarity(a: list[float], b: list[float]) -> float:
-    """Compute cosine similarity between two vectors.
-
-    Cosine similarity = dot(a, b) / (|a| * |b|).
-    Returns 0.0 when either vector is the zero vector to avoid
-    division by zero.
-
-    Args:
-        a: First embedding vector.
-        b: Second embedding vector.
-
-    Returns:
-        Float in [-1.0, 1.0]. 1.0 means identical direction.
-    """
-    norm_a = _norm(a)
-    norm_b = _norm(b)
-    if norm_a == 0.0 or norm_b == 0.0:
+    a = np.asarray(a, dtype=np.float64)
+    b = np.asarray(b, dtype=np.float64)
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+    if na == 0.0 or nb == 0.0:
         return 0.0
-    return _dot(a, b) / (norm_a * norm_b)
-
-
-def _running_mean(
-    current_centroid: list[float],
-    current_size: int,
-    new_vector: list[float],
-) -> list[float]:
-    """Update a running mean centroid by incorporating one new vector.
-
-    Avoids storing all member vectors in memory during cluster construction.
-    Formula: new_mean = (old_mean * n + new_vector) / (n + 1)
-
-    Args:
-        current_centroid: Current mean vector of the cluster.
-        current_size:     Number of members already in the cluster.
-        new_vector:       New member vector to incorporate.
-
-    Returns:
-        Updated centroid as a new list of floats.
-    """
-    n = current_size
-    return [
-        (current_centroid[i] * n + new_vector[i]) / (n + 1)
-        for i in range(len(current_centroid))
-    ]
+    return float(np.dot(a, b) / (na * nb))
 
 
 # ---------------------------------------------------------------------------
-# Clustering
+# Main clustering function
 # ---------------------------------------------------------------------------
 
-def cluster_embeddings(vectors: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Group items into clusters by greedy cosine-similarity matching.
-
-    Algorithm:
-        For each item (in order):
-          1. Skip items with None vector.
-          2. Compare cosine similarity against every current cluster centroid.
-          3. Assign to the highest-similarity cluster if that similarity
-             meets or exceeds MIN_COSINE_SIMILARITY.
-          4. Otherwise start a new cluster seeded with this item.
-          5. Recompute the centroid as a running mean after each assignment.
-        After all items are assigned, discard clusters smaller than
-        MIN_CLUSTER_SIZE.
-
-    The greedy single-pass approach is O(N * C) where C is the number of
-    clusters. It is fast, deterministic, and requires no external libraries.
-    Cluster quality depends on input ordering; for MVP scale (hundreds of
-    items) this is acceptable.
+def cluster_embeddings(
+    embeddings: list,
+    items: list,
+    min_cluster_size: int = MIN_CLUSTER_SIZE,
+    min_samples: int = MIN_SAMPLES,
+    epsilon: float = CLUSTER_SELECTION_EPSILON,
+) -> list:
+    """Group items into semantic clusters via PCA + HDBSCAN.
 
     Args:
-        vectors: List of dicts, each with keys:
-                   s3_key (str), text (str), vector (list[float] | None),
-                   source (str).
-                 Items where vector is None are silently skipped.
+        embeddings:        List of raw embedding vectors (list[float] or ndarray).
+        items:             List of item dicts parallel to embeddings. Each dict
+                           must contain at minimum 'source', 'text', 'id', 'hash'.
+                           The 'vector' key is preserved so downstream
+                           evidence/confidence.py can compare item vectors
+                           against the cluster centroid.
+        min_cluster_size:  HDBSCAN minimum points to form a cluster.
+        min_samples:       HDBSCAN minimum samples for core-point classification.
+        epsilon:           HDBSCAN cluster selection epsilon (merge threshold).
 
     Returns:
-        List of cluster dicts:
-          { cluster_id: str (uuid4),
-            items: list[dict],        # member item dicts
-            centroid_vector: list[float],
-            size: int }
-        Only clusters with size >= MIN_CLUSTER_SIZE are returned.
+        List of cluster dicts ordered by descending cluster size. Each dict has:
+            label                  — HDBSCAN integer label
+            cluster_id             — string alias for logging (backward compat)
+            items                  — list of original item dicts (with 'vector')
+            centroid               — mean embedding in L2-normalised 1024-D space
+            centroid_vector        — alias for centroid (backward compat with
+                                     evidence/confidence.py and evidence_writer.py)
+            variance               — mean squared Euclidean distance from centroid
+            avg_intra_similarity   — mean pairwise cosine similarity within cluster
+            source_counts          — {source: count} breakdown
+            representative_quotes  — up to 5 closest-to-centroid quote dicts
+            unique_user_count      — count of distinct user/item ids
     """
-    min_similarity = float(os.environ.get("MIN_COSINE_SIMILARITY", "0.75"))
-    min_cluster_size = int(os.environ.get("MIN_CLUSTER_SIZE", "5"))
+    if not embeddings or len(embeddings) < min_cluster_size:
+        logger.warning("Too few embeddings: %d", len(embeddings))
+        return []
 
-    # Each entry: { cluster_id, items, centroid_vector, size }
-    clusters: list[dict[str, Any]] = []
+    logger.info("Clustering %d items with PCA+HDBSCAN", len(embeddings))
 
-    valid_items = [item for item in vectors if item.get("vector") is not None]
-    skipped = len(vectors) - len(valid_items)
-    if skipped:
-        logger.info("Skipped %d items with null vectors.", skipped)
+    # L2-normalise so cosine distances become Euclidean distances on the sphere.
+    X = np.array(embeddings, dtype=np.float32)
+    X = normalize(X, norm="l2")
 
+    # PCA: reduce from 1024-D Titan Embed V2 space to at most PCA_COMPONENTS dims.
+    n_components = min(PCA_COMPONENTS, X.shape[0] - 1, X.shape[1])
+    logger.info("PCA: %d-D -> %d-D", X.shape[1], n_components)
+    pca = PCA(n_components=n_components, random_state=42)
+    X_reduced = pca.fit_transform(X)
+    explained = pca.explained_variance_ratio_.sum()
+    logger.info("PCA explained variance: %.2f%%", explained * 100)
+
+    # HDBSCAN clustering in PCA-reduced space.
+    clusterer = hdbscan_lib.HDBSCAN(
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        cluster_selection_epsilon=epsilon,
+        metric="euclidean",
+        cluster_selection_method="eom",
+        prediction_data=True,
+    )
+    labels = clusterer.fit_predict(X_reduced)
+
+    unique_labels = set(labels)
+    unique_labels.discard(-1)   # -1 = noise / unassigned
+    n_noise = int((labels == -1).sum())
     logger.info(
-        "Clustering %d items: min_similarity=%.2f min_cluster_size=%d",
-        len(valid_items), min_similarity, min_cluster_size,
+        "HDBSCAN: %d clusters, %d noise points (%.1f%% rejected)",
+        len(unique_labels), n_noise, n_noise / len(labels) * 100,
     )
 
-    for item in valid_items:
-        vec = item["vector"]
+    clusters = []
+    for label in sorted(unique_labels):
+        mask = labels == label
+        cluster_indices = np.where(mask)[0]
+        cluster_items = [items[i] for i in cluster_indices]
 
-        # Find the best-matching existing cluster.
-        best_sim = -1.0
-        best_idx = -1
-        for idx, cluster in enumerate(clusters):
-            sim = cosine_similarity(vec, cluster["centroid_vector"])
-            if sim > best_sim:
-                best_sim = sim
-                best_idx = idx
+        # Centroid in the original L2-normalised 1024-D space (not PCA-reduced).
+        # confidence.py will compute cosine similarities against this centroid
+        # using item["vector"] (raw Bedrock vectors), which is correct because
+        # cosine_similarity handles normalisation internally.
+        cluster_embeddings_raw = X[mask]  # shape (n, 1024), L2-normalised
+        centroid = cluster_embeddings_raw.mean(axis=0)
 
-        if best_sim >= min_similarity and best_idx >= 0:
-            # Assign to existing cluster and update centroid.
-            cluster = clusters[best_idx]
-            cluster["centroid_vector"] = _running_mean(
-                cluster["centroid_vector"], cluster["size"], vec
-            )
-            cluster["items"].append(item)
-            cluster["size"] += 1
+        # Euclidean variance in L2-normalised space (related to cosine variance
+        # since ||u-v||^2 = 2 - 2*cos(u,v) for unit vectors).
+        diffs = cluster_embeddings_raw - centroid
+        variance = float(np.mean(np.sum(diffs ** 2, axis=1)))
+
+        # Quality filter: skip trivially small clusters.
+        unique_users = len(set(
+            item.get("user_id", item.get("id", f"u{i}"))
+            for i, item in enumerate(cluster_items)
+        ))
+        if unique_users < 2 and len(cluster_items) < 3:
             logger.debug(
-                "Assigned item s3_key=%s to cluster %s (sim=%.4f size=%d)",
-                item.get("s3_key"), cluster["cluster_id"], best_sim, cluster["size"],
+                "Skipping low-quality cluster %d: %d unique users", label, unique_users
             )
-        else:
-            # Seed a new cluster.
-            new_cluster: dict[str, Any] = {
-                "cluster_id":      str(uuid.uuid4()),
-                "items":           [item],
-                "centroid_vector": list(vec),   # copy to avoid mutation
-                "size":            1,
+            continue
+
+        # Average pairwise intra-cluster cosine similarity.
+        norms = np.linalg.norm(cluster_embeddings_raw, axis=1, keepdims=True)
+        normed = cluster_embeddings_raw / (norms + 1e-9)
+        sim_matrix = normed @ normed.T
+        n = len(sim_matrix)
+        avg_sim = 0.0
+        if n > 1:
+            upper = sim_matrix[np.triu_indices(n, k=1)]
+            avg_sim = float(np.mean(upper))
+
+        # Source breakdown.
+        source_counts: dict = {}
+        for item in cluster_items:
+            src = item.get("source", "unknown")
+            source_counts[src] = source_counts.get(src, 0) + 1
+
+        # Representative quotes: items closest to the centroid.
+        distances_to_centroid = np.linalg.norm(cluster_embeddings_raw - centroid, axis=1)
+        rep_indices = np.argsort(distances_to_centroid)[:5]
+        representative_quotes = [
+            {
+                "text":      cluster_items[i].get("text", ""),
+                "source":    cluster_items[i].get("source", "unknown"),
+                "timestamp": cluster_items[i].get("timestamp", ""),
             }
-            clusters.append(new_cluster)
-            logger.debug(
-                "New cluster %s seeded with s3_key=%s",
-                new_cluster["cluster_id"], item.get("s3_key"),
-            )
+            for i in rep_indices
+            if cluster_items[i].get("text")
+        ]
 
-    # Discard undersized clusters.
-    qualified = [c for c in clusters if c["size"] >= min_cluster_size]
-    dropped = len(clusters) - len(qualified)
+        centroid_list = centroid.tolist()
 
-    logger.info(
-        "Clustering complete: total_clusters=%d qualified=%d dropped_undersized=%d",
-        len(clusters), len(qualified), dropped,
-    )
+        clusters.append({
+            "label":                int(label),
+            "cluster_id":           f"hdbscan_{label}",   # backward compat
+            "items":                cluster_items,          # retain 'vector' key
+            "centroid":             centroid_list,
+            "centroid_vector":      centroid_list,          # backward compat
+            "variance":             variance,
+            "avg_intra_similarity": avg_sim,
+            "source_counts":        source_counts,
+            "representative_quotes": representative_quotes,
+            "unique_user_count":    unique_users,
+        })
 
-    return qualified
+    clusters.sort(key=lambda c: len(c["items"]), reverse=True)
+    logger.info("Final clusters after quality filter: %d", len(clusters))
+    return clusters

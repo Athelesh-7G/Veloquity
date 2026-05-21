@@ -408,7 +408,12 @@ def _cluster_and_write_embeddings(vector_items: list[dict]) -> dict:
     Returns:
         Dict with keys: clusters_found, accepted, rejected, errors.
     """
-    clusters = cluster_embeddings(vector_items)
+    # Extract raw embedding vectors into a separate list so the new
+    # PCA+HDBSCAN cluster_embeddings(embeddings, items) signature is satisfied.
+    # Items are passed through unchanged so each cluster["items"] still contains
+    # the full item dict (including "vector") needed by confidence.py.
+    embeddings = [item["vector"] for item in vector_items]
+    clusters = cluster_embeddings(embeddings, vector_items)
     logger.info("Clustering complete: clusters=%d", len(clusters))
 
     accepted = 0
