@@ -7,7 +7,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { MOCK_EVIDENCE } from '@/api/mockData'
-import { getEvidence, fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
+import { getEvidence, fetchLiveEvidence, triggerRecluster, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
+import { getActiveSources } from '@/utils/uploadState'
 import { cn } from '@/lib/utils'
 import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
 
@@ -534,6 +535,12 @@ export default function EvidenceGrid() {
   const [liveLoading, setLiveLoading] = useState(() => getLiveMode())
   const [liveError, setLiveError] = useState<string | null>(null)
 
+  // Tier 1: client-side min-items filter (instant, no Lambda call)
+  const [minItems, setMinItems] = useState(5)
+  // Tier 2: Re-cluster button state
+  const [reclustering, setReclustering] = useState(false)
+  const [reclusterDone, setReclusterDone] = useState(false)
+
   // Only replace mock data if the API returns well-formed evidence clusters.
   useEffect(() => {
     if (!hasData) return
@@ -587,12 +594,17 @@ export default function EvidenceGrid() {
 
   const activeList = liveMode && liveList ? liveList : evidenceList
 
-  const avgConf = activeList.length > 0
-    ? Math.round(activeList.reduce((s, e) => s + e.confidence, 0) / activeList.length)
-    : 0
-  const totalFbClustered = activeList.reduce((s, e) => s + e.feedbackCount, 0)
+  // Tier 1: apply client-side min-items filter in live mode
+  const filteredList = liveMode && liveList
+    ? liveList.filter(e => e.feedbackCount >= minItems)
+    : activeList
 
-  const displayList = liveMode ? activeList : hasData ? evidenceList : []
+  const avgConf = filteredList.length > 0
+    ? Math.round(filteredList.reduce((s, e) => s + e.confidence, 0) / filteredList.length)
+    : 0
+  const totalFbClustered = filteredList.reduce((s, e) => s + e.feedbackCount, 0)
+
+  const displayList = liveMode ? filteredList : hasData ? evidenceList : []
 
   return (
     <div className="p-6">
@@ -654,7 +666,68 @@ export default function EvidenceGrid() {
       {liveMode && liveList && !liveLoading && (
         <div className="mb-4 flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
           <Wifi className="w-4 h-4 shrink-0" />
-          Live Pipeline Data — {liveList.length} clusters from real Bedrock + pgvector pipeline
+          Live Pipeline Data — showing {filteredList.length} of {liveList.length} clusters
+          {liveList.length !== filteredList.length && ` (min ${minItems} items filter active)`}
+        </div>
+      )}
+
+      {/* ── Tier 1 filter + Tier 2 Re-cluster (live mode only) ──────────── */}
+      {liveMode && (
+        <div className="mb-4 flex flex-wrap items-center gap-4 p-4 rounded-xl border border-border bg-muted/30">
+          <span className="text-sm font-medium text-foreground whitespace-nowrap">Min Evidence Items</span>
+          <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+            <input
+              type="range"
+              min={2}
+              max={50}
+              step={1}
+              value={minItems}
+              onChange={e => setMinItems(Number(e.target.value))}
+              className="flex-1 accent-violet-600"
+            />
+            <span className="text-sm font-bold text-violet-600 dark:text-violet-400 w-16 text-right">
+              {minItems} items
+            </span>
+          </div>
+          <button
+            onClick={async () => {
+              if (reclustering) return
+              setReclustering(true)
+              setReclusterDone(false)
+              try {
+                await triggerRecluster({
+                  min_cluster_size: minItems,
+                  cluster_selection_epsilon: minItems >= 30 ? 0.5 : 0.3,
+                  active_sources: getActiveSources(),
+                })
+                setReclusterDone(true)
+                setTimeout(() => {
+                  setReclusterDone(false)
+                  fetchLiveEvidence()
+                    .then(r => setLiveList(r.map(mapApiToEvidenceItem)))
+                    .catch(console.error)
+                }, 45000)
+              } catch (err) {
+                console.error('Recluster failed:', err)
+              } finally {
+                setReclustering(false)
+              }
+            }}
+            disabled={reclustering}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap ${
+              reclustering
+                ? 'border-muted-foreground text-muted-foreground cursor-not-allowed'
+                : reclusterDone
+                ? 'border-green-500 bg-green-500/10 text-green-600 dark:text-green-400'
+                : 'border-violet-500 bg-violet-600 text-white hover:bg-violet-700 cursor-pointer'
+            }`}
+          >
+            {reclustering
+              ? 'Re-clustering…'
+              : reclusterDone
+              ? 'Done — refreshing in 45s'
+              : 'Re-cluster'}
+          </button>
         </div>
       )}
       {!hasData && !liveMode && (
@@ -667,7 +740,7 @@ export default function EvidenceGrid() {
       <div className="grid sm:grid-cols-4 gap-4 mb-8">
         {[
           {
-            icon: Shield,       label: 'Evidence Clusters',  value: (liveMode || hasData) ? activeList.length : 0,
+            icon: Shield,       label: 'Evidence Clusters',  value: (liveMode || hasData) ? filteredList.length : 0,
             gradient: 'from-blue-500/5 to-blue-500/10',      iconColor: 'text-blue-600',
           },
           {

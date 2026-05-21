@@ -198,6 +198,26 @@ export async function fetchLiveStats(): Promise<{
   return res.json()
 }
 
+export async function triggerRecluster(params: {
+  min_cluster_size: number
+  cluster_selection_epsilon: number
+  active_sources: string[]
+}): Promise<{
+  status: string
+  min_cluster_size: number
+  cluster_selection_epsilon: number
+  keys_queued: number
+  active_sources: string[]
+}> {
+  const res = await fetch(`${BASE}/api/v1/evidence/recluster`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) throw new Error(`Recluster error: ${res.status}`)
+  return res.json()
+}
+
 export async function triggerLivePipeline(activeSources: string[]): Promise<{
   status: string
   active_sources: string[]

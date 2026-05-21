@@ -5,9 +5,10 @@
 # =============================================================
 
 import json
+import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from dependencies import get_db_connection
 from schemas import EvidenceItem, EvidenceMapItem
@@ -111,6 +112,60 @@ def get_evidence_stats(conn=Depends(get_db_connection)):
             "active_clusters": int(row[1] or 0),
             "mapped_items":    int(row[2] or 0),
             "avg_confidence":  float(row[3] or 0),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/recluster")
+async def trigger_recluster(request: Request):
+    """Trigger Evidence Lambda with custom HDBSCAN clustering parameters.
+
+    Async fire-and-forget — returns immediately while Lambda runs in background.
+    Used by the Evidence Grid Re-cluster button in the frontend.
+    """
+    try:
+        import boto3 as boto3_local
+        import json as json_local
+
+        body = await request.json()
+        min_cluster_size = int(body.get("min_cluster_size", 30))
+        epsilon          = float(body.get("cluster_selection_epsilon", 0.5))
+        active_sources   = body.get("active_sources", [])
+
+        region     = os.environ.get("AWS_REGION_NAME", "us-east-1")
+        raw_bucket = os.environ.get("S3_RAW_BUCKET", "veloquity-raw-dev-082228066878")
+        evidence_fn = os.environ.get("EVIDENCE_LAMBDA_NAME", "veloquity-evidence-dev")
+
+        s3 = boto3_local.client("s3", region_name=region)
+        paginator = s3.get_paginator("list_objects_v2")
+        all_keys: list[str] = []
+        for page in paginator.paginate(Bucket=raw_bucket):
+            for obj in page.get("Contents", []):
+                key: str = obj["Key"]
+                source_prefix = key.split("/")[0] if "/" in key else ""
+                if not active_sources or source_prefix in active_sources:
+                    all_keys.append(key)
+
+        lc = boto3_local.client("lambda", region_name=region)
+        lc.invoke(
+            FunctionName=evidence_fn,
+            InvocationType="Event",
+            Payload=json_local.dumps({
+                "batch":                    all_keys,
+                "active_sources":           active_sources,
+                "min_cluster_size":         min_cluster_size,
+                "cluster_selection_epsilon": epsilon,
+                "recluster_mode":           True,
+            }).encode(),
+        )
+
+        return {
+            "status":                    "recluster_triggered",
+            "min_cluster_size":          min_cluster_size,
+            "cluster_selection_epsilon": epsilon,
+            "keys_queued":               len(all_keys),
+            "active_sources":            active_sources,
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

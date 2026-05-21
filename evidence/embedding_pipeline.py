@@ -24,7 +24,12 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from api.db import get_conn, release_conn
-from evidence.clustering import cluster_embeddings
+from evidence.clustering import (
+    cluster_embeddings,
+    MIN_CLUSTER_SIZE,
+    MIN_SAMPLES,
+    CLUSTER_SELECTION_EPSILON,
+)
 from evidence.confidence import compute_confidence
 from evidence.threshold import evaluate_cluster
 from evidence.evidence_writer import write_evidence, write_staging
@@ -398,22 +403,30 @@ def _read_and_embed_batch(s3_keys: list[str], bucket: str, model_version: str) -
     }
 
 
-def _cluster_and_write_embeddings(vector_items: list[dict]) -> dict:
+def _cluster_and_write_embeddings(
+    vector_items: list[dict],
+    min_cluster_size: int = MIN_CLUSTER_SIZE,
+    min_samples: int = MIN_SAMPLES,
+    epsilon: float = CLUSTER_SELECTION_EPSILON,
+) -> dict:
     """Cluster a full corpus of pre-computed embeddings and write results to DB.
 
     Args:
-        vector_items: List of dicts each containing at minimum
-                      {s3_key, item_id, text, source, hash, vector}.
+        vector_items:      List of dicts with {s3_key, text, source, hash, vector}.
+        min_cluster_size:  HDBSCAN minimum points to form a cluster.
+        min_samples:       HDBSCAN minimum samples for core-point classification.
+        epsilon:           HDBSCAN cluster selection epsilon.
 
     Returns:
         Dict with keys: clusters_found, accepted, rejected, errors.
     """
-    # Extract raw embedding vectors into a separate list so the new
-    # PCA+HDBSCAN cluster_embeddings(embeddings, items) signature is satisfied.
-    # Items are passed through unchanged so each cluster["items"] still contains
-    # the full item dict (including "vector") needed by confidence.py.
     embeddings = [item["vector"] for item in vector_items]
-    clusters = cluster_embeddings(embeddings, vector_items)
+    clusters = cluster_embeddings(
+        embeddings, vector_items,
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        epsilon=epsilon,
+    )
     logger.info("Clustering complete: clusters=%d", len(clusters))
 
     accepted = 0
@@ -514,6 +527,16 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     # ------------------------------------------------------------------ #
     active_sources: list[str] = event.get("active_sources") or []
 
+    # Custom clustering params — allow the /recluster API endpoint to
+    # override defaults without code changes.
+    min_cluster_size = int(event.get("min_cluster_size", MIN_CLUSTER_SIZE))
+    min_samples      = int(event.get("min_samples", MIN_SAMPLES))
+    epsilon          = float(event.get("cluster_selection_epsilon", CLUSTER_SELECTION_EPSILON))
+    logger.info(
+        "Clustering params: min_cluster_size=%d min_samples=%d epsilon=%.2f",
+        min_cluster_size, min_samples, epsilon,
+    )
+
     if "s3_key" in event:
         s3_keys = [event["s3_key"]]
     elif "batch" in event and isinstance(event["batch"], list):
@@ -579,7 +602,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         embed_result["cache_hits"], embed_result["bedrock_calls"],
     )
 
-    cluster_result = _cluster_and_write_embeddings(vector_items)
+    cluster_result = _cluster_and_write_embeddings(
+        vector_items,
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        epsilon=epsilon,
+    )
 
     errors = embed_errors + cluster_result["errors"]
     processed = total - embed_errors
