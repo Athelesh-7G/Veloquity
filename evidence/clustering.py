@@ -13,8 +13,8 @@ import hdbscan as hdbscan_lib
 logger = logging.getLogger(__name__)
 
 PCA_COMPONENTS = 50
-MIN_CLUSTER_SIZE = 20
-MIN_SAMPLES = 3
+MIN_CLUSTER_SIZE = 12
+MIN_SAMPLES = 2
 CLUSTER_SELECTION_EPSILON = 0.5
 
 
@@ -44,7 +44,7 @@ def cosine_similarity(a, b) -> float:
 def cluster_embeddings(
     embeddings: list,
     items: list,
-    min_cluster_size: int = MIN_CLUSTER_SIZE,   # 20 (was 15)
+    min_cluster_size: int = MIN_CLUSTER_SIZE,   # 12
     min_samples: int = MIN_SAMPLES,              # 3
     epsilon: float = CLUSTER_SELECTION_EPSILON,  # 0.5
 ) -> list:
