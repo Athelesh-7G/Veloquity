@@ -276,17 +276,23 @@ def _synthesize_cluster_name(quotes: list[dict], bedrock_client) -> str:
 def rename_existing_clusters(conn, bedrock_client) -> dict:
     """One-time rename of clusters whose theme is still raw quote text.
 
-    Identifies active clusters with themes longer than 60 chars or
-    containing sentence-end punctuation — signatures of raw quote dumps
-    produced before _synthesize_cluster_name() was added. Calls Nova Pro
-    once per cluster to generate a clean 4-8 word title-case name.
+    Identifies active clusters with themes longer than 50 chars or
+    containing sentence-end punctuation / common pronoun patterns —
+    signatures of raw quote dumps produced before _synthesize_cluster_name()
+    was added.
+
+    For each raw-quote cluster:
+      1. Synthesize a clean 4-8 word name via Nova Pro.
+      2. If the synthesized name is already taken by a cleaner cluster,
+         this row is a semantic duplicate — DELETE it.
+      3. Otherwise UPDATE the theme in place.
 
     Args:
         conn:           Live psycopg2 connection (caller owns the lifecycle).
         bedrock_client: Boto3 bedrock-runtime client.
 
     Returns:
-        {"renamed": int, "total_checked": int, "skipped": int}
+        {"renamed": int, "deleted_duplicates": int, "total_checked": int, "skipped": int}
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -306,8 +312,9 @@ def rename_existing_clusters(conn, bedrock_client) -> dict:
         )
         rows = cur.fetchall()
 
-    renamed = 0
-    skipped = 0
+    renamed  = 0
+    deleted  = 0
+    skipped  = 0
 
     with conn.cursor() as cur:
         for row in rows:
@@ -326,8 +333,34 @@ def rename_existing_clusters(conn, bedrock_client) -> dict:
 
                 new_name = _synthesize_cluster_name(quotes, bedrock_client)
 
-                # Accept any synthesized name under 80 chars that differs from the original.
-                if new_name and new_name != old_theme and len(new_name) <= 80:
+                if not new_name or new_name == old_theme or len(new_name) > 80:
+                    skipped += 1
+                    continue
+
+                # Check if the synthesized name already exists for a different (clean) row.
+                cur.execute(
+                    "SELECT id FROM evidence WHERE theme = %s AND id != %s AND status = 'active'",
+                    (new_name, evidence_id),
+                )
+                conflict = cur.fetchone()
+
+                if conflict:
+                    # A clean version of this cluster already exists. This raw-quote
+                    # row is a semantic duplicate — remove it and its item map entries.
+                    cur.execute(
+                        "DELETE FROM evidence_item_map WHERE evidence_id = %s",
+                        (evidence_id,),
+                    )
+                    cur.execute(
+                        "DELETE FROM evidence WHERE id = %s",
+                        (evidence_id,),
+                    )
+                    logger.info(
+                        "rename_existing_clusters: deleted duplicate id=%s (clean name '%s' already exists)",
+                        evidence_id, new_name,
+                    )
+                    deleted += 1
+                else:
                     cur.execute(
                         "UPDATE evidence SET theme = %s WHERE id = %s",
                         (new_name, evidence_id),
@@ -337,8 +370,6 @@ def rename_existing_clusters(conn, bedrock_client) -> dict:
                         evidence_id, old_theme[:60], new_name,
                     )
                     renamed += 1
-                else:
-                    skipped += 1
 
             except Exception as exc:
                 logger.warning(
@@ -349,10 +380,15 @@ def rename_existing_clusters(conn, bedrock_client) -> dict:
 
     conn.commit()
     logger.info(
-        "rename_existing_clusters: total=%d renamed=%d skipped=%d",
-        len(rows), renamed, skipped,
+        "rename_existing_clusters: total=%d renamed=%d deleted=%d skipped=%d",
+        len(rows), renamed, deleted, skipped,
     )
-    return {"renamed": renamed, "total_checked": len(rows), "skipped": skipped}
+    return {
+        "renamed":           renamed,
+        "deleted_duplicates": deleted,
+        "total_checked":     len(rows),
+        "skipped":           skipped,
+    }
 
 
 def _vector_to_pg(vector: list[float]) -> str:
