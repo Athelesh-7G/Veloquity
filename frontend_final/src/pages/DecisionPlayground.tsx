@@ -573,6 +573,12 @@ export default function DecisionPlayground() {
   const [minEvidence,    setMinEvidence]    = useState(DEFAULT_EV)
   const [exported,       setExported]       = useState(false)
 
+  // When entering live mode, reset minEvidence to a scale appropriate for
+  // real pipeline clusters (5-10 items each vs mock 50-138 items).
+  useEffect(() => {
+    setMinEvidence(liveMode ? 3 : DEFAULT_EV)
+  }, [liveMode])
+
   const reset = () => {
     setConfThreshold(DEFAULT_CONF)
     setUncTolerance(DEFAULT_UNC)
@@ -727,11 +733,13 @@ export default function DecisionPlayground() {
 
             <ControlSlider
               label="Minimum Evidence Items"
-              sub="Minimum number of feedback items to support a decision"
+              sub={liveMode
+                ? "Real pipeline clusters average 5–10 items (mock: 50–138)"
+                : "Minimum number of feedback items to support a decision"}
               value={minEvidence}
-              min={10}
-              max={120}
-              step={10}
+              min={liveMode ? 1 : 10}
+              max={liveMode ? 20 : 120}
+              step={liveMode ? 1 : 10}
               unit=" items"
               onChange={setMinEvidence}
               color="text-amber-500"

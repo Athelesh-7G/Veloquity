@@ -355,7 +355,7 @@ function mapApiToThemeItem(ev: ApiEvidenceItem): ThemeItem {
   return {
     id: ev.id, clusterId: ev.id, name,
     description: quotes.slice(0, 2).join(' ') || name,
-    feedbackCount: ev.unique_user_count,
+    feedbackCount: ev.item_count > 0 ? ev.item_count : ev.unique_user_count,
     uniqueUsers: ev.unique_user_count,
     confidence: Math.round(ev.confidence_score * 100),
     sentiment: 'negative' as const,
@@ -496,7 +496,7 @@ export default function Themes() {
       {/* Stat pills */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Themes',    value: themeList.length,               icon: Layers,        grad: 'from-violet-500/5 to-violet-500/10' },
+          { label: 'Total Themes',    value: activeList.length,              icon: Layers,        grad: 'from-violet-500/5 to-violet-500/10' },
           { label: 'Total Feedback',  value: totalFeedback.toLocaleString(), icon: MessageSquare, grad: 'from-blue-500/5 to-blue-500/10'     },
           { label: 'Avg Confidence',  value: `${avgConf}%`,                  icon: Shield,        grad: 'from-emerald-500/5 to-emerald-500/10'},
           { label: 'Rising Themes',   value: risingCount,                    icon: TrendingUp,    grad: 'from-red-500/5 to-red-500/10'       },

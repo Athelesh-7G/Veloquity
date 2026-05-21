@@ -350,7 +350,7 @@ export default function Dashboard() {
             <h2 className="font-semibold text-foreground">Confidence Distribution</h2>
           </div>
 
-          {!hasData ? (
+          {(!hasData && !liveMode) ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               Upload feedback data on the Import Sources page to see insights
             </div>
@@ -375,8 +375,10 @@ export default function Dashboard() {
                 ))}
               </div>
               <p className="text-sm text-muted-foreground mt-6">
-                Distribution across all {TOTAL_FEEDBACK.toLocaleString()} feedback items —
-                {' '}{EVIDENCE_CLUSTERS} clusters accepted at ≥ 0.60 confidence threshold.
+                {liveMode && liveEvidence
+                  ? `Distribution across all ${liveEvidence.reduce((sum, e) => sum + (e.item_count > 0 ? e.item_count : e.unique_user_count), 0).toLocaleString()} feedback items — ${liveEvidence.length} clusters accepted at ≥ 0.60 confidence threshold.`
+                  : `Distribution across all ${TOTAL_FEEDBACK.toLocaleString()} feedback items — ${EVIDENCE_CLUSTERS} clusters accepted at ≥ 0.60 confidence threshold.`
+                }
               </p>
             </>
           )}

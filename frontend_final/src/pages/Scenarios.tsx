@@ -4,7 +4,7 @@ import {
   FlaskConical, Plus, Play, Copy, Trash2, ArrowRight,
   CheckCircle2, Clock, XCircle, TrendingUp, TrendingDown,
   Minus, ChevronDown, ChevronUp, BarChart3, Zap, X,
-  Shield, Users, Hash, Target, Wifi
+  Shield, Users, Hash, Target, Wifi, Info
 } from 'lucide-react'
 import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
 import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
@@ -837,6 +837,16 @@ export default function Scenarios() {
       <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
         <Wifi className="w-4 h-4 shrink-0" />
         Live Pipeline Data — {liveClusters.length} clusters from real Bedrock + pgvector pipeline
+      </div>
+    )}
+    {liveMode && liveClusters && !liveLoading && (
+      <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/30 bg-blue-500/5 text-sm text-blue-600 dark:text-blue-400">
+        <Info className="w-4 h-4 shrink-0 mt-0.5" />
+        <span>
+          <span className="font-semibold">Live mode:</span> scenario thresholds may need recalibration.
+          Real pipeline clusters average 5–10 items vs mock data averages of 50–138 items.
+          Lower the "Min Evidence Items" threshold to see clusters qualify.
+        </span>
       </div>
     )}
     {!hasData && !liveMode && (

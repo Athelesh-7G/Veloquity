@@ -295,10 +295,11 @@ def rename_existing_clusters(conn, bedrock_client) -> dict:
             FROM evidence
             WHERE status = 'active'
             AND (
-                LENGTH(theme) > 60
+                LENGTH(theme) > 50
                 OR theme LIKE '%.%'
                 OR theme LIKE '%?%'
                 OR theme LIKE '%!%'
+                OR theme ~* '(^|\s)(the|this|our|my|i|we|you)\s'
             )
             ORDER BY confidence_score DESC
             """,
@@ -325,8 +326,8 @@ def rename_existing_clusters(conn, bedrock_client) -> dict:
 
                 new_name = _synthesize_cluster_name(quotes, bedrock_client)
 
-                # Accept the new name only if it is genuinely shorter/cleaner.
-                if new_name and new_name != old_theme and len(new_name) < len(old_theme):
+                # Accept any synthesized name under 80 chars that differs from the original.
+                if new_name and new_name != old_theme and len(new_name) <= 80:
                     cur.execute(
                         "UPDATE evidence SET theme = %s WHERE id = %s",
                         (new_name, evidence_id),
