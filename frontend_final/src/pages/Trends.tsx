@@ -251,7 +251,7 @@ export default function Trends() {
       {liveMode && liveEvidence && !liveLoading && (
         <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
           <Wifi className="w-4 h-4 shrink-0" />
-          Live Pipeline Data — metrics derived from {liveEvidence.length} real evidence clusters. Chart uses mock volume data.
+          Live Pipeline Data — metrics derived from {liveEvidence.length} real evidence clusters.
         </div>
       )}
       {/* No-data banner */}

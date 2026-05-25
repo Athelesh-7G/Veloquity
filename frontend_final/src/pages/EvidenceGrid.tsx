@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Shield, TrendingUp, ExternalLink, Layers, ChevronRight,
@@ -11,6 +11,13 @@ import { getEvidence, fetchLiveEvidence, triggerRecluster, type EvidenceItem as 
 import { getActiveSources } from '@/utils/uploadState'
 import { cn } from '@/lib/utils'
 import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
+
+const SOURCE_LABELS: Record<string, string> = {
+  app_store: 'App Store Reviews',
+  zendesk: 'Support Tickets',
+  patient_portal: 'Patient Portal Reviews',
+  hospital_survey: 'Hospital Survey Tickets',
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EvidenceCategory = 'Technical' | 'Feature' | 'UX'
@@ -599,12 +606,19 @@ export default function EvidenceGrid() {
     ? liveList.filter(e => e.feedbackCount >= minItems)
     : activeList
 
+  const sortedEvidence = useMemo(() => {
+    if (!liveMode || !liveList) return filteredList
+    return [...filteredList]
+      .map(e => ({ ...e, _priority: (e.confidence * 0.35) + ((e.uniqueUsers ?? 0) * 0.40) + ((e.feedbackCount ?? 0) * 0.25) }))
+      .sort((a, b) => b._priority - a._priority)
+  }, [liveMode, liveList, filteredList])
+
   const avgConf = filteredList.length > 0
     ? Math.round(filteredList.reduce((s, e) => s + e.confidence, 0) / filteredList.length)
     : 0
   const totalFbClustered = filteredList.reduce((s, e) => s + e.feedbackCount, 0)
 
-  const displayList = liveMode ? filteredList : hasData ? evidenceList : []
+  const displayList = liveMode ? sortedEvidence : hasData ? evidenceList : []
 
   return (
     <div className="p-6">

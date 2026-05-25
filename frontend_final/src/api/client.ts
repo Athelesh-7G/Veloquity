@@ -3,6 +3,8 @@
 // Typed API client for all Veloquity backend endpoints.
 // =============================================================
 
+import { getActiveSources } from '@/utils/uploadState'
+
 const BASE = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL ?? 'http://localhost:8002'
 const V1 = `${BASE}/api/v1`
 
@@ -170,7 +172,9 @@ export async function checkHealth(timeoutMs = 5000): Promise<boolean> {
 }
 
 export async function fetchLiveEvidence(): Promise<EvidenceItem[]> {
-  const res = await fetch(`${BASE}/api/v1/evidence/`)
+  const activeSources = getActiveSources()
+  const qs = activeSources.length > 0 ? `?sources=${activeSources.join(',')}` : ''
+  const res = await fetch(`${BASE}/api/v1/evidence/${qs}`)
   if (!res.ok) throw new Error(`Evidence API error: ${res.status}`)
   return res.json()
 }

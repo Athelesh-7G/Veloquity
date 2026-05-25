@@ -31,6 +31,13 @@ interface Cluster {
   tradeoff: string
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  app_store: 'App Store Reviews',
+  zendesk: 'Support Tickets',
+  patient_portal: 'Patient Portal Reviews',
+  hospital_survey: 'Hospital Survey Tickets',
+}
+
 // ─── App product clusters ─────────────────────────────────────────────────────
 const APP_CLUSTERS: Cluster[] = [
   {
@@ -566,7 +573,10 @@ export default function DecisionPlayground() {
       .catch((err: Error) => { setLiveError(err.message); setLiveLoading(false) })
   }, [liveMode])
 
-  const CLUSTERS = liveMode && liveClusters ? liveClusters : mockClusters
+  const scenarioDisplayClusters = useMemo(() => {
+    if (liveMode && liveClusters && liveClusters.length > 0) return liveClusters
+    return mockClusters
+  }, [liveMode, liveClusters, mockClusters])
 
   const [confThreshold,  setConfThreshold]  = useState(DEFAULT_CONF)
   const [uncTolerance,   setUncTolerance]   = useState(DEFAULT_UNC)
@@ -592,11 +602,11 @@ export default function DecisionPlayground() {
 
   // Compute decisions for all clusters
   const results = useMemo(() =>
-    CLUSTERS.map((c) => ({
+    scenarioDisplayClusters.map((c) => ({
       cluster: c,
       decision: getDecision(c, confThreshold, uncTolerance, minEvidence),
     })).sort((a, b) => b.cluster.priorityScore - a.cluster.priorityScore),
-  [confThreshold, uncTolerance, minEvidence])
+  [scenarioDisplayClusters, confThreshold, uncTolerance, minEvidence])
 
   const counts = {
     prioritize: results.filter((r) => r.decision === 'prioritize').length,
@@ -771,7 +781,7 @@ export default function DecisionPlayground() {
 
                   <motion.div
                     className={color}
-                    animate={{ width: `${(count / CLUSTERS.length) * 100}%` }}
+                    animate={{ width: `${(count / scenarioDisplayClusters.length) * 100}%` }}
                     transition={{ duration: 0.5 }}
                     style={{ height: '100%', borderRadius: 9999 }}
                   />
@@ -851,7 +861,7 @@ export default function DecisionPlayground() {
           </div>
 
           <span className="text-xs text-gray-500 dark:text-slate-500">
-            {CLUSTERS.length} clusters · threshold {confThreshold}%
+            {scenarioDisplayClusters.length} clusters · threshold {confThreshold}%
           </span>
 
         </div>

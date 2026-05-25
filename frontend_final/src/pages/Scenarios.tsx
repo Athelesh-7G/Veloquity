@@ -773,7 +773,14 @@ export default function Scenarios() {
       .catch((err: Error) => { setLiveError(err.message); setLiveLoading(false) })
   }, [liveMode])
 
-  const clusters = liveMode && liveClusters ? liveClusters : mockClusters
+  const clusters = useMemo(() => {
+    const base = liveMode && liveClusters && liveClusters.length > 0 ? liveClusters : mockClusters
+    if (!liveMode || !liveClusters) return base
+    return [...base].sort((a, b) =>
+      ((b.confidence * 0.35) + (b.uniqueUsers * 0.40) + (b.feedbackCount * 0.25)) -
+      ((a.confidence * 0.35) + (a.uniqueUsers * 0.40) + (a.feedbackCount * 0.25))
+    )
+  }, [liveMode, liveClusters, mockClusters])
 
   const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS)
 

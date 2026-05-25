@@ -14,6 +14,13 @@ import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/u
 import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { HOSPITAL_THEMES } from '@/api/mockData'
 
+const SOURCE_LABELS: Record<string, string> = {
+  app_store: 'App Store Reviews',
+  zendesk: 'Support Tickets',
+  patient_portal: 'Patient Portal Reviews',
+  hospital_survey: 'Hospital Survey Tickets',
+}
+
 interface ThemeItem {
   id: string
   name: string
@@ -585,7 +592,7 @@ export default function Themes() {
                       <td className="py-3.5 px-3 max-w-[220px]">
                         <p className="text-sm font-semibold text-foreground truncate">{theme.name}</p>
                         <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[200px]">
-                          {theme.clusterId} · {theme.sources.join(' + ')}
+                          {theme.sources.map(k => SOURCE_LABELS[k] ?? k).join(' · ')}
                         </p>
                       </td>
 

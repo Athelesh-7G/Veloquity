@@ -62,11 +62,24 @@ def _row_to_evidence(row: dict) -> EvidenceItem:
 @router.get("/", response_model=list[EvidenceItem])
 def list_evidence(
     source: Optional[str] = Query(None, description="Filter by source key in source_lineage"),
+    sources: Optional[str] = Query(None, description="Comma-separated source keys to include"),
     sort_by: str = Query("confidence_score", pattern="^(confidence_score|unique_user_count|last_validated_at)$"),
     conn=Depends(get_db_connection),
 ):
     """Return all active evidence clusters ordered by the requested field."""
     order = f"{sort_by} DESC"
+    source_list = [s.strip() for s in sources.split(",") if s.strip()] if sources else []
+    if source and source not in source_list:
+        source_list.append(source)
+
+    if source_list:
+        conditions = " OR ".join(["source_lineage ? %s"] * len(source_list))
+        where_clause = f"status = 'active' AND ({conditions})"
+        params = tuple(source_list)
+    else:
+        where_clause = "status = 'active'"
+        params = ()
+
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -75,15 +88,13 @@ def list_evidence(
                    (SELECT COUNT(*) FROM evidence_item_map
                     WHERE evidence_item_map.evidence_id = evidence.id) AS item_count
             FROM evidence
-            WHERE status = 'active'
+            WHERE {where_clause}
             ORDER BY {order}
             """,
+            params,
         )
         cols = [d[0] for d in cur.description]
         rows = [dict(zip(cols, r)) for r in cur.fetchall()]
-
-    if source:
-        rows = [r for r in rows if source in (r.get("source_lineage") or {})]
 
     return [_row_to_evidence(r) for r in rows]
 

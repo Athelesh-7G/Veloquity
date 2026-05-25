@@ -466,7 +466,7 @@ export default function Chat() {
   const [awaitingContext, setAwaitingContext] = useState<{ cluster: string } | null>(null)
 
   // Live mode
-  const [liveMode, setLiveModeState]        = useState(getLiveMode())
+  const [liveMode, setLiveModeState]        = useState(() => getLiveMode())
   const [liveEvidenceData, setLiveEvidenceData] = useState<ApiEvidenceItem[] | null>(null)
 
   // Build live system context from real evidence clusters

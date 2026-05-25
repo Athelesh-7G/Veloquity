@@ -1004,7 +1004,7 @@ export default function DataStudio() {
       </AnimatePresence>
 
       <p className="text-sm text-muted-foreground mb-4">
-        Showing {hasData ? totalItems : 0} of {hasData ? totalItems : 0} items
+        Showing {liveMode && liveEvidence ? liveTotal : hasData ? totalItems : 0} of {liveMode && liveEvidence ? liveTotal : hasData ? totalItems : 0} items
       </p>
 
       {/* ── Cards grid ────────────────────────────────────────────────────── */}
