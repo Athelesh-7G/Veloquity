@@ -91,3 +91,54 @@ export function addActiveSource(source: string): void {
 export function removeActiveSource(source: string): void {
   setActiveSources(getActiveSources().filter(s => s !== source))
 }
+
+export function hasActiveSources(): boolean {
+  return getActiveSources().length > 0
+}
+
+// ── Threshold persistence ─────────────────────────────────────────────────────
+
+const THRESHOLD_KEY = 'veloquity_thresholds'
+
+interface ThresholdState {
+  confidenceThreshold: number
+  uncertaintyTolerance: number
+  minEvidence: number
+}
+
+const DEFAULT_THRESHOLDS: ThresholdState = {
+  confidenceThreshold: 75,
+  uncertaintyTolerance: 15,
+  minEvidence: 3,
+}
+
+export function getThresholds(): ThresholdState {
+  try {
+    const stored = localStorage.getItem(THRESHOLD_KEY)
+    return stored
+      ? { ...DEFAULT_THRESHOLDS, ...JSON.parse(stored) }
+      : DEFAULT_THRESHOLDS
+  } catch {
+    return DEFAULT_THRESHOLDS
+  }
+}
+
+export function setThresholds(t: Partial<ThresholdState>): void {
+  try {
+    const current = getThresholds()
+    const next = { ...current, ...t }
+    localStorage.setItem(THRESHOLD_KEY, JSON.stringify(next))
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: THRESHOLD_KEY,
+      newValue: JSON.stringify(next),
+    }))
+  } catch {}
+}
+
+export function resetThresholds(): void {
+  localStorage.removeItem(THRESHOLD_KEY)
+  window.dispatchEvent(new StorageEvent('storage', {
+    key: THRESHOLD_KEY,
+    newValue: JSON.stringify(DEFAULT_THRESHOLDS),
+  }))
+}

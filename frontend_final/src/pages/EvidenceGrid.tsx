@@ -8,9 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { MOCK_EVIDENCE } from '@/api/mockData'
 import { getEvidence, fetchLiveEvidence, triggerRecluster, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
-import { getActiveSources } from '@/utils/uploadState'
 import { cn } from '@/lib/utils'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, getActiveSources, hasActiveSources, getThresholds, setThresholds } from '@/utils/uploadState'
 
 const SOURCE_LABELS: Record<string, string> = {
   app_store: 'App Store Reviews',
@@ -539,13 +538,21 @@ export default function EvidenceGrid() {
   // Live mode state
   const [liveMode, setLiveModeState] = useState(() => getLiveMode())
   const [liveList, setLiveList] = useState<EvidenceItem[] | null>(null)
-  const [liveLoading, setLiveLoading] = useState(() => getLiveMode())
+  const [liveLoading, setLiveLoading] = useState(() => getLiveMode() && hasActiveSources())
   const [liveError, setLiveError] = useState<string | null>(null)
 
   // Tier 1: client-side min-items filter (instant, no Lambda call)
-  const [minItems, setMinItems] = useState(5)
+  const [minItems, setMinItems] = useState(() => getThresholds().minEvidence)
   // Tier 2: Re-cluster button state
   const [reclustering, setReclustering] = useState(false)
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'veloquity_thresholds') setMinItems(getThresholds().minEvidence)
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
   const [reclusterDone, setReclusterDone] = useState(false)
 
   // Only replace mock data if the API returns well-formed evidence clusters.
@@ -583,6 +590,11 @@ export default function EvidenceGrid() {
 
   useEffect(() => {
     if (!liveMode) return
+    if (!hasActiveSources()) {
+      setLiveList([])
+      setLiveLoading(false)
+      return
+    }
     setLiveLoading(true)
     setLiveError(null)
     fetchLiveEvidence()
@@ -619,6 +631,17 @@ export default function EvidenceGrid() {
   const totalFbClustered = filteredList.reduce((s, e) => s + e.feedbackCount, 0)
 
   const displayList = liveMode ? sortedEvidence : hasData ? evidenceList : []
+
+  if (liveMode && !hasActiveSources()) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
+        <div style={{ fontSize:'32px' }}>📂</div>
+        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6">
@@ -696,7 +719,7 @@ export default function EvidenceGrid() {
               max={50}
               step={1}
               value={minItems}
-              onChange={e => setMinItems(Number(e.target.value))}
+              onChange={e => { const val = Number(e.target.value); setMinItems(val); setThresholds({ minEvidence: val }) }}
               className="flex-1 accent-violet-600"
             />
             <span className="text-sm font-bold text-violet-600 dark:text-violet-400 w-16 text-right">

@@ -4,9 +4,9 @@ import {
   FlaskConical, Plus, Play, Copy, Trash2, ArrowRight,
   CheckCircle2, Clock, XCircle, TrendingUp, TrendingDown,
   Minus, ChevronDown, ChevronUp, BarChart3, Zap, X,
-  Shield, Users, Hash, Target, Wifi, Info
+  Shield, Users, Hash, Target, Wifi
 } from 'lucide-react'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, setThresholds } from '@/utils/uploadState'
 import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -754,7 +754,7 @@ export default function Scenarios() {
   // eliminating the flash where mock data shows before live data loads.
   const [liveMode,     setLiveModeState]  = useState(() => getLiveMode())
   const [liveClusters, setLiveClusters]   = useState<ScenarioCluster[] | null>(null)
-  const [liveLoading,  setLiveLoading]    = useState(() => getLiveMode())
+  const [liveLoading,  setLiveLoading]    = useState(() => getLiveMode() && hasActiveSources())
   const [liveError,    setLiveError]      = useState<string | null>(null)
 
   // Re-sync liveMode when another tab/window changes the localStorage value.
@@ -766,6 +766,11 @@ export default function Scenarios() {
 
   useEffect(() => {
     if (!liveMode) return
+    if (!hasActiveSources()) {
+      setLiveClusters([])
+      setLiveLoading(false)
+      return
+    }
     setLiveLoading(true)
     setLiveError(null)
     fetchLiveEvidence()
@@ -816,12 +821,28 @@ export default function Scenarios() {
   }
 
   const handleApply = (s: Scenario) => {
+    setThresholds({
+      confidenceThreshold: s.params.confidenceThreshold,
+      uncertaintyTolerance: s.params.uncertaintyTolerance,
+      minEvidence: s.params.minEvidence,
+    })
     setAppliedId(s.id)
     setTimeout(() => setAppliedId(null), 2000)
   }
 
   const handleAdd = (s: Scenario) => {
     setScenarios((prev) => [s, ...prev])
+  }
+
+  if (liveMode && !hasActiveSources()) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
+        <div style={{ fontSize:'32px' }}>📂</div>
+        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
   }
 
  return (
@@ -872,16 +893,6 @@ export default function Scenarios() {
       <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
         <Wifi className="w-4 h-4 shrink-0" />
         Live Pipeline Data — {liveClusters.length} clusters from real Bedrock + pgvector pipeline
-      </div>
-    )}
-    {liveMode && liveClusters && !liveLoading && (
-      <div className="flex items-start gap-3 p-4 rounded-xl border border-blue-500/30 bg-blue-500/5 text-sm text-blue-600 dark:text-blue-400">
-        <Info className="w-4 h-4 shrink-0 mt-0.5" />
-        <span>
-          <span className="font-semibold">Live mode:</span> scenario thresholds may need recalibration.
-          Real pipeline clusters average 5–10 items vs mock data averages of 50–138 items.
-          Lower the "Min Evidence Items" threshold to see clusters qualify.
-        </span>
       </div>
     )}
     {!hasData && !liveMode && (

@@ -10,7 +10,7 @@ import {
   Users, Merge, Edit2, Trash2, X, ExternalLink, Hash, Shield,
   AlertCircle, ChevronDown, ChevronUp, ArrowUpDown, Minus, AlertTriangle, Wifi
 } from 'lucide-react'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources } from '@/utils/uploadState'
 import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { HOSPITAL_THEMES } from '@/api/mockData'
 
@@ -396,11 +396,16 @@ export default function Themes() {
   // Live mode
   const [liveMode, setLiveModeState]    = useState(() => getLiveMode())
   const [liveThemes, setLiveThemes]     = useState<ThemeItem[] | null>(null)
-  const [liveLoading, setLiveLoading]   = useState(() => getLiveMode())
+  const [liveLoading, setLiveLoading]   = useState(() => getLiveMode() && hasActiveSources())
   const [liveError, setLiveError]       = useState<string | null>(null)
 
   useEffect(() => {
     if (!liveMode) return
+    if (!hasActiveSources()) {
+      setLiveThemes([])
+      setLiveLoading(false)
+      return
+    }
     setLiveLoading(true)
     setLiveError(null)
     fetchLiveEvidence()
@@ -440,6 +445,17 @@ export default function Themes() {
       <ArrowUpDown className={`w-3 h-3 transition-colors ${sortKey === col ? 'text-violet-500' : 'opacity-40 group-hover:opacity-70'}`} />
     </button>
   )
+
+  if (liveMode && !hasActiveSources()) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
+        <div style={{ fontSize:'32px' }}>📂</div>
+        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6">

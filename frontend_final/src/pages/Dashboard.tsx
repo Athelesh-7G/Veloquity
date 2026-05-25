@@ -5,7 +5,7 @@ import { BarChart3, TrendingUp, TrendingDown, Minus, Database, Shield, ArrowUpRi
 import { Badge } from '@/components/ui/badge'
 import { MOCK_EVIDENCE, HOSPITAL_MOCK_DATA } from '@/api/mockData'
 import { getEvidence, fetchLiveEvidence, fetchLiveRecommendations, type EvidenceItem, type ReasoningRun } from '@/api/client'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources } from '@/utils/uploadState'
 
 // ─── App product numbers ──────────────────────────────────────────────────────
 const APP_TOTAL_FEEDBACK    = 547
@@ -105,7 +105,7 @@ export default function Dashboard() {
   const [liveMode, setLiveModeState] = useState(() => getLiveMode())
   const [liveEvidence, setLiveEvidence] = useState<EvidenceItem[] | null>(null)
   const [liveRun, setLiveRun] = useState<ReasoningRun | null>(null)
-  const [liveLoading, setLiveLoading] = useState(() => getLiveMode())
+  const [liveLoading, setLiveLoading] = useState(() => getLiveMode() && hasActiveSources())
   const [liveError, setLiveError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -117,6 +117,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!liveMode) return
+    if (!hasActiveSources()) {
+      setLiveEvidence([])
+      setLiveRun(null)
+      setLiveLoading(false)
+      return
+    }
     setLiveLoading(true)
     setLiveError(null)
     Promise.all([fetchLiveEvidence(), fetchLiveRecommendations()])
@@ -149,6 +155,17 @@ export default function Dashboard() {
   const displayClusters   = liveMode && liveEvidence ? liveClusters     : hasData ? EVIDENCE_CLUSTERS : 0
   const displayConfidence = liveMode && liveEvidence ? liveAvgConf      : hasData ? AVG_CONFIDENCE    : 0
   const displayAnalyzed   = liveMode && liveEvidence ? liveRecCount > 0 ? 100 : 0 : hasData ? ANALYZED_PCT : 0
+
+  if (liveMode && !hasActiveSources()) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
+        <div style={{ fontSize:'32px' }}>📂</div>
+        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6">

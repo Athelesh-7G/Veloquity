@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getThresholds, setThresholds } from '@/utils/uploadState'
 import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -477,22 +477,35 @@ export default function ConfidenceScores() {
     dataset === 'hospital_survey' ? HOSPITAL_INITIAL_METRICS : APP_INITIAL_METRICS
   )
   const [showUncertainty, setShowUncertainty] = useState(true)
-  const [threshold, setThreshold]         = useState([60])   // default: Veloquity's auto-accept threshold
+  const [threshold, setThreshold]         = useState(() => [getThresholds().confidenceThreshold])
 
   // Live mode
   const [liveMode, setLiveModeState]   = useState(() => getLiveMode())
   const [liveMetrics, setLiveMetrics]  = useState<ConfidenceMetric[] | null>(null)
-  const [liveLoading, setLiveLoading]  = useState(() => getLiveMode())
+  const [liveLoading, setLiveLoading]  = useState(() => getLiveMode() && hasActiveSources())
   const [liveError, setLiveError]      = useState<string | null>(null)
 
   useEffect(() => {
     if (!liveMode) return
+    if (!hasActiveSources()) {
+      setLiveMetrics([])
+      setLiveLoading(false)
+      return
+    }
     setLiveLoading(true)
     setLiveError(null)
     fetchLiveEvidence()
       .then((r) => { setLiveMetrics(r.map(mapApiToConfidenceMetric)); setLiveLoading(false) })
       .catch((err: Error) => { setLiveError(err.message); setLiveLoading(false) })
   }, [liveMode])
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'veloquity_thresholds') setThreshold([getThresholds().confidenceThreshold])
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
 
   // Recalculate: small random jitter simulating re-embedding run
   const handleRecalculate = (id: string) => {
@@ -517,6 +530,17 @@ export default function ConfidenceScores() {
   const highConf = showData ? activeMetrics.filter((m) => m.score >= 80).length : 0
   const needsRev = showData ? activeMetrics.filter((m) => m.score >= 60 && m.score < 80).length : 0
   const lowConf  = showData ? activeMetrics.filter((m) => m.score < 60).length : 0
+
+  if (liveMode && !hasActiveSources()) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
+        <div style={{ fontSize:'32px' }}>📂</div>
+        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -578,7 +602,7 @@ export default function ConfidenceScores() {
               </Label>
               <Slider
                 value={threshold}
-                onValueChange={setThreshold}
+                onValueChange={(vals) => { setThreshold(vals); setThresholds({ confidenceThreshold: vals[0] }) }}
                 min={0} max={100} step={5}
                 className="flex-1"
               />

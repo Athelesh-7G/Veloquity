@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sliders, RotateCcw, Download, CheckCircle2, Clock, XCircle, Zap, Shield, TrendingUp, TrendingDown, Minus, Users, Hash, Layers, ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Target, Wifi } from 'lucide-react'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getThresholds, setThresholds } from '@/utils/uploadState'
 import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -554,18 +554,31 @@ export default function DecisionPlayground() {
   // page persists correctly when the user navigates here.
   const [liveMode,      setLiveModeState]  = useState(() => getLiveMode())
   const [liveClusters,  setLiveClusters]   = useState<Cluster[] | null>(null)
-  const [liveLoading,   setLiveLoading]    = useState(() => getLiveMode())
+  const [liveLoading,   setLiveLoading]    = useState(() => getLiveMode() && hasActiveSources())
   const [liveError,     setLiveError]      = useState<string | null>(null)
 
   // Re-sync liveMode when another tab/window changes the localStorage value.
   useEffect(() => {
-    const handleStorage = () => setLiveModeState(getLiveMode())
+    const handleStorage = (e: StorageEvent) => {
+      setLiveModeState(getLiveMode())
+      if (e.key === 'veloquity_thresholds') {
+        const t = getThresholds()
+        setConfThreshold(t.confidenceThreshold)
+        setUncTolerance(t.uncertaintyTolerance)
+        setMinEvidence(t.minEvidence)
+      }
+    }
     window.addEventListener('storage', handleStorage)
     return () => window.removeEventListener('storage', handleStorage)
   }, [])
 
   useEffect(() => {
     if (!liveMode) return
+    if (!hasActiveSources()) {
+      setLiveClusters([])
+      setLiveLoading(false)
+      return
+    }
     setLiveLoading(true)
     setLiveError(null)
     fetchLiveEvidence()
@@ -578,9 +591,9 @@ export default function DecisionPlayground() {
     return mockClusters
   }, [liveMode, liveClusters, mockClusters])
 
-  const [confThreshold,  setConfThreshold]  = useState(DEFAULT_CONF)
-  const [uncTolerance,   setUncTolerance]   = useState(DEFAULT_UNC)
-  const [minEvidence,    setMinEvidence]    = useState(DEFAULT_EV)
+  const [confThreshold,  setConfThreshold]  = useState(() => getThresholds().confidenceThreshold)
+  const [uncTolerance,   setUncTolerance]   = useState(() => getThresholds().uncertaintyTolerance)
+  const [minEvidence,    setMinEvidence]    = useState(() => getThresholds().minEvidence)
   const [exported,       setExported]       = useState(false)
 
   // When entering live mode, reset minEvidence to a scale appropriate for
@@ -622,6 +635,17 @@ export default function DecisionPlayground() {
   const showData = hasData || (liveMode && !!liveClusters)
   const displayResults = showData ? results : []
   const displayCounts = showData ? counts : { prioritize: 0, consider: 0, defer: 0 }
+
+  if (liveMode && !hasActiveSources()) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
+        <div style={{ fontSize:'32px' }}>📂</div>
+        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
 
   return (
   <div className="p-6 min-h-screen bg-background transition-colors">
@@ -725,7 +749,7 @@ export default function DecisionPlayground() {
               max={95}
               step={5}
               unit="%"
-              onChange={setConfThreshold}
+              onChange={(val) => { setConfThreshold(val); setThresholds({ confidenceThreshold: val }) }}
               color="text-violet-500"
             />
 
@@ -737,7 +761,7 @@ export default function DecisionPlayground() {
               max={30}
               step={5}
               unit="±"
-              onChange={setUncTolerance}
+              onChange={(val) => { setUncTolerance(val); setThresholds({ uncertaintyTolerance: val }) }}
               color="text-blue-500"
             />
 
@@ -751,7 +775,7 @@ export default function DecisionPlayground() {
               max={liveMode ? 20 : 120}
               step={liveMode ? 1 : 10}
               unit=" items"
-              onChange={setMinEvidence}
+              onChange={(val) => { setMinEvidence(val); setThresholds({ minEvidence: val }) }}
               color="text-amber-500"
             />
 

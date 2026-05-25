@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Bot, CheckCircle2, XCircle, Play, RefreshCw, Loader2, Zap, Database, Brain, Shield, AlertTriangle } from 'lucide-react'
-import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, hasActiveSources, getActiveSources } from '@/utils/uploadState'
 import { getAgentRunState, hasAgentsRun } from '@/utils/agentRunState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -188,7 +188,8 @@ function parsePayloadLines(
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function statusDot(lastRunAt: string | null | undefined, runStatus?: RunStatus): string {
+function statusDot(lastRunAt: string | null | undefined, runStatus?: RunStatus, sourcesConnected = true): string {
+  if (!sourcesConnected) return '#EF4444'
   if (runStatus === 'running') return '#F59E0B'
   if (runStatus === 'success') return '#10B981'
   if (runStatus === 'error')   return '#EF4444'
@@ -251,10 +252,16 @@ function AgentOutputBox({ lines, shortKey, accent }: { lines: string[]; shortKey
 export default function Agents() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
+  const sourcesConnected = hasActiveSources()
+  const activeSources = getActiveSources()
   const activeMockAgents = dataset === 'hospital_survey' ? HOSPITAL_MOCK_AGENTS : MOCK_AGENTS
+
+  const sourceNodeDefs = dataset === 'hospital_survey'
+    ? [{ key: 'patient_portal', label: 'Patient Portal', icon: '🏥', count: 155 }, { key: 'hospital_survey', label: 'Hospital Survey', icon: '📋', count: 155 }]
+    : [{ key: 'app_store', label: 'App Store Reviews', icon: '📱', count: 275 }, { key: 'zendesk', label: 'Support Tickets', icon: '🎫', count: 272 }]
   const pipelineMetrics = dataset === 'hospital_survey'
-    ? { items: 310, clusters: 4, sourceNodes: [{ label: 'Patient Portal · 155', icon: '🏥' }, { label: 'Hospital Survey · 155', icon: '📋' }] }
-    : { items: 547, clusters: 6, sourceNodes: [{ label: 'App Store Reviews · 275', icon: '📱' }, { label: 'Support Tickets · 272', icon: '🎫' }] }
+    ? { items: 310, clusters: 4, sourceNodes: sourceNodeDefs }
+    : { items: 547, clusters: 6, sourceNodes: sourceNodeDefs }
   const activeFallbackLines = dataset === 'hospital_survey' ? HOSPITAL_FALLBACK_LINES : AGENT_FALLBACK_LINES
   const activeFallbacks     = dataset === 'hospital_survey' ? HOSPITAL_FALLBACKS : AGENT_FALLBACKS
   const [agents, setAgents]         = useState<AgentStatus[]>([])
@@ -447,20 +454,25 @@ export default function Agents() {
         <div className="flex flex-col items-center">
           {/* Source nodes */}
           <div className="flex items-center gap-3 mb-1">
-            {pipelineMetrics.sourceNodes.map((src) => (
-              // FIX: bg-muted border-border text-muted-foreground instead of hardcoded dark values
-              <div key={src.label}
-                className="rounded-xl px-4 py-2 border border-border text-xs font-medium text-muted-foreground bg-muted flex items-center gap-1.5">
-                <span>{src.icon}</span>{src.label}
-              </div>
-            ))}
+            {pipelineMetrics.sourceNodes.map((src) => {
+              const connected = activeSources.includes(src.key)
+              return (
+                <div key={src.key}
+                  className="rounded-xl px-4 py-2 border border-border text-xs font-medium bg-muted flex items-center gap-1.5"
+                  style={{ color: connected ? '#22c55e' : undefined }}
+                >
+                  <span>{src.icon}</span>
+                  {connected ? `${src.label} · ${src.count}` : `${src.label} · Not connected`}
+                </div>
+              )
+            })}
           </div>
           <PipelineArrow />
 
           {AGENT_CONFIG.map((cfg, i) => {
             const a   = agentMap[cfg.lambdaName] ?? agentMap[cfg.shortKey]
             const rs  = runStatus[cfg.shortKey] ?? 'idle'
-            const dot = statusDot(a?.last_run_at, rs)
+            const dot = statusDot(a?.last_run_at, rs, sourcesConnected)
             const lastRun = resolveLastRun(cfg.shortKey, a?.last_run_at)
             const AgentIcon = cfg.Icon
 
@@ -486,7 +498,9 @@ export default function Agents() {
                         <span className="font-semibold text-sm text-foreground">{cfg.display}</span>
                       </div>
                       {/* FIX: text-muted-foreground instead of text-slate-500 */}
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{cfg.subtitle}</p>
+                      <p className="text-[11px] mt-0.5" style={{ color: sourcesConnected ? undefined : '#EF4444' }}>
+                        {sourcesConnected ? cfg.subtitle : 'No sources connected'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
@@ -534,7 +548,7 @@ export default function Agents() {
           const a      = agentMap[cfg.lambdaName] ?? agentMap[cfg.shortKey]
           const rs     = runStatus[cfg.shortKey] ?? 'idle'
           const result = lastResult[cfg.shortKey]
-          const dot    = statusDot(a?.last_run_at, rs)
+          const dot    = statusDot(a?.last_run_at, rs, sourcesConnected)
           const AgentIcon = cfg.Icon
 
           const outputLines = result

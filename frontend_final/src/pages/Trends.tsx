@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LineChart, TrendingUp, TrendingDown, Minus, Calendar, ArrowUpRight, ArrowDownRight, Filter, AlertTriangle, Wifi } from 'lucide-react'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources } from '@/utils/uploadState'
 import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { HOSPITAL_CHART_DATA, HOSPITAL_TRENDS_METRICS } from '@/api/mockData'
 
@@ -151,11 +151,16 @@ export default function Trends() {
   // Live mode
   const [liveMode, setLiveModeState]      = useState(() => getLiveMode())
   const [liveEvidence, setLiveEvidence]   = useState<ApiEvidenceItem[] | null>(null)
-  const [liveLoading, setLiveLoading]     = useState(() => getLiveMode())
+  const [liveLoading, setLiveLoading]     = useState(() => getLiveMode() && hasActiveSources())
   const [liveError, setLiveError]         = useState<string | null>(null)
 
   useEffect(() => {
     if (!liveMode) return
+    if (!hasActiveSources()) {
+      setLiveEvidence([])
+      setLiveLoading(false)
+      return
+    }
     setLiveLoading(true)
     setLiveError(null)
     fetchLiveEvidence()
@@ -204,6 +209,17 @@ export default function Trends() {
 
   const chartData = activeChartMap[timeRange]
   const chartMax  = hasData ? Math.max(...chartData.map((d) => d.appStore + d.supportTickets)) : 100
+
+  if (liveMode && !hasActiveSources()) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
+        <div style={{ fontSize:'32px' }}>📂</div>
+        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6">
