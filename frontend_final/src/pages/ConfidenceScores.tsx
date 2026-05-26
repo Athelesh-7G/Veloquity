@@ -536,7 +536,7 @@ export default function ConfidenceScores() {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
         <div style={{ fontSize:'32px' }}>📂</div>
         <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
-        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
         <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
       </div>
     )
@@ -559,28 +559,28 @@ export default function ConfidenceScores() {
             style={{ padding:'6px 14px', borderRadius:'6px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'12px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
           >
             <span style={{ width:8, height:8, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
-            {liveMode ? 'LIVE' : 'MOCK'}
+            {liveMode ? 'V1' : 'V0'}
           </button>
         </div>
       </div>
 
       {liveMode && liveLoading && (
         <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
-          <Wifi className="w-4 h-4 animate-pulse shrink-0" />Fetching live confidence scores…
+          <Wifi className="w-4 h-4 animate-pulse shrink-0" />Loading V1 confidence data…
         </div>
       )}
       {liveMode && liveError && (
-        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">Live mode error: {liveError}</div>
+        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">V1 pipeline error: {liveError}</div>
       )}
       {liveMode && liveMetrics && !liveLoading && (
         <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
           <Wifi className="w-4 h-4 shrink-0" />
-          Live Pipeline Data — {liveMetrics.length} clusters · avg confidence {avgScore}%
+          V1 Intelligence Pipeline — {liveMetrics.length} clusters · avg confidence {avgScore}%
         </div>
       )}
       {!hasData && !liveMode && (
         <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-          Upload feedback data on the Import Sources page, or enable LIVE mode to show real pipeline data.
+          Upload feedback data on the Import Sources page, or enable V1 mode to show intelligence pipeline data.
         </div>
       )}
 
@@ -678,7 +678,7 @@ export default function ConfidenceScores() {
             <p className="text-sm">
               {showData
                 ? `No clusters meet the ${threshold[0]}% threshold. Lower the slider to see more.`
-                : 'Upload feedback data or enable LIVE mode to see insights'}
+                : 'Upload feedback data or enable V1 mode to see insights'}
             </p>
           </div>
         )}

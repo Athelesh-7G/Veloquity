@@ -334,7 +334,7 @@ function getSmartFallback(
   }
 
   if (q.includes('confident')) return FALLBACK_RESPONSES['confident']
-  return `I have access to Veloquity's live evidence data. Based on the current corpus of **${items} feedback items** across ${clusters} evidence clusters:\n\n• Avg confidence: **84%** across all clusters\n• All clusters validated: **2026-03-10**\n• Pipeline status: All 4 agents healthy\n\nCould you be more specific? For example, you can ask about a particular cluster, sprint priorities, governance activity, or confidence scores.`
+  return `I have access to Veloquity's evidence intelligence. Based on the current corpus of **${items} feedback items** across ${clusters} evidence clusters:\n\n• Avg confidence: **84%** across all clusters\n• All clusters validated: **2026-03-10**\n• Pipeline status: All 4 agents healthy\n\nCould you be more specific? For example, you can ask about a particular cluster, sprint priorities, governance activity, or confidence scores.`
 }
 
 interface Message extends ChatMessage {
@@ -469,11 +469,11 @@ export default function Chat() {
   const [liveMode, setLiveModeState]        = useState(() => getLiveMode())
   const [liveEvidenceData, setLiveEvidenceData] = useState<ApiEvidenceItem[] | null>(null)
 
-  // Build live system context from real evidence clusters
+  // Build V1 system context from real evidence clusters
   const liveContext = liveEvidenceData && liveEvidenceData.length > 0
-    ? `You are Veloquity AI, an evidence intelligence assistant with access to LIVE pipeline data.
+    ? `You are Veloquity AI, an evidence intelligence assistant with access to V1 pipeline data.
 
-LIVE EVIDENCE CLUSTERS (${liveEvidenceData.length} clusters from real Bedrock + pgvector pipeline):
+V1 EVIDENCE CLUSTERS (${liveEvidenceData.length} clusters from real Bedrock + pgvector pipeline):
 ${liveEvidenceData.map((e, i) => {
   const name = e.theme.split(' | ')[0].slice(0, 80)
   const conf = Math.round(e.confidence_score * 100)
@@ -485,10 +485,14 @@ DATA SOURCES: ${[...new Set(liveEvidenceData.flatMap((e) => Object.keys(e.source
 TOTAL UNIQUE USERS: ${liveEvidenceData.reduce((s, e) => s + e.unique_user_count, 0)}
 LAST PIPELINE RUN: ${liveEvidenceData[0]?.last_validated_at?.split('T')[0] ?? 'unknown'}
 
-Answer questions based ONLY on this live evidence. Reference specific cluster names and confidence scores. Respond in plain conversational text only. No markdown headers or bullets.`
+Answer questions based ONLY on this evidence. Reference specific cluster names and confidence scores. Respond in plain conversational text only. No markdown headers or bullets.`
     : null
 
-  const systemContext = liveMode && liveContext ? liveContext : mockContext
+  const noSourcesContext = 'No feedback sources are connected. Please connect sources in Import Sources to enable V1 intelligence mode.'
+
+  const systemContext = liveMode
+    ? (liveContext ?? noSourcesContext)
+    : mockContext
 
   useEffect(() => {
     if (!liveMode) return
@@ -763,7 +767,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
         <div style={{ fontSize:'32px' }}>📂</div>
         <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
-        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
         <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
       </div>
     )
@@ -789,13 +793,13 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               style={{ padding:'3px 8px', borderRadius:'4px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'10px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'4px' }}
             >
               <span style={{ width:6, height:6, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
-              {liveMode ? 'LIVE' : 'MOCK'}
+              {liveMode ? 'V1' : 'V0'}
             </button>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
             {liveMode && liveContext
-              ? `Live pipeline: ${liveEvidenceData?.length ?? 0} real clusters`
-              : 'The assistant has access to live Veloquity pipeline data:'}
+              ? `V1 pipeline: ${liveEvidenceData?.length ?? 0} real clusters`
+              : 'The assistant has access to Veloquity intelligence pipeline data:'}
           </p>
         </div>
 

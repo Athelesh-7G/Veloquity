@@ -215,7 +215,7 @@ export default function Trends() {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
         <div style={{ fontSize:'32px' }}>📂</div>
         <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
-        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
         <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
       </div>
     )
@@ -238,7 +238,7 @@ export default function Trends() {
             style={{ padding:'6px 14px', borderRadius:'6px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'12px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
           >
             <span style={{ width:8, height:8, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
-            {liveMode ? 'LIVE' : 'MOCK'}
+            {liveMode ? 'V1' : 'V0'}
           </button>
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-[140px]">
@@ -258,16 +258,16 @@ export default function Trends() {
 
       {liveMode && liveLoading && (
         <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
-          <Wifi className="w-4 h-4 animate-pulse shrink-0" />Fetching live trend data…
+          <Wifi className="w-4 h-4 animate-pulse shrink-0" />Loading V1 trend data…
         </div>
       )}
       {liveMode && liveError && (
-        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">Live mode error: {liveError}</div>
+        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">V1 pipeline error: {liveError}</div>
       )}
       {liveMode && liveEvidence && !liveLoading && (
         <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
           <Wifi className="w-4 h-4 shrink-0" />
-          Live Pipeline Data — metrics derived from {liveEvidence.length} real evidence clusters.
+          V1 Intelligence Pipeline — metrics derived from {liveEvidence.length} real evidence clusters.
         </div>
       )}
       {/* No-data banner */}
@@ -275,7 +275,7 @@ export default function Trends() {
         <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
           <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
           <p className="text-sm text-amber-600 dark:text-amber-400">
-            Upload feedback data on the <span className="font-medium">Import Sources</span> page, or enable LIVE mode to unlock trends intelligence
+            Upload feedback data on the <span className="font-medium">Import Sources</span> page, or enable V1 mode to unlock trends intelligence
           </p>
         </div>
       )}

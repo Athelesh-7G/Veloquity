@@ -161,7 +161,7 @@ export default function Dashboard() {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
         <div style={{ fontSize:'32px' }}>📂</div>
         <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
-        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
         <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
       </div>
     )
@@ -204,7 +204,7 @@ export default function Dashboard() {
               background: liveMode ? '#22c55e' : '#6b7280',
               display: 'inline-block',
             }} />
-            {liveMode ? 'LIVE' : 'MOCK'}
+            {liveMode ? 'V1' : 'V0'}
           </button>
         </div>
       </div>
@@ -213,24 +213,24 @@ export default function Dashboard() {
       {liveMode && liveLoading && (
         <div className="mb-4 flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
           <Wifi className="w-4 h-4 animate-pulse shrink-0" />
-          Fetching live pipeline data…
+          Loading V1 pipeline data…
         </div>
       )}
       {liveMode && liveError && (
         <div className="mb-4 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">
-          Live mode error: {liveError}
+          V1 pipeline error: {liveError}
         </div>
       )}
       {liveMode && liveEvidence && !liveLoading && (
         <div className="mb-4 flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
           <Wifi className="w-4 h-4 shrink-0" />
-          Live Pipeline Data — {liveClusters} clusters · {liveTotalUsers} unique users · {liveRecCount} recommendations · model: {liveRun?.model_id}
+          V1 Intelligence Pipeline — {liveClusters} clusters · {liveTotalUsers} unique users · {liveRecCount} recommendations · model: {liveRun?.model_id}
         </div>
       )}
 
       {!hasData && !liveMode && (
         <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-          Upload feedback data on the Import Sources page, or enable LIVE mode to show real pipeline data.
+          Upload feedback data on the Import Sources page, or enable V1 mode to show intelligence pipeline data.
         </div>
       )}
 

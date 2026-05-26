@@ -6,7 +6,7 @@ import {
   Minus, ChevronDown, ChevronUp, BarChart3, Zap, X,
   Shield, Users, Hash, Target, Wifi
 } from 'lucide-react'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, setThresholds } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getThresholds, setThresholds } from '@/utils/uploadState'
 import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -521,7 +521,7 @@ function NewScenarioForm({ onAdd, onClose, clusters }: { onAdd: (s: Scenario) =>
 
           {/* Right: live preview */}
           <div>
-            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-3">Live Preview</p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-3">Preview</p>
 
             {/* Summary counts */}
             <div className="grid grid-cols-3 gap-2 mb-4">
@@ -787,6 +787,17 @@ export default function Scenarios() {
     )
   }, [liveMode, liveClusters, mockClusters])
 
+  // Thresholds — synced from veloquity_thresholds across pages
+  const [activeThresholds, setActiveThresholds] = useState(() => getThresholds())
+
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'veloquity_thresholds') setActiveThresholds(getThresholds())
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
   const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS)
 
   // Auto-add a live-calibrated default scenario the first time live mode activates.
@@ -797,8 +808,8 @@ export default function Scenarios() {
       return [
         {
           id: 'live-default',
-          name: 'Live Pipeline Default',
-          description: 'Optimized thresholds for real pipeline data (5-44 items per cluster)',
+          name: 'V1 Pipeline Default',
+          description: 'Optimized thresholds for V1 pipeline data (5-44 items per cluster)',
           params: { confidenceThreshold: 75, uncertaintyTolerance: 15, minEvidence: 5, effortCap: 'any' as const },
           createdAt: new Date().toISOString().split('T')[0],
         },
@@ -839,7 +850,7 @@ export default function Scenarios() {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
         <div style={{ fontSize:'32px' }}>📂</div>
         <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
-        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
         <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
       </div>
     )
@@ -867,7 +878,7 @@ export default function Scenarios() {
           style={{ padding:'6px 14px', borderRadius:'6px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'12px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
         >
           <span style={{ width:8, height:8, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
-          {liveMode ? 'LIVE' : 'MOCK'}
+          {liveMode ? 'V1' : 'V0'}
         </button>
         <Button
           onClick={() => setShowForm((p) => !p)}
@@ -881,23 +892,23 @@ export default function Scenarios() {
 
     {liveMode && liveLoading && (
       <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
-        <Wifi className="w-4 h-4 animate-pulse shrink-0" />Fetching live evidence clusters…
+        <Wifi className="w-4 h-4 animate-pulse shrink-0" />Loading V1 pipeline data…
       </div>
     )}
     {liveMode && liveError && (
       <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">
-        Live mode error: {liveError}
+        V1 pipeline error: {liveError}
       </div>
     )}
     {liveMode && liveClusters && !liveLoading && (
       <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
         <Wifi className="w-4 h-4 shrink-0" />
-        Live Pipeline Data — {liveClusters.length} clusters from real Bedrock + pgvector pipeline
+        V1 Intelligence Pipeline — {liveClusters.length} clusters from real Bedrock + pgvector pipeline
       </div>
     )}
     {!hasData && !liveMode && (
       <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-        Upload feedback data on the Import Sources page, or enable LIVE mode to see real pipeline data.
+        Upload feedback data on the Import Sources page, or enable V1 mode to enable V1 intelligence.
       </div>
     )}
 
@@ -941,7 +952,7 @@ export default function Scenarios() {
 
         {(!hasData && !liveMode) ? (
           <div className="lg:col-span-2 text-center py-16 text-muted-foreground text-sm">
-            Upload feedback data on the Import Sources page, or enable LIVE mode to see real pipeline data.
+            Upload feedback data on the Import Sources page, or enable V1 mode to enable V1 intelligence.
           </div>
         ) : (
           <AnimatePresence>

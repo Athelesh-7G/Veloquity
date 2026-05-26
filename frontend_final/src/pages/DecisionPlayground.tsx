@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sliders, RotateCcw, Download, CheckCircle2, Clock, XCircle, Zap, Shield, TrendingUp, TrendingDown, Minus, Users, Hash, Layers, ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Target, Wifi } from 'lucide-react'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getThresholds, setThresholds } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getThresholds, setThresholds, SOURCE_LABELS } from '@/utils/uploadState'
 import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -29,13 +29,6 @@ interface Cluster {
   rationale: string        // PM-facing explanation
   riskFlags: string[]
   tradeoff: string
-}
-
-const SOURCE_LABELS: Record<string, string> = {
-  app_store: 'App Store Reviews',
-  zendesk: 'Support Tickets',
-  patient_portal: 'Patient Portal Reviews',
-  hospital_survey: 'Hospital Survey Tickets',
 }
 
 // ─── App product clusters ─────────────────────────────────────────────────────
@@ -641,7 +634,7 @@ export default function DecisionPlayground() {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
         <div style={{ fontSize:'32px' }}>📂</div>
         <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
-        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to see live pipeline data.</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
         <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
       </div>
     )
@@ -669,7 +662,7 @@ export default function DecisionPlayground() {
           style={{ padding:'6px 14px', borderRadius:'6px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'12px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
         >
           <span style={{ width:8, height:8, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
-          {liveMode ? 'LIVE' : 'MOCK'}
+          {liveMode ? 'V1' : 'V0'}
         </button>
         <Button
           variant="ghost"
@@ -701,23 +694,23 @@ export default function DecisionPlayground() {
 
     {liveMode && liveLoading && (
       <div className="mb-6 flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
-        <Wifi className="w-4 h-4 animate-pulse shrink-0" />Fetching live evidence clusters…
+        <Wifi className="w-4 h-4 animate-pulse shrink-0" />Loading V1 pipeline data…
       </div>
     )}
     {liveMode && liveError && (
       <div className="mb-6 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">
-        Live mode error: {liveError}
+        V1 pipeline error: {liveError}
       </div>
     )}
     {liveMode && liveClusters && !liveLoading && (
       <div className="mb-6 flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
         <Wifi className="w-4 h-4 shrink-0" />
-        Live Pipeline Data — {liveClusters.length} clusters · thresholds apply to real evidence
+        V1 Intelligence Pipeline — {liveClusters.length} clusters · thresholds apply to real evidence
       </div>
     )}
     {!hasData && !liveMode && (
       <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-        Upload feedback data on the Import Sources page, or enable LIVE mode to see real pipeline data.
+        Upload feedback data on the Import Sources page, or enable V1 mode to show intelligence pipeline data.
       </div>
     )}
 
@@ -906,7 +899,7 @@ export default function DecisionPlayground() {
 
           {!hasData && !liveMode && displayResults.length === 0 && (
             <div className="text-center py-12 text-muted-foreground text-sm">
-              Upload feedback data on the Import Sources page, or enable LIVE mode to see real pipeline data.
+              Upload feedback data on the Import Sources page, or enable V1 mode to show intelligence pipeline data.
             </div>
           )}
 

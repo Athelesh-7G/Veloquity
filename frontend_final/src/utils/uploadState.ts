@@ -142,3 +142,16 @@ export function resetThresholds(): void {
     newValue: JSON.stringify(DEFAULT_THRESHOLDS),
   }))
 }
+
+// ── Source label mapping ──────────────────────────────────────────────────────
+
+export const SOURCE_LABELS: Record<string, string> = {
+  app_store: 'App Store Reviews',
+  zendesk: 'Support Tickets',
+  patient_portal: 'Patient Portal Reviews',
+  hospital_survey: 'Hospital Survey Tickets',
+}
+
+export function getSourceLabel(key: string): string {
+  return SOURCE_LABELS[key] || key
+}
