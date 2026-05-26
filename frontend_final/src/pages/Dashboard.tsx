@@ -5,7 +5,7 @@ import { BarChart3, TrendingUp, TrendingDown, Minus, Database, Shield, ArrowUpRi
 import { Badge } from '@/components/ui/badge'
 import { MOCK_EVIDENCE, HOSPITAL_MOCK_DATA } from '@/api/mockData'
 import { getEvidence, fetchLiveEvidence, fetchLiveRecommendations, type EvidenceItem, type ReasoningRun } from '@/api/client'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getSourceLabel } from '@/utils/uploadState'
 
 // ─── App product numbers ──────────────────────────────────────────────────────
 const APP_TOTAL_FEEDBACK    = 547
@@ -307,7 +307,7 @@ export default function Dashboard() {
                     </div>
                     <div className="min-w-0">
                       <p className="font-medium text-foreground text-sm leading-snug line-clamp-2">{ev.theme.split(' | ')[0]}</p>
-                      <p className="text-sm text-muted-foreground">{ev.unique_user_count} unique users · {Object.keys(ev.source_lineage).join(', ')}</p>
+                      <p className="text-sm text-muted-foreground">{ev.unique_user_count} unique users · {Object.keys(ev.source_lineage).map(k => getSourceLabel(k)).join(' · ')}</p>
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-4">

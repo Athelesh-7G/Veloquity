@@ -11,7 +11,7 @@ import {
 import {
   getUploadedSources, addUploadedSource, removeUploadedSource,
   type UploadedSource, addActiveSource, removeActiveSource,
-  getActiveSources, getLiveMode,
+  getActiveSources, setActiveSources, clearAllActiveSources, getLiveMode,
 } from '@/utils/uploadState'
 import { setAgentsDone, clearAgentRunState } from '@/utils/agentRunState'
 import { triggerLivePipeline } from '@/api/client'
@@ -288,6 +288,16 @@ const SOURCE_TYPE_MAP: Record<SourceId, string> = {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ImportSources() {
   const [sources, setSources] = useState<UploadedSource[]>(getUploadedSources)
+
+  // Reconcile active sources with what the UI actually shows as connected.
+  // This clears any stale localStorage state (e.g., from seeding scripts)
+  // so only sources the user has explicitly connected are active.
+  useEffect(() => {
+    const uploaded = getUploadedSources()
+    clearAllActiveSources()
+    const active = uploaded.map(s => SOURCE_TYPE_MAP[s.source as SourceId]).filter(Boolean)
+    setActiveSources(active)
+  }, [])
 
   const appstoreSource        = sources.find(s => s.source === 'appstore')              ?? null
   const support_ticketsSource = sources.find(s => s.source === 'support_tickets')       ?? null

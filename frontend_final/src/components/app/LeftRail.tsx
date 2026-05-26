@@ -80,7 +80,7 @@ export default function LeftRail() {
   const location = useLocation()
   const { sidebarCollapsed, setSidebarCollapsed } = useApp()
   const [expandedSections, setExpandedSections] = useState<string[]>(navSections.map((s) => s.title))
-  const [liveMode, setLiveModeState] = useState(getLiveMode())
+  const [liveMode, setLiveModeState] = useState(() => getLiveMode())
 
   const toggleSection = (title: string) => {
     setExpandedSections((prev) => (prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]))
@@ -188,14 +188,14 @@ export default function LeftRail() {
               ? 'border border-green-500/40 bg-green-500/8 text-green-600 dark:text-green-400 hover:bg-green-500/15'
               : 'border border-border text-muted-foreground hover:text-foreground hover:bg-accent',
           )}
-          title={liveMode ? 'Switch to mock data' : 'Switch to live pipeline data'}
+          title={liveMode ? 'Switch to V0 mode' : 'Switch to V1 pipeline mode'}
         >
           <span
             className={cn('shrink-0 rounded-full', liveMode ? 'animate-pulse' : '')}
             style={{ width: 8, height: 8, background: liveMode ? '#22c55e' : '#6b7280', display: 'inline-block', borderRadius: '50%' }}
           />
           {!sidebarCollapsed && (
-            <span>{liveMode ? 'LIVE' : 'MOCK'}</span>
+            <span>{liveMode ? 'V1' : 'V0'}</span>
           )}
         </button>
       </div>

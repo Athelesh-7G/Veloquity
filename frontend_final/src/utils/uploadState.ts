@@ -96,6 +96,10 @@ export function hasActiveSources(): boolean {
   return getActiveSources().length > 0
 }
 
+export function clearAllActiveSources(): void {
+  localStorage.removeItem(ACTIVE_SOURCES_KEY)
+}
+
 // ── Threshold persistence ─────────────────────────────────────────────────────
 
 const THRESHOLD_KEY = 'veloquity_thresholds'

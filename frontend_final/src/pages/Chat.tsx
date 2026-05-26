@@ -468,6 +468,15 @@ export default function Chat() {
   // Live mode
   const [liveMode, setLiveModeState]        = useState(() => getLiveMode())
   const [liveEvidenceData, setLiveEvidenceData] = useState<ApiEvidenceItem[] | null>(null)
+  const [liveLoading, setLiveLoading]       = useState(false)
+
+  // Source key → display name map for Nova Pro system prompt
+  const PROMPT_SOURCE_DISPLAY: Record<string, string> = {
+    app_store: 'App Store Reviews',
+    zendesk: 'Support Tickets',
+    patient_portal: 'Patient Portal Reviews',
+    hospital_survey: 'Hospital Survey Tickets',
+  }
 
   // Build V1 system context from real evidence clusters
   const liveContext = liveEvidenceData && liveEvidenceData.length > 0
@@ -477,11 +486,13 @@ V1 EVIDENCE CLUSTERS (${liveEvidenceData.length} clusters from real Bedrock + pg
 ${liveEvidenceData.map((e, i) => {
   const name = e.theme.split(' | ')[0].slice(0, 80)
   const conf = Math.round(e.confidence_score * 100)
-  const sources = Object.keys(e.source_lineage ?? {}).join(', ')
-  return `${i + 1}. ${name}\n   Confidence: ${conf}% | Users: ${e.unique_user_count} | Sources: ${sources}`
+  const sourceNames = Object.keys(e.source_lineage ?? {})
+    .map(k => PROMPT_SOURCE_DISPLAY[k] || k)
+    .join(' + ')
+  return `${i + 1}. ${name}\n   Confidence: ${conf}% | Users: ${e.unique_user_count} | Sources: ${sourceNames}`
 }).join('\n')}
 
-DATA SOURCES: ${[...new Set(liveEvidenceData.flatMap((e) => Object.keys(e.source_lineage ?? {})))].join(', ')}
+DATA SOURCES: ${[...new Set(liveEvidenceData.flatMap((e) => Object.keys(e.source_lineage ?? {})))].map(k => PROMPT_SOURCE_DISPLAY[k] || k).join(', ')}
 TOTAL UNIQUE USERS: ${liveEvidenceData.reduce((s, e) => s + e.unique_user_count, 0)}
 LAST PIPELINE RUN: ${liveEvidenceData[0]?.last_validated_at?.split('T')[0] ?? 'unknown'}
 
@@ -500,9 +511,10 @@ Answer questions based ONLY on this evidence. Reference specific cluster names a
       setLiveEvidenceData([])
       return
     }
+    setLiveLoading(true)
     fetchLiveEvidence()
-      .then((r) => setLiveEvidenceData(r))
-      .catch(() => {})
+      .then((r) => { setLiveEvidenceData(r); setLiveLoading(false) })
+      .catch(() => { setLiveLoading(false) })
   }, [liveMode])
 
   // Cold start state
@@ -841,22 +853,35 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">
             Active Clusters
           </p>
-          <div className="space-y-1.5">
-            {activeClusters.map(({ name, conf }) => (
-              <div key={name} className="flex items-center gap-2 group">
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-muted-foreground truncate leading-snug group-hover:text-foreground transition-colors">
-                    {name}
-                  </p>
+          {liveMode && liveLoading ? (
+            <div className="flex items-center gap-2 py-2">
+              <Loader2 className="w-3 h-3 animate-spin text-violet-400 shrink-0" />
+              <span className="text-[10px] text-muted-foreground">Loading V1 clusters…</span>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {(liveMode && liveEvidenceData && liveEvidenceData.length > 0
+                ? liveEvidenceData.map(e => ({
+                    name: e.theme.split(' | ')[0].slice(0, 40),
+                    conf: Math.round(e.confidence_score * 100),
+                  }))
+                : activeClusters
+              ).map(({ name, conf }) => (
+                <div key={name} className="flex items-center gap-2 group">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-muted-foreground truncate leading-snug group-hover:text-foreground transition-colors">
+                      {name}
+                    </p>
+                  </div>
+                  <span className={`text-[10px] font-bold shrink-0 ${
+                    conf >= 85 ? 'text-emerald-500' :
+                    conf >= 75 ? 'text-blue-500' :
+                                 'text-amber-500'
+                  }`}>{conf}%</span>
                 </div>
-                <span className={`text-[10px] font-bold shrink-0 ${
-                  conf >= 85 ? 'text-emerald-500' :
-                  conf >= 75 ? 'text-blue-500' :
-                               'text-amber-500'
-                }`}>{conf}%</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Pipeline status */}
@@ -913,22 +938,26 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
 
               {/* Starter questions */}
               <div className="grid grid-cols-2 gap-2 w-full max-w-xl">
-                {starters.map(({ icon: Icon, text }) => (
-                  <motion.button
-                    key={text}
-                    whileHover={{ y: -2, scale: 1.01 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => send(text)}
-                    className="flex items-start gap-2.5 text-left px-3.5 py-3 rounded-xl border border-border bg-card hover:border-violet-500/40 hover:bg-violet-500/5 transition-all group"
-                  >
-                    <div className="p-1.5 rounded-lg bg-muted group-hover:bg-violet-500/10 transition-colors shrink-0 mt-0.5">
-                      <Icon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-violet-500 transition-colors" />
-                    </div>
-                    <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
-                      {text}
-                    </span>
-                  </motion.button>
-                ))}
+                {starters.map(({ icon: Icon, text }) => {
+                  const blocked = liveMode && liveLoading
+                  return (
+                    <motion.button
+                      key={text}
+                      whileHover={blocked ? {} : { y: -2, scale: 1.01 }}
+                      whileTap={blocked ? {} : { scale: 0.98 }}
+                      onClick={() => !blocked && send(text)}
+                      disabled={blocked}
+                      className={`flex items-start gap-2.5 text-left px-3.5 py-3 rounded-xl border border-border bg-card transition-all group ${blocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-violet-500/40 hover:bg-violet-500/5'}`}
+                    >
+                      <div className="p-1.5 rounded-lg bg-muted group-hover:bg-violet-500/10 transition-colors shrink-0 mt-0.5">
+                        <Icon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-violet-500 transition-colors" />
+                      </div>
+                      <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
+                        {text}
+                      </span>
+                    </motion.button>
+                  )
+                })}
               </div>
             </motion.div>
           )}
