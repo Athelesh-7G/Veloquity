@@ -314,7 +314,7 @@ async def get_cluster_items(
 
         cur.execute(
             """
-            SELECT s3_key, source, item_id, item_timestamp
+            SELECT s3_key, source, item_id, item_timestamp, text, rating, title
             FROM evidence_item_map
             WHERE evidence_id = %s::uuid
             ORDER BY item_timestamp DESC NULLS LAST
@@ -326,14 +326,19 @@ async def get_cluster_items(
         map_rows = [dict(zip(cols, r)) for r in cur.fetchall()]
 
     raw_bucket = os.environ.get("S3_RAW_BUCKET", "veloquity-raw-dev-082228066878")
-    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION_NAME", "us-east-1"))
+    # Only spin up an S3 client if at least one row is missing inline text
+    # (legacy rows written before text was stored in the DB).
+    needs_s3 = any(not (r.get("text") or "").strip() for r in map_rows)
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION_NAME", "us-east-1")) if needs_s3 else None
 
     items = []
     for r in map_rows:
-        text = None
-        rating = None
-        title = None
-        if r.get("s3_key"):
+        # Primary path: text stored inline in evidence_item_map (S3-independent).
+        text = (r.get("text") or "").strip() or None
+        rating = r.get("rating")
+        title = r.get("title")
+        # Legacy fallback: fetch from S3 only when inline text is absent.
+        if not text and s3 is not None and r.get("s3_key"):
             try:
                 obj = s3.get_object(Bucket=raw_bucket, Key=r["s3_key"])
                 payload = json.loads(obj["Body"].read())
@@ -343,14 +348,14 @@ async def get_cluster_items(
                     or payload.get("review")
                     or payload.get("description")
                     or ""
-                )
-                rv = payload.get("rating")
-                if rv is not None:
+                ) or None
+                if rating is None:
+                    rv = payload.get("rating")
                     try:
-                        rating = int(rv)
+                        rating = int(rv) if rv is not None else None
                     except (ValueError, TypeError):
                         rating = None
-                title = payload.get("title") or None
+                title = title or payload.get("title")
             except Exception:
                 text = None
         if text:

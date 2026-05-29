@@ -440,6 +440,14 @@ def write_item_map(conn, evidence_id: str, cluster_items: list[dict]) -> int:
                 {k: item.get(k) for k in ("id", "hash", "source")},
             )
             continue
+        # Store text/rating/title inline so the drill-down (/items) reads them
+        # straight from the DB — no per-request S3 dependency. This survives the
+        # raw S3 objects being deleted (re-imports, lifecycle, wipes).
+        rating = item.get("rating")
+        try:
+            rating = int(rating) if rating is not None else None
+        except (ValueError, TypeError):
+            rating = None
         rows.append((
             evidence_id,
             item_hash,
@@ -447,6 +455,9 @@ def write_item_map(conn, evidence_id: str, cluster_items: list[dict]) -> int:
             item.get("source", "unknown"),
             item_id,
             _parse_timestamp(item.get("timestamp")),
+            (item.get("text") or "")[:2000] or None,
+            rating,
+            (item.get("title") or None),
         ))
 
     if not rows:
@@ -456,9 +467,13 @@ def write_item_map(conn, evidence_id: str, cluster_items: list[dict]) -> int:
         cur.executemany(
             """
             INSERT INTO evidence_item_map
-                (evidence_id, dedup_hash, s3_key, source, item_id, item_timestamp)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (evidence_id, dedup_hash) DO NOTHING
+                (evidence_id, dedup_hash, s3_key, source, item_id, item_timestamp,
+                 text, rating, title)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (evidence_id, dedup_hash) DO UPDATE SET
+                text   = COALESCE(EXCLUDED.text,   evidence_item_map.text),
+                rating = COALESCE(EXCLUDED.rating, evidence_item_map.rating),
+                title  = COALESCE(EXCLUDED.title,  evidence_item_map.title)
             """,
             rows,
         )
