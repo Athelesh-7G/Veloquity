@@ -8,6 +8,8 @@ import json
 import os
 from typing import Optional
 
+import boto3
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from dependencies import get_db_connection
@@ -182,35 +184,86 @@ async def trigger_recluster(request: Request):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@router.get("/{evidence_id}/items", response_model=list[EvidenceMapItem])
-def get_evidence_items(evidence_id: str, conn=Depends(get_db_connection)):
-    """Return all raw feedback items that contributed to an evidence cluster."""
+@router.get("/{evidence_id}/items")
+async def get_cluster_items(
+    evidence_id: str,
+    limit: int = Query(50, ge=1, le=200),
+    conn=Depends(get_db_connection),
+):
+    """Return raw feedback items for a cluster, fetching full text from S3."""
     with conn.cursor() as cur:
-        # Confirm evidence exists
-        cur.execute("SELECT id FROM evidence WHERE id = %s::uuid", (evidence_id,))
-        if cur.fetchone() is None:
+        cur.execute(
+            "SELECT representative_quotes, source FROM evidence WHERE id = %s::uuid",
+            (evidence_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
             raise HTTPException(status_code=404, detail=f"Evidence {evidence_id} not found")
+        representative_quotes_raw, cluster_source = row[0], row[1]
 
         cur.execute(
             """
-            SELECT id, dedup_hash, s3_key, source, item_id, item_timestamp
+            SELECT s3_key, source, item_id, item_timestamp
             FROM evidence_item_map
             WHERE evidence_id = %s::uuid
             ORDER BY item_timestamp DESC NULLS LAST
+            LIMIT %s
             """,
-            (evidence_id,),
+            (evidence_id, limit),
         )
         cols = [d[0] for d in cur.description]
-        rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        map_rows = [dict(zip(cols, r)) for r in cur.fetchall()]
 
-    return [
-        EvidenceMapItem(
-            id=str(r["id"]),
-            dedup_hash=r["dedup_hash"],
-            s3_key=r["s3_key"],
-            source=r["source"],
-            item_id=r["item_id"],
-            item_timestamp=r.get("item_timestamp"),
-        )
-        for r in rows
-    ]
+    raw_bucket = os.environ.get("S3_RAW_BUCKET", "veloquity-raw-dev-082228066878")
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION_NAME", "us-east-1"))
+
+    items = []
+    for r in map_rows:
+        text = None
+        if r.get("s3_key"):
+            try:
+                obj = s3.get_object(Bucket=raw_bucket, Key=r["s3_key"])
+                payload = json.loads(obj["Body"].read())
+                text = (
+                    payload.get("text")
+                    or payload.get("body")
+                    or payload.get("review")
+                    or payload.get("description")
+                    or ""
+                )
+            except Exception:
+                text = None
+        if text:
+            items.append(
+                {
+                    "text": text,
+                    "source": r.get("source") or cluster_source or "unknown",
+                    "timestamp": str(r["item_timestamp"]) if r.get("item_timestamp") else None,
+                    "item_id": r.get("item_id"),
+                    "rating": None,
+                    "title": None,
+                }
+            )
+
+    # Fall back to representative_quotes if S3 fetch yielded nothing
+    if not items:
+        quotes = _normalize_quotes(representative_quotes_raw)
+        items = [
+            {
+                "text": q.get("text", ""),
+                "source": q.get("source") or cluster_source or "unknown",
+                "timestamp": None,
+                "item_id": None,
+                "rating": None,
+                "title": None,
+            }
+            for q in quotes
+            if q.get("text")
+        ]
+
+    return {
+        "evidence_id": evidence_id,
+        "items": items,
+        "total": len(items),
+        "source": cluster_source or "unknown",
+    }
