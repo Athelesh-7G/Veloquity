@@ -147,6 +147,40 @@ const DEFAULT_SCENARIOS: Scenario[] = [
   },
 ]
 
+// V1 real-pipeline clusters score ~53-72% confidence (variance-based on real
+// text), so the mock's 75-85% thresholds would prioritize nothing. These presets
+// are calibrated to that range to produce a genuine spread of outcomes.
+const LIVE_SCENARIOS: Scenario[] = [
+  {
+    id: 'live-default', pinned: true,
+    name: 'V1 Pipeline Default',
+    description: 'Veloquity V1 defaults — 60% auto-accept floor across Bedrock-validated clusters.',
+    params: { confidenceThreshold: 60, uncertaintyTolerance: 20, minEvidence: 5, effortCap: 'any' },
+    createdAt: '2026-03-09',
+  },
+  {
+    id: 'live-conservative',
+    name: 'Conservative V1',
+    description: 'Only the single strongest signal — ship what we are most certain about.',
+    params: { confidenceThreshold: 68, uncertaintyTolerance: 12, minEvidence: 5, effortCap: 'any' },
+    createdAt: '2026-03-08',
+  },
+  {
+    id: 'live-balanced',
+    name: 'Balanced V1',
+    description: 'High-confidence clusters only — a focused, defensible sprint slate.',
+    params: { confidenceThreshold: 65, uncertaintyTolerance: 15, minEvidence: 5, effortCap: 'any' },
+    createdAt: '2026-03-07',
+  },
+  {
+    id: 'live-aggressive',
+    name: 'Aggressive Sprint V1',
+    description: 'Surface every addressable signal — maximise user impact per sprint.',
+    params: { confidenceThreshold: 50, uncertaintyTolerance: 25, minEvidence: 5, effortCap: 'any' },
+    createdAt: '2026-03-06',
+  },
+]
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function decisionStyle(d: ClusterDecision) {
   return {
@@ -798,21 +832,13 @@ export default function Scenarios() {
 
   const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS)
 
-  // Auto-add a live-calibrated default scenario the first time live mode activates.
+  // In V1, swap the mock presets (75-85% thresholds) for the V1-calibrated set
+  // so scenarios produce a real spread instead of "0 users unblocked" everywhere.
   useEffect(() => {
     if (!liveMode) return
     setScenarios(prev => {
       if (prev.some(s => s.id === 'live-default')) return prev
-      return [
-        {
-          id: 'live-default',
-          name: 'V1 Pipeline Default',
-          description: 'Optimized thresholds for V1 pipeline data (5-44 items per cluster)',
-          params: { confidenceThreshold: 75, uncertaintyTolerance: 15, minEvidence: 5, effortCap: 'any' as const },
-          createdAt: new Date().toISOString().split('T')[0],
-        },
-        ...prev,
-      ]
+      return LIVE_SCENARIOS
     })
   }, [liveMode])
   const [showForm, setShowForm]   = useState(false)

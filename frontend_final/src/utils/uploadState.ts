@@ -125,7 +125,10 @@ interface ThresholdState {
 }
 
 const DEFAULT_THRESHOLDS: ThresholdState = {
-  confidenceThreshold: 75,
+  // 60% matches the V1 pipeline auto-accept floor; real evidence clusters score
+  // 53-72%, so a 75% default would hide nearly all of them on the Confidence
+  // Scores / Scenarios pages.
+  confidenceThreshold: 60,
   uncertaintyTolerance: 15,
   minEvidence: 3,
 }

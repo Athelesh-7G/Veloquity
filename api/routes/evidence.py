@@ -293,14 +293,24 @@ async def get_cluster_items(
 ):
     """Return raw feedback items for a cluster, fetching full text from S3."""
     with conn.cursor() as cur:
+        # NOTE: evidence has no `source` column — derive the dominant source from
+        # source_lineage (selecting `source` here was a 500 that made every
+        # drill-down silently fall back to representative_quotes).
         cur.execute(
-            "SELECT representative_quotes, source FROM evidence WHERE id = %s::uuid",
+            "SELECT representative_quotes, source_lineage FROM evidence WHERE id = %s::uuid",
             (evidence_id,),
         )
         row = cur.fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail=f"Evidence {evidence_id} not found")
-        representative_quotes_raw, cluster_source = row[0], row[1]
+        representative_quotes_raw, lineage_raw = row[0], row[1]
+        lineage = lineage_raw
+        if isinstance(lineage, str):
+            try:
+                lineage = json.loads(lineage)
+            except Exception:
+                lineage = {}
+        cluster_source = max(lineage, key=lineage.get) if isinstance(lineage, dict) and lineage else None
 
         cur.execute(
             """
