@@ -529,13 +529,10 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     # Custom clustering params — allow the /recluster API endpoint to
     # override defaults without code changes.
+    explicit_min_cluster_size = "min_cluster_size" in event
     min_cluster_size = int(event.get("min_cluster_size", MIN_CLUSTER_SIZE))
     min_samples      = int(event.get("min_samples", MIN_SAMPLES))
     epsilon          = float(event.get("cluster_selection_epsilon", CLUSTER_SELECTION_EPSILON))
-    logger.info(
-        "Clustering params: min_cluster_size=%d min_samples=%d epsilon=%.2f",
-        min_cluster_size, min_samples, epsilon,
-    )
 
     if "s3_key" in event:
         s3_keys = [event["s3_key"]]
@@ -587,6 +584,34 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             conn.rollback()
         finally:
             release_conn(conn)
+
+    # Log corpus composition for debugging domain issues
+    source_prefixes = list(set(k.split("/")[0] for k in s3_keys if "/" in k))
+    logger.info(
+        "Corpus: %d items from sources: %s",
+        len(s3_keys), source_prefixes,
+    )
+
+    # Auto-scale min_cluster_size to ~1% of corpus when not explicitly provided
+    if not explicit_min_cluster_size:
+        n_keys = len(s3_keys)
+        if n_keys < 100:
+            min_cluster_size = 5
+        elif n_keys < 500:
+            min_cluster_size = 8
+        elif n_keys < 1000:
+            min_cluster_size = 12
+        else:
+            min_cluster_size = 15
+        logger.info(
+            "Auto-scaled min_cluster_size=%d for corpus of %d items",
+            min_cluster_size, n_keys,
+        )
+
+    logger.info(
+        "Clustering params: min_cluster_size=%d min_samples=%d epsilon=%.2f",
+        min_cluster_size, min_samples, epsilon,
+    )
 
     total = len(s3_keys)
     logger.info("Phase 2 pipeline start: model=%s keys=%d", model_version, total)

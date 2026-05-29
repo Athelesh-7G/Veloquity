@@ -5,8 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LineChart, TrendingUp, TrendingDown, Minus, Calendar, ArrowUpRight, ArrowDownRight, Filter, AlertTriangle, Wifi } from 'lucide-react'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources } from '@/utils/uploadState'
-import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getSourceLabel } from '@/utils/uploadState'
+import { fetchLiveEvidence, fetchLiveStats, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { HOSPITAL_CHART_DATA, HOSPITAL_TRENDS_METRICS } from '@/api/mockData'
 
 // ─── Static sparklines per metric (normalised 0–100 for height, last = current) ───
@@ -142,6 +142,44 @@ const EMPTY_TRENDS_METRICS = trendsData.map((t) => ({
   sparkline: Array(15).fill(50) as number[],
 }))
 
+function generateLiveInsights(
+  evidence: ApiEvidenceItem[],
+  stats: { total_embedded: number; active_clusters: number; mapped_items: number; avg_confidence: number } | null,
+) {
+  if (!evidence || evidence.length === 0) return []
+  const sortedByConf = [...evidence].sort((a, b) => b.confidence_score - a.confidence_score)
+  const topCluster = sortedByConf[0]
+  const avgConf = Math.round(evidence.reduce((s, e) => s + e.confidence_score * 100, 0) / evidence.length)
+  const allSources = new Set<string>()
+  evidence.forEach((e) => Object.keys(e.source_lineage || {}).forEach((s) => allSources.add(s)))
+  const sourceNames = Array.from(allSources).map((s) => getSourceLabel(s)).join(' and ')
+  const totalItems = stats?.total_embedded ?? 0
+  const recentCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+  const risingClusters = evidence.filter(
+    (e) => e.last_validated_at && new Date(e.last_validated_at) > recentCutoff,
+  ).slice(0, 2)
+
+  const insights: { icon: typeof TrendingUp; color: string; title: string; desc: string }[] = []
+  insights.push({
+    icon: TrendingUp, color: 'emerald',
+    title: `Feedback corpus: ${totalItems > 0 ? totalItems : evidence.reduce((s, e) => s + (e.item_count || e.unique_user_count || 0), 0)} items analyzed`,
+    desc: `${sourceNames} — ${evidence.length} cluster${evidence.length !== 1 ? 's' : ''} accepted at ≥ 0.60 confidence threshold. Cross-source corroboration strengthens cluster confidence.`,
+  })
+  insights.push({
+    icon: TrendingUp, color: 'blue',
+    title: `Avg cluster confidence: ${avgConf}%`,
+    desc: `${sortedByConf.filter((e) => e.confidence_score >= 0.60).length} of ${evidence.length} clusters exceed the 0.60 auto-accept threshold. Top cluster "${topCluster?.theme?.split(' | ')[0]?.slice(0, 40)}" sits at ${Math.round((topCluster?.confidence_score || 0) * 100)}%.`,
+  })
+  if (risingClusters.length > 0) {
+    insights.push({
+      icon: TrendingDown, color: 'amber',
+      title: `${risingClusters.length} cluster${risingClusters.length > 1 ? 's' : ''} validated recently`,
+      desc: risingClusters.map((c) => `"${c.theme?.split(' | ')[0]?.slice(0, 35)}" (${Math.round(c.confidence_score * 100)}% conf)`).join(' and ') + ' — actively corroborated across sources.',
+    })
+  }
+  return insights
+}
+
 export default function Trends() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
@@ -151,6 +189,7 @@ export default function Trends() {
   // Live mode
   const [liveMode, setLiveModeState]      = useState(() => getLiveMode())
   const [liveEvidence, setLiveEvidence]   = useState<ApiEvidenceItem[] | null>(null)
+  const [liveStats, setLiveStats]         = useState<{ total_embedded: number; active_clusters: number; mapped_items: number; avg_confidence: number } | null>(null)
   const [liveLoading, setLiveLoading]     = useState(() => getLiveMode() && hasActiveSources())
   const [liveError, setLiveError]         = useState<string | null>(null)
 
@@ -163,8 +202,8 @@ export default function Trends() {
     }
     setLiveLoading(true)
     setLiveError(null)
-    fetchLiveEvidence()
-      .then((r) => { setLiveEvidence(r); setLiveLoading(false) })
+    Promise.all([fetchLiveEvidence(), fetchLiveStats()])
+      .then(([ev, stats]) => { setLiveEvidence(ev); setLiveStats(stats); setLiveLoading(false) })
       .catch((err: Error) => { setLiveError(err.message); setLiveLoading(false) })
   }, [liveMode])
 
@@ -202,7 +241,12 @@ export default function Trends() {
   const activeMetrics  = liveMode && liveTrendsMetrics ? liveTrendsMetrics
     : !hasData ? EMPTY_TRENDS_METRICS
     : dataset === 'hospital_survey' ? HOSPITAL_TRENDS_METRICS : trendsData
-  const activeInsights = (!hasData && !liveMode) ? [] : dataset === 'hospital_survey' ? HOSPITAL_INSIGHTS : INSIGHTS
+  const liveInsightList = liveMode && liveEvidence && liveEvidence.length > 0
+    ? generateLiveInsights(liveEvidence, liveStats)
+    : null
+  const activeInsights = liveMode
+    ? (liveInsightList ?? [])
+    : (!hasData ? [] : dataset === 'hospital_survey' ? HOSPITAL_INSIGHTS : INSIGHTS)
   const activeChartMap = dataset === 'hospital_survey' ? HOSPITAL_CHART_DATA : CHART_DATA
   const src1Label      = dataset === 'hospital_survey' ? 'Patient Portal'  : 'App Store'
   const src2Label      = dataset === 'hospital_survey' ? 'Hospital Survey' : 'Support Tickets'
@@ -447,6 +491,11 @@ export default function Trends() {
               </>
             )}
           </div>
+          {liveMode && (
+            <p className="text-xs text-muted-foreground/60 mt-3 italic">
+              Chart reflects V0 sample dataset. Connect sources in Import Sources to populate with real volume data.
+            </p>
+          )}
         </CardContent>
       </Card>
 
