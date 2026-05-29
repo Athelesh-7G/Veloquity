@@ -266,17 +266,20 @@ export default function Agents() {
   }, [liveMode])
 
   const useLive = liveMode && liveEvidence !== null && liveEvidence.length > 0
-  // Sum source_lineage across all clusters → per-source item counts.
+  // NOTE: source_lineage values are FRACTIONS (e.g. {app_store: 0.6, zendesk: 0.4}),
+  // not counts — multiply by the cluster's item_count to get real per-source items.
+  const clusterItems = (e: ApiEvidenceItem) => (e.item_count > 0 ? e.item_count : e.unique_user_count)
   const liveSourceCounts: Record<string, number> = {}
   if (liveEvidence) {
     for (const e of liveEvidence) {
-      for (const [src, cnt] of Object.entries(e.source_lineage ?? {})) {
-        liveSourceCounts[src] = (liveSourceCounts[src] ?? 0) + Number(cnt)
+      const n = clusterItems(e)
+      for (const [src, frac] of Object.entries(e.source_lineage ?? {})) {
+        liveSourceCounts[src] = (liveSourceCounts[src] ?? 0) + Math.round(n * Number(frac))
       }
     }
   }
   const liveTotalItems = liveEvidence
-    ? liveEvidence.reduce((s, e) => s + (e.item_count > 0 ? e.item_count : e.unique_user_count), 0)
+    ? liveEvidence.reduce((s, e) => s + clusterItems(e), 0)
     : 0
 
   const sourceNodeDefs = dataset === 'hospital_survey'

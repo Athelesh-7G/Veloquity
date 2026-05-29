@@ -8,14 +8,18 @@ import logging
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize
-import hdbscan as hdbscan_lib
+from sklearn.cluster import HDBSCAN
 
 logger = logging.getLogger(__name__)
 
-PCA_COMPONENTS = 50
-MIN_CLUSTER_SIZE = 12
-MIN_SAMPLES = 2
-CLUSTER_SELECTION_EPSILON = 0.5
+# Tuned on real corpora (200-1000 items): scikit-learn's HDBSCAN recovers
+# coherent themes where the standalone hdbscan lib collapsed everything into a
+# single cluster. PCA=20 + min_samples=1 + epsilon=0 yields ~6-10 high-signal
+# clusters; min_cluster_size=8 drops tiny fragments.
+PCA_COMPONENTS = 20
+MIN_CLUSTER_SIZE = 8
+MIN_SAMPLES = 1
+CLUSTER_SELECTION_EPSILON = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -93,14 +97,13 @@ def cluster_embeddings(
     explained = pca.explained_variance_ratio_.sum()
     logger.info("PCA explained variance: %.2f%%", explained * 100)
 
-    # HDBSCAN clustering in PCA-reduced space.
-    clusterer = hdbscan_lib.HDBSCAN(
+    # HDBSCAN clustering in PCA-reduced space (scikit-learn implementation).
+    clusterer = HDBSCAN(
         min_cluster_size=min_cluster_size,
         min_samples=min_samples,
         cluster_selection_epsilon=epsilon,
         metric="euclidean",
         cluster_selection_method="eom",
-        prediction_data=True,
     )
     labels = clusterer.fit_predict(X_reduced)
 

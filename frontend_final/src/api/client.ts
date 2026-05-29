@@ -236,6 +236,32 @@ export async function triggerLivePipeline(activeSources: string[]): Promise<{
   return res.json()
 }
 
+// Real CSV ingestion: pushes the uploaded rows through ingestion -> S3, wipes
+// the dataset's stale evidence, and triggers a fresh clustering run so V1
+// reflects exactly the imported file. Returns once ingestion is done and
+// clustering has been triggered (clustering then completes asynchronously).
+export async function ingestSource(params: {
+  source_type: string
+  rows: Record<string, unknown>[]
+  active_sources: string[]
+  min_cluster_size?: number
+}): Promise<{
+  status: string
+  source_type: string
+  written: number
+  duplicates: number
+  corpus_size: number
+  min_cluster_size: number
+}> {
+  const res = await fetch(`${BASE}/api/v1/evidence/ingest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) throw new Error(`Ingest error: ${res.status}`)
+  return res.json()
+}
+
 export interface ClusterItem {
   text: string
   source: string

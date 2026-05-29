@@ -14,7 +14,42 @@ import {
   getActiveSources, setActiveSources, clearAllActiveSources, getLiveMode,
 } from '@/utils/uploadState'
 import { setAgentsDone, clearAgentRunState } from '@/utils/agentRunState'
-import { triggerLivePipeline } from '@/api/client'
+import { ingestSource } from '@/api/client'
+
+// Minimal RFC-4180-ish CSV parser (handles quoted fields with commas/newlines).
+function parseCSV(text: string): Record<string, string>[] {
+  const rows: string[][] = []
+  let cur: string[] = []
+  let field = ''
+  let inQuotes = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++ } else inQuotes = false
+      } else field += c
+    } else if (c === '"') {
+      inQuotes = true
+    } else if (c === ',') {
+      cur.push(field); field = ''
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++
+      cur.push(field); field = ''
+      if (cur.length > 1 || cur[0].length) rows.push(cur)
+      cur = []
+    } else field += c
+  }
+  if (field.length || cur.length) { cur.push(field); rows.push(cur) }
+  if (rows.length < 2) return []
+  const header = rows[0].map((h) => h.trim())
+  return rows.slice(1)
+    .filter((r) => r.some((v) => v.trim().length))
+    .map((r) => {
+      const o: Record<string, string> = {}
+      header.forEach((h, i) => { o[h] = (r[i] ?? '').trim() })
+      return o
+    })
+}
 
 // ─── Phase definitions ────────────────────────────────────────────────────────
 interface Phase {
@@ -83,7 +118,7 @@ interface SourceCardProps {
   Icon: React.ElementType
   connected: UploadedSource | null
   blockedMessage?: string
-  onConnect: (source: SourceId, filename: string, rowCount: number) => void
+  onConnect: (source: SourceId, filename: string, rowCount: number, rows: Record<string, string>[]) => void
   onDisconnect: (source: SourceId) => void
 }
 
@@ -135,8 +170,8 @@ function SourceCard({
     const reader = new FileReader()
     reader.onload = (e) => {
       const text = e.target?.result as string
-      const lines = text.split('\n').filter(l => l.trim().length > 0)
-      const rowCount = Math.max(0, lines.length - 1)
+      const parsedRows = parseCSV(text)
+      const rowCount = parsedRows.length
       const filename = selectedFile.name
 
       setConnecting(true)
@@ -155,7 +190,7 @@ function SourceCard({
         setSelectedFile(null)
         setPhaseLabel('')
         setProgress(0)
-        onConnect(id, filename, rowCount)
+        onConnect(id, filename, rowCount, parsedRows)
       }, CONNECT_TOTAL_MS)
       timersRef.current.push(done)
     }
@@ -310,7 +345,7 @@ export default function ImportSources() {
   const appBlocked      = hospitalCount > 0 ? 'Disconnect Patient Hospital Survey sources first to switch datasets' : undefined
   const hospitalBlocked = appCount > 0 ? 'Disconnect App Product sources first to switch datasets' : undefined
 
-  function handleConnect(source: SourceId, filename: string, rowCount: number) {
+  function handleConnect(source: SourceId, filename: string, rowCount: number, rows: Record<string, string>[]) {
     const currentlyLive = getLiveMode()
 
     const lower = filename.toLowerCase()
@@ -333,8 +368,12 @@ export default function ImportSources() {
     addActiveSource(sourceType)
 
     if (currentlyLive) {
-      // In live mode: trigger real pipeline update, skip any further mock state changes
-      triggerLivePipeline(getActiveSources()).catch(console.error)
+      // V1: actually ingest the uploaded rows (ingestion -> S3, wipe stale
+      // evidence, re-cluster) so the pipeline reflects exactly this file.
+      if (rows.length > 0) {
+        ingestSource({ source_type: sourceType, rows, active_sources: getActiveSources() })
+          .catch(console.error)
+      }
       return
     }
   }

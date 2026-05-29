@@ -403,7 +403,10 @@ function InlineEvidenceV1({
 
   useEffect(() => {
     setLoading(true)
-    fetchClusterItems(cluster.id, 20)
+    // Fetch the full cluster (capped at the endpoint's 200 max) so the drawer
+    // shows every item, matching the Evidence Grid count — not just a sample.
+    const want = Math.min(cluster.item_count || cluster.unique_user_count || 50, 200)
+    fetchClusterItems(cluster.id, want)
       .then((res) => { setItems(res.items); setTotal(res.total); setLoading(false) })
       .catch(() => {
         const quotes = cluster.representative_quotes || []
@@ -415,6 +418,9 @@ function InlineEvidenceV1({
 
   const displayName = cluster.theme.split(' | ')[0].slice(0, 55)
   const conf = Math.round(cluster.confidence_score * 100)
+  // Authoritative count = the cluster's item_count (same number shown in the
+  // Evidence Grid), so the drill-down never claims fewer than 3-4 items.
+  const count = cluster.item_count || cluster.unique_user_count || total
   const shown = expanded ? items : items.slice(0, 3)
   const hiddenCount = items.length - 3
 
@@ -468,10 +474,10 @@ function InlineEvidenceV1({
             source: getSourceLabel(item.source),
             date: item.timestamp?.split('T')[0] ?? '',
             cluster: displayName,
-          })), total)}
+          })), count)}
           className="w-full text-xs font-medium px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/8 text-violet-500 hover:bg-violet-500/15 transition-colors flex items-center justify-center gap-1.5"
         >
-          VIEW ALL {total} ITEMS →
+          VIEW ALL {count} ITEMS →
         </button>
       </div>
     </div>
