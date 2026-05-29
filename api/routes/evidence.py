@@ -321,6 +321,8 @@ async def get_cluster_items(
     items = []
     for r in map_rows:
         text = None
+        rating = None
+        title = None
         if r.get("s3_key"):
             try:
                 obj = s3.get_object(Bucket=raw_bucket, Key=r["s3_key"])
@@ -332,6 +334,13 @@ async def get_cluster_items(
                     or payload.get("description")
                     or ""
                 )
+                rv = payload.get("rating")
+                if rv is not None:
+                    try:
+                        rating = int(rv)
+                    except (ValueError, TypeError):
+                        rating = None
+                title = payload.get("title") or None
             except Exception:
                 text = None
         if text:
@@ -341,8 +350,8 @@ async def get_cluster_items(
                     "source": r.get("source") or cluster_source or "unknown",
                     "timestamp": str(r["item_timestamp"]) if r.get("item_timestamp") else None,
                     "item_id": r.get("item_id"),
-                    "rating": None,
-                    "title": None,
+                    "rating": rating,
+                    "title": title,
                 }
             )
 

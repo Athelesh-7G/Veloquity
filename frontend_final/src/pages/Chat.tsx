@@ -234,24 +234,47 @@ function findExplicitClusterMention(
   return null
 }
 
-// ─── Pick the live cluster to drill into for an answered query ─────────────────
-// Mirrors V0's behaviour: explicit theme match first; otherwise, when the model
-// used evidence context (or this is a fallback), fall back to the top-confidence
-// cluster so a drill-down still shows — exactly like V0's detectClusters →
-// top-1-cluster fallback. Returns the cluster id, or undefined.
-function selectLiveClusterId(
+// ─── Pick which live clusters to drill into for an answered query ──────────────
+// Mirrors V0 exactly: "top 3" → drill-downs for the top 3 clusters; an explicit
+// single-cluster mention → that one; "all/every cluster" → all of them; any
+// other answer that used evidence context → the single strongest cluster.
+// Clusters are ranked the same way the Evidence Grid ranks them (by size).
+const _WORD_NUM: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, ten: 10 }
+
+function rankLiveClusters(evidence: ApiEvidenceItem[]): ApiEvidenceItem[] {
+  return [...evidence].sort(
+    (a, b) => (b.item_count || b.unique_user_count || 0) - (a.item_count || a.unique_user_count || 0),
+  )
+}
+
+function selectLiveClusterIds(
   query: string,
   evidence: ApiEvidenceItem[] | null,
   usedContext: boolean,
-): string | undefined {
-  if (!evidence || evidence.length === 0) return undefined
+): string[] {
+  if (!evidence || evidence.length === 0) return []
+  const q = query.toLowerCase()
+  const ranked = rankLiveClusters(evidence)
+
+  // Explicit single-cluster mention wins (e.g. "tell me about the crash cluster").
   const explicit = findExplicitClusterMention(query, evidence)
-  if (explicit) return explicit.id
-  if (usedContext) {
-    const top = evidence.reduce((b, c) => (c.confidence_score > b.confidence_score ? c : b), evidence[0])
-    return top.id
+  if (explicit) return [explicit.id]
+
+  // "top 3" / "top three" / "first 5" / "biggest 4" → that many top clusters.
+  const m = q.match(/\b(?:top|first|main|biggest|leading)\s+(\d+|one|two|three|four|five|six|ten)\b/)
+  if (m) {
+    const n = /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : (_WORD_NUM[m[1]] ?? 3)
+    return ranked.slice(0, Math.max(1, Math.min(n, ranked.length))).map((c) => c.id)
   }
-  return undefined
+
+  // "all clusters" / "every theme" / "list the issues" → all (capped).
+  if (/\b(all|every|each|list|overview|summary|summarize)\b/.test(q) && /cluster|theme|issue|signal|feedback/.test(q)) {
+    return ranked.slice(0, 10).map((c) => c.id)
+  }
+
+  // Any other answer grounded in evidence → show the single strongest cluster.
+  if (usedContext) return [ranked[0].id]
+  return []
 }
 
 // ─── Inline evidence section ──────────────────────────────────────────────────
@@ -473,6 +496,7 @@ function InlineEvidenceV1({
             text: item.text,
             source: getSourceLabel(item.source),
             date: item.timestamp?.split('T')[0] ?? '',
+            rating: item.rating ?? undefined,
             cluster: displayName,
           })), count)}
           className="w-full text-xs font-medium px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/8 text-violet-500 hover:bg-violet-500/15 transition-colors flex items-center justify-center gap-1.5"
@@ -524,9 +548,10 @@ interface Message extends ChatMessage {
   timestamp?: string
   evidenceClusters?: string[]
   showEvidence?: boolean
-  // V1: id of the live evidence cluster to drill into, attached at send-time
+  // V1: ids of the live evidence clusters to drill into, attached at send-time
   // (mirrors how V0 attaches evidenceClusters/showEvidence to the message).
-  liveClusterId?: string
+  // Multiple ids → multiple drill-down cards (e.g. a "top 3" query).
+  liveClusterIds?: string[]
 }
 
 // ─── Context item ──────────────────────────────────────────────────────────────
@@ -840,8 +865,8 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               timestamp: replyTime,
               evidenceClusters: guidedClusters,
               showEvidence: guidedClusters.length > 0,
-              liveClusterId: liveMode && liveEvidenceData && liveEvidenceData.length > 0
-                ? matchLiveCluster(cluster, liveEvidenceData).id : undefined,
+              liveClusterIds: liveMode && liveEvidenceData && liveEvidenceData.length > 0
+                ? [matchLiveCluster(cluster, liveEvidenceData).id] : [],
             },
           ])
         } catch {
@@ -857,8 +882,8 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               timestamp: replyTime,
               evidenceClusters: guidedFallbackClusters,
               showEvidence: guidedFallbackClusters.length > 0,
-              liveClusterId: liveMode && liveEvidenceData && liveEvidenceData.length > 0
-                ? matchLiveCluster(cluster, liveEvidenceData).id : undefined,
+              liveClusterIds: liveMode && liveEvidenceData && liveEvidenceData.length > 0
+                ? [matchLiveCluster(cluster, liveEvidenceData).id] : [],
             },
           ])
         } finally {
@@ -934,7 +959,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           timestamp: replyTime,
           evidenceClusters: apiClusters,
           showEvidence: apiClusters.length > 0,
-          liveClusterId: selectLiveClusterId(text, liveEvidenceData, !!(res.context_used && res.context_used.length > 0)),
+          liveClusterIds: selectLiveClusterIds(text, liveEvidenceData, !!(res.context_used && res.context_used.length > 0)),
         },
       ])
     } catch {
@@ -951,7 +976,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           timestamp: replyTime,
           evidenceClusters: fallbackClusters,
           showEvidence: fallbackClusters.length > 0,
-          liveClusterId: selectLiveClusterId(text, liveEvidenceData, true),
+          liveClusterIds: selectLiveClusterIds(text, liveEvidenceData, true),
         },
       ])
     } finally {
@@ -1217,22 +1242,27 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
                   {/* Evidence drill-down */}
                   {m.role === 'assistant' && !m.pending && (() => {
                     if (liveMode && liveEvidenceData && liveEvidenceData.length > 0) {
-                      // Use the cluster attached at send-time (mirrors V0's
-                      // m.showEvidence/evidenceClusters), not a render-time
-                      // re-scan of the previous message.
-                      const liveCluster = m.liveClusterId
-                        ? liveEvidenceData.find((c) => c.id === m.liveClusterId)
-                        : undefined
-                      if (liveCluster) {
+                      // Use the clusters attached at send-time (mirrors V0's
+                      // m.evidenceClusters), not a render-time re-scan. A "top N"
+                      // query attaches N ids → N drill-down cards.
+                      const liveClusters = (m.liveClusterIds ?? [])
+                        .map((id) => liveEvidenceData.find((c) => c.id === id))
+                        .filter((c): c is ApiEvidenceItem => !!c)
+                      if (liveClusters.length > 0) {
                         return (
-                          <InlineEvidenceV1
-                            cluster={liveCluster}
-                            onViewAll={(clusterName, items, count) => {
-                              setDrawerCluster(clusterName)
-                              setDrawerItems(items)
-                              setDrawerCount(count)
-                            }}
-                          />
+                          <>
+                            {liveClusters.map((c) => (
+                              <InlineEvidenceV1
+                                key={c.id}
+                                cluster={c}
+                                onViewAll={(clusterName, items, count) => {
+                                  setDrawerCluster(clusterName)
+                                  setDrawerItems(items)
+                                  setDrawerCount(count)
+                                }}
+                              />
+                            ))}
+                          </>
                         )
                       }
                       return null
