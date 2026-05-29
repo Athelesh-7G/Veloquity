@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bot, Send, Sparkles, Database, Shield, BarChart3, Activity, Layers, Hash, AlertTriangle, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { type ChatMessage, getAgentStatus, getEvidence, getRecommendations, sendChatMessage, fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
+import { type ChatMessage, getAgentStatus, getEvidence, getRecommendations, sendChatMessage, fetchLiveEvidence, fetchClusterItems, type EvidenceItem as ApiEvidenceItem, type ClusterItem } from '@/api/client'
 import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getSourceLabel } from '@/utils/uploadState'
 import { APP_PRODUCT_ITEMS, HOSPITAL_ITEMS, MOCK_EVIDENCE, HOSPITAL_MOCK_DATA } from '@/api/mockData'
 import { EvidenceDrawer, type EvidenceItem } from '@/components/EvidenceDrawer'
@@ -206,11 +206,32 @@ function matchLiveCluster(clusterName: string, liveEvidence: import('@/api/clien
     const score = keywords.filter((kw) => theme.includes(kw)).length
     if (score > bestScore) { bestScore = score; best = cluster }
   }
-  // If no keywords matched, fall back to highest-confidence cluster
   if (bestScore === 0) {
     best = liveEvidence.reduce((b, c) => c.confidence_score > b.confidence_score ? c : b, liveEvidence[0])
   }
   return best
+}
+
+// ─── Find explicit cluster mention in a user query — returns null for general queries ──
+const GENERAL_QUERY_PHRASES = ['top 3', 'top three', 'show me', 'what are', 'list all', 'all cluster', 'give me', 'summarize', 'overview', 'all the', 'which cluster', 'each cluster']
+const GENERAL_SOLO_WORDS = new Set(['top', 'all', 'list', 'what', 'overview', 'clusters', 'every', 'any', 'are', 'the', 'show'])
+
+function findExplicitClusterMention(
+  userMessage: string,
+  evidence: ApiEvidenceItem[],
+): ApiEvidenceItem | null {
+  if (!evidence || evidence.length === 0) return null
+  const q = userMessage.toLowerCase().trim()
+  if (GENERAL_QUERY_PHRASES.some((p) => q.includes(p))) return null
+  const words = q.split(/\s+/).filter((w) => w.length > 2)
+  if (words.length > 0 && words.every((w) => GENERAL_SOLO_WORDS.has(w))) return null
+  for (const cluster of evidence) {
+    const themeWords = cluster.theme.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
+    const matchCount = themeWords.filter((tw) => words.some((qw) => qw.includes(tw) || tw.includes(qw))).length
+    const overlap = themeWords.length > 0 ? matchCount / themeWords.length : 0
+    if (overlap >= 0.4 && matchCount >= 3) return cluster
+  }
+  return null
 }
 
 // ─── Inline evidence section ──────────────────────────────────────────────────
@@ -343,6 +364,96 @@ function InlineEvidence({
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ─── V1 inline evidence: fetches real items via S3-backed API ─────────────────
+function InlineEvidenceV1({
+  cluster,
+  onViewAll,
+}: {
+  cluster: ApiEvidenceItem
+  onViewAll: (clusterName: string, items: EvidenceItem[], count: number) => void
+}) {
+  const [items, setItems] = useState<ClusterItem[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    fetchClusterItems(cluster.id, 20)
+      .then((res) => { setItems(res.items); setTotal(res.total); setLoading(false) })
+      .catch(() => {
+        const quotes = cluster.representative_quotes || []
+        setItems(quotes.map((q) => ({ text: q.text, source: q.source, timestamp: null, item_id: null })))
+        setTotal(cluster.item_count || cluster.unique_user_count || quotes.length)
+        setLoading(false)
+      })
+  }, [cluster.id])
+
+  const displayName = cluster.theme.split(' | ')[0].slice(0, 55)
+  const conf = Math.round(cluster.confidence_score * 100)
+  const shown = expanded ? items : items.slice(0, 3)
+  const hiddenCount = items.length - 3
+
+  return (
+    <div className="mt-2">
+      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs">📊</span>
+          <span className="text-[10px] font-medium text-violet-600 dark:text-violet-400 uppercase tracking-wide">
+            V1 evidence cluster
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-semibold text-foreground leading-snug flex-1 min-w-0 truncate">{displayName}</span>
+          <span className={`text-[10px] font-bold shrink-0 ${conf >= 85 ? 'text-emerald-500' : conf >= 75 ? 'text-blue-500' : 'text-amber-500'}`}>{conf}% conf</span>
+        </div>
+        <div className="h-px bg-border" />
+        {loading ? (
+          <div className="flex items-center gap-2 py-1">
+            <Loader2 className="w-3 h-3 animate-spin text-violet-400" />
+            <span className="text-xs text-muted-foreground">Loading feedback items…</span>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-1.5">
+              {shown.map((item, idx) => (
+                <div key={item.item_id ?? idx} className="flex items-start gap-2">
+                  <span className="text-[10px] text-muted-foreground/50 shrink-0 mt-0.5 select-none">"</span>
+                  <p className="text-xs text-muted-foreground leading-relaxed flex-1 italic line-clamp-2">{item.text}</p>
+                  <span className="text-[10px] text-muted-foreground/60 shrink-0 ml-0.5 whitespace-nowrap">— {getSourceLabel(item.source)}</span>
+                </div>
+              ))}
+            </div>
+            {hiddenCount > 0 && !expanded && (
+              <button type="button" onClick={() => setExpanded(true)} className="flex items-center gap-1 text-xs text-violet-500 hover:text-violet-400 transition-colors">
+                <ChevronDown className="w-3.5 h-3.5" />Show {hiddenCount} more
+              </button>
+            )}
+            {expanded && items.length > 3 && (
+              <button type="button" onClick={() => setExpanded(false)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <ChevronUp className="w-3.5 h-3.5" />Show less
+              </button>
+            )}
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => onViewAll(displayName, items.map((item, idx) => ({
+            id: item.item_id ?? `item-${idx}`,
+            text: item.text,
+            source: getSourceLabel(item.source),
+            date: item.timestamp?.split('T')[0] ?? '',
+            cluster: displayName,
+          })), total)}
+          className="w-full text-xs font-medium px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/8 text-violet-500 hover:bg-violet-500/15 transition-colors flex items-center justify-center gap-1.5"
+        >
+          VIEW ALL {total} ITEMS →
+        </button>
+      </div>
     </div>
   )
 }
@@ -1068,21 +1179,43 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
                     </div>
                   )}
 
-                  {/* Evidence drill-down — only when keyword-matched or API returned evidence context */}
-                  {m.role === 'assistant' && !m.pending && (hasData || (liveMode && liveEvidenceData && liveEvidenceData.length > 0)) &&
-                    m.showEvidence && m.evidenceClusters && m.evidenceClusters.length > 0 && (
-                    <InlineEvidence
-                      clusterNames={m.evidenceClusters}
-                      dataset={dataset}
-                      onViewAll={(cluster, items, count) => {
-                        setDrawerCluster(cluster)
-                        setDrawerItems(items)
-                        setDrawerCount(count)
-                      }}
-                      liveMode={liveMode}
-                      liveEvidence={liveEvidenceData ?? undefined}
-                    />
-                  )}
+                  {/* Evidence drill-down */}
+                  {m.role === 'assistant' && !m.pending && (() => {
+                    if (liveMode && liveEvidenceData && liveEvidenceData.length > 0) {
+                      const prevUser = messages[i - 1]
+                      if (prevUser?.role === 'user') {
+                        const explicitCluster = findExplicitClusterMention(prevUser.content, liveEvidenceData)
+                        if (explicitCluster) {
+                          return (
+                            <InlineEvidenceV1
+                              cluster={explicitCluster}
+                              onViewAll={(clusterName, items, count) => {
+                                setDrawerCluster(clusterName)
+                                setDrawerItems(items)
+                                setDrawerCount(count)
+                              }}
+                            />
+                          )
+                        }
+                      }
+                      return null
+                    }
+                    if (hasData && m.showEvidence && m.evidenceClusters && m.evidenceClusters.length > 0) {
+                      return (
+                        <InlineEvidence
+                          clusterNames={m.evidenceClusters}
+                          dataset={dataset}
+                          onViewAll={(cluster, items, count) => {
+                            setDrawerCluster(cluster)
+                            setDrawerItems(items)
+                            setDrawerCount(count)
+                          }}
+                          liveMode={false}
+                        />
+                      )
+                    }
+                    return null
+                  })()}
                 </div>
               </motion.div>
             ))}

@@ -167,6 +167,15 @@ export default function Dashboard() {
     )
   }
 
+  if (liveMode && hasActiveSources() && liveLoading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', gap:'12px', color:'#22c55e', fontSize:'14px' }}>
+        <span style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e', display:'inline-block', animation:'pulse 1.5s infinite' }} />
+        Loading V1 pipeline data…
+      </div>
+    )
+  }
+
   return (
     <div className="p-6">
       <div className="mb-8 flex items-start justify-between flex-wrap gap-3">

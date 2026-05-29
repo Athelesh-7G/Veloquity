@@ -235,3 +235,26 @@ export async function triggerLivePipeline(activeSources: string[]): Promise<{
   if (!res.ok) throw new Error(`Pipeline trigger error: ${res.status}`)
   return res.json()
 }
+
+export interface ClusterItem {
+  text: string
+  source: string
+  timestamp: string | null
+  item_id: string | null
+  rating?: number | null
+  title?: string | null
+}
+
+export async function fetchClusterItems(
+  evidenceId: string,
+  limit: number = 50
+): Promise<{
+  evidence_id: string
+  items: ClusterItem[]
+  total: number
+  source: string
+}> {
+  const res = await fetch(`${BASE}/api/v1/evidence/${evidenceId}/items?limit=${limit}`)
+  if (!res.ok) throw new Error(`Cluster items error: ${res.status}`)
+  return res.json()
+}

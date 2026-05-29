@@ -68,10 +68,24 @@ export function setLiveMode(enabled: boolean): void {
 
 const ACTIVE_SOURCES_KEY = 'veloquity_active_sources'
 
+const KNOWN_PIPELINE_SOURCES = ['app_store', 'zendesk', 'patient_portal', 'hospital_survey']
+
 export function getActiveSources(): string[] {
   try {
     const stored = localStorage.getItem(ACTIVE_SOURCES_KEY)
-    return stored ? JSON.parse(stored) : []
+    const parsed: string[] = stored ? JSON.parse(stored) : []
+    if (parsed.length > 0) return parsed
+
+    // Fallback: check veloquity_source_count_* keys written by the Lambda ingest pipeline
+    const detected = KNOWN_PIPELINE_SOURCES.filter(src => {
+      const raw = localStorage.getItem(`veloquity_source_count_${src}`)
+      return raw !== null && parseInt(raw, 10) > 0
+    })
+    if (detected.length > 0) {
+      localStorage.setItem(ACTIVE_SOURCES_KEY, JSON.stringify(detected))
+      return detected
+    }
+    return []
   } catch {
     return []
   }
