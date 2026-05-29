@@ -552,17 +552,21 @@ export default function DecisionPlayground() {
 
   // Re-sync liveMode when another tab/window changes the localStorage value.
   useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      setLiveModeState(getLiveMode())
-      if (e.key === 'veloquity_thresholds') {
-        const t = getThresholds()
-        setConfThreshold(t.confidenceThreshold)
-        setUncTolerance(t.uncertaintyTolerance)
-        setMinEvidence(t.minEvidence)
-      }
-    }
+    const handleStorage = () => setLiveModeState(getLiveMode())
     window.addEventListener('storage', handleStorage)
     return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
+  // Threshold changes are same-tab CustomEvents (see uploadState.setThresholds).
+  useEffect(() => {
+    const handleThresholds = () => {
+      const t = getThresholds()
+      setConfThreshold(t.confidenceThreshold)
+      setUncTolerance(t.uncertaintyTolerance)
+      setMinEvidence(t.minEvidence)
+    }
+    window.addEventListener('veloquity:thresholds', handleThresholds)
+    return () => window.removeEventListener('veloquity:thresholds', handleThresholds)
   }, [])
 
   useEffect(() => {
@@ -636,6 +640,16 @@ export default function DecisionPlayground() {
         <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
         <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
         <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
+
+  // Flash guard: show a spinner (not mock JSX) while live data is still loading.
+  if (liveMode && hasActiveSources() && liveLoading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', gap:'12px', color:'#22c55e', fontSize:'14px' }}>
+        <span style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e', display:'inline-block', animation:'pulse 1.5s infinite' }} />
+        Loading V1 pipeline data…
       </div>
     )
   }

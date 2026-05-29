@@ -125,16 +125,21 @@ export default function Dashboard() {
     }
     setLiveLoading(true)
     setLiveError(null)
-    Promise.all([fetchLiveEvidence(), fetchLiveRecommendations()])
-      .then(([ev, run]) => {
+    // Evidence and recommendations load independently — a recommendations
+    // failure must NOT prevent clusters from rendering (previously a single
+    // Promise.all rejection left liveEvidence null and the page showed 0).
+    fetchLiveEvidence()
+      .then((ev) => {
         setLiveEvidence(ev)
-        setLiveRun(run)
         setLiveLoading(false)
       })
       .catch(err => {
         setLiveError(err.message)
         setLiveLoading(false)
       })
+    fetchLiveRecommendations()
+      .then(setLiveRun)
+      .catch(() => setLiveRun(null))
   }, [liveMode])
 
   const bucketMax = Math.max(...CONFIDENCE_BUCKETS.map((b) => b.count))

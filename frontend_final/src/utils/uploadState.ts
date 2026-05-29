@@ -141,24 +141,23 @@ export function getThresholds(): ThresholdState {
   }
 }
 
+// Same-tab sync uses a CustomEvent — a manually-dispatched StorageEvent is
+// non-idiomatic and also wakes every plain 'storage' listener (e.g. liveMode
+// sync) on each threshold write. 'veloquity:thresholds' is dedicated and clean.
+export const THRESHOLD_EVENT = 'veloquity:thresholds'
+
 export function setThresholds(t: Partial<ThresholdState>): void {
   try {
     const current = getThresholds()
     const next = { ...current, ...t }
     localStorage.setItem(THRESHOLD_KEY, JSON.stringify(next))
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: THRESHOLD_KEY,
-      newValue: JSON.stringify(next),
-    }))
+    window.dispatchEvent(new CustomEvent(THRESHOLD_EVENT, { detail: next }))
   } catch {}
 }
 
 export function resetThresholds(): void {
   localStorage.removeItem(THRESHOLD_KEY)
-  window.dispatchEvent(new StorageEvent('storage', {
-    key: THRESHOLD_KEY,
-    newValue: JSON.stringify(DEFAULT_THRESHOLDS),
-  }))
+  window.dispatchEvent(new CustomEvent(THRESHOLD_EVENT, { detail: DEFAULT_THRESHOLDS }))
 }
 
 // ── Source label mapping ──────────────────────────────────────────────────────

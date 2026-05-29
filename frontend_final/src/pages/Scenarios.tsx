@@ -791,11 +791,9 @@ export default function Scenarios() {
   const [activeThresholds, setActiveThresholds] = useState(() => getThresholds())
 
   useEffect(() => {
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'veloquity_thresholds') setActiveThresholds(getThresholds())
-    }
-    window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
+    const handleThresholds = () => setActiveThresholds(getThresholds())
+    window.addEventListener('veloquity:thresholds', handleThresholds)
+    return () => window.removeEventListener('veloquity:thresholds', handleThresholds)
   }, [])
 
   const [scenarios, setScenarios] = useState<Scenario[]>(DEFAULT_SCENARIOS)
@@ -852,6 +850,16 @@ export default function Scenarios() {
         <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
         <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
         <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
+
+  // Flash guard: show a spinner (not mock JSX) while live data is still loading.
+  if (liveMode && hasActiveSources() && liveLoading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', gap:'12px', color:'#22c55e', fontSize:'14px' }}>
+        <span style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e', display:'inline-block', animation:'pulse 1.5s infinite' }} />
+        Loading V1 pipeline data…
       </div>
     )
   }

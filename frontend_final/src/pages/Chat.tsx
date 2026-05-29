@@ -234,6 +234,26 @@ function findExplicitClusterMention(
   return null
 }
 
+// ─── Pick the live cluster to drill into for an answered query ─────────────────
+// Mirrors V0's behaviour: explicit theme match first; otherwise, when the model
+// used evidence context (or this is a fallback), fall back to the top-confidence
+// cluster so a drill-down still shows — exactly like V0's detectClusters →
+// top-1-cluster fallback. Returns the cluster id, or undefined.
+function selectLiveClusterId(
+  query: string,
+  evidence: ApiEvidenceItem[] | null,
+  usedContext: boolean,
+): string | undefined {
+  if (!evidence || evidence.length === 0) return undefined
+  const explicit = findExplicitClusterMention(query, evidence)
+  if (explicit) return explicit.id
+  if (usedContext) {
+    const top = evidence.reduce((b, c) => (c.confidence_score > b.confidence_score ? c : b), evidence[0])
+    return top.id
+  }
+  return undefined
+}
+
 // ─── Inline evidence section ──────────────────────────────────────────────────
 function InlineEvidence({
   clusterNames,
@@ -498,6 +518,9 @@ interface Message extends ChatMessage {
   timestamp?: string
   evidenceClusters?: string[]
   showEvidence?: boolean
+  // V1: id of the live evidence cluster to drill into, attached at send-time
+  // (mirrors how V0 attaches evidenceClusters/showEvidence to the message).
+  liveClusterId?: string
 }
 
 // ─── Context item ──────────────────────────────────────────────────────────────
@@ -811,6 +834,8 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               timestamp: replyTime,
               evidenceClusters: guidedClusters,
               showEvidence: guidedClusters.length > 0,
+              liveClusterId: liveMode && liveEvidenceData && liveEvidenceData.length > 0
+                ? matchLiveCluster(cluster, liveEvidenceData).id : undefined,
             },
           ])
         } catch {
@@ -826,6 +851,8 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               timestamp: replyTime,
               evidenceClusters: guidedFallbackClusters,
               showEvidence: guidedFallbackClusters.length > 0,
+              liveClusterId: liveMode && liveEvidenceData && liveEvidenceData.length > 0
+                ? matchLiveCluster(cluster, liveEvidenceData).id : undefined,
             },
           ])
         } finally {
@@ -901,6 +928,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           timestamp: replyTime,
           evidenceClusters: apiClusters,
           showEvidence: apiClusters.length > 0,
+          liveClusterId: selectLiveClusterId(text, liveEvidenceData, !!(res.context_used && res.context_used.length > 0)),
         },
       ])
     } catch {
@@ -917,6 +945,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           timestamp: replyTime,
           evidenceClusters: fallbackClusters,
           showEvidence: fallbackClusters.length > 0,
+          liveClusterId: selectLiveClusterId(text, liveEvidenceData, true),
         },
       ])
     } finally {
@@ -1182,21 +1211,23 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
                   {/* Evidence drill-down */}
                   {m.role === 'assistant' && !m.pending && (() => {
                     if (liveMode && liveEvidenceData && liveEvidenceData.length > 0) {
-                      const prevUser = messages[i - 1]
-                      if (prevUser?.role === 'user') {
-                        const explicitCluster = findExplicitClusterMention(prevUser.content, liveEvidenceData)
-                        if (explicitCluster) {
-                          return (
-                            <InlineEvidenceV1
-                              cluster={explicitCluster}
-                              onViewAll={(clusterName, items, count) => {
-                                setDrawerCluster(clusterName)
-                                setDrawerItems(items)
-                                setDrawerCount(count)
-                              }}
-                            />
-                          )
-                        }
+                      // Use the cluster attached at send-time (mirrors V0's
+                      // m.showEvidence/evidenceClusters), not a render-time
+                      // re-scan of the previous message.
+                      const liveCluster = m.liveClusterId
+                        ? liveEvidenceData.find((c) => c.id === m.liveClusterId)
+                        : undefined
+                      if (liveCluster) {
+                        return (
+                          <InlineEvidenceV1
+                            cluster={liveCluster}
+                            onViewAll={(clusterName, items, count) => {
+                              setDrawerCluster(clusterName)
+                              setDrawerItems(items)
+                              setDrawerCount(count)
+                            }}
+                          />
+                        )
                       }
                       return null
                     }
