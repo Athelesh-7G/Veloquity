@@ -2,7 +2,7 @@
 
 # VELOQUITY
 
-### Agentic Evidence Intelligence — Raw Feedback to Evidence-Driven Decisions
+### The Agentic Evidence Intelligence Platform Turning Raw Feedback into Evidence-Driven Decisions
 
 [Live Demo](https://veloquity1.vercel.app) · [AWS Bedrock](https://aws.amazon.com/bedrock/) · [Nova Pro](https://aws.amazon.com/bedrock/nova/)
 
