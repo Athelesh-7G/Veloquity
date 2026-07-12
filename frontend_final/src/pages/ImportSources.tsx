@@ -11,10 +11,9 @@ import {
 import {
   getUploadedSources, addUploadedSource, removeUploadedSource,
   type UploadedSource, addActiveSource, removeActiveSource,
-  getActiveSources, setActiveSources, clearAllActiveSources, getLiveMode,
+  setActiveSources, clearAllActiveSources,
 } from '@/utils/uploadState'
 import { setAgentsDone, clearAgentRunState } from '@/utils/agentRunState'
-import { ingestSource } from '@/api/client'
 
 // Minimal RFC-4180-ish CSV parser (handles quoted fields with commas/newlines).
 function parseCSV(text: string): Record<string, string>[] {
@@ -346,8 +345,6 @@ export default function ImportSources() {
   const hospitalBlocked = appCount > 0 ? 'Disconnect App Product sources first to switch datasets' : undefined
 
   function handleConnect(source: SourceId, filename: string, rowCount: number, rows: Record<string, string>[]) {
-    const currentlyLive = getLiveMode()
-
     const lower = filename.toLowerCase()
     const dataset: 'app_product' | 'hospital_survey' =
       lower.includes('patient') || lower.includes('hospital') ? 'hospital_survey' : 'app_product'
@@ -366,16 +363,6 @@ export default function ImportSources() {
     // Track source_type for pipeline filtering
     const sourceType = SOURCE_TYPE_MAP[source]
     addActiveSource(sourceType)
-
-    if (currentlyLive) {
-      // V1: actually ingest the uploaded rows (ingestion -> S3, wipe stale
-      // evidence, re-cluster) so the pipeline reflects exactly this file.
-      if (rows.length > 0) {
-        ingestSource({ source_type: sourceType, rows, active_sources: getActiveSources() })
-          .catch(console.error)
-      }
-      return
-    }
   }
 
   function handleDisconnect(source: SourceId) {

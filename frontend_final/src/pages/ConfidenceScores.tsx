@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getThresholds, setThresholds } from '@/utils/uploadState'
-import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
+import { hasUploadedData, getActiveDataset, getThresholds, setThresholds } from '@/utils/uploadState'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import {
   Scale, Info, TrendingUp, TrendingDown, Minus, AlertTriangle,
   CheckCircle2, BarChart3, RefreshCw, ChevronDown, ChevronUp,
-  Layers, Users, Hash, ShieldCheck, Wifi
+  Layers, Users, Hash, ShieldCheck
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -430,45 +429,6 @@ function MetricCard({
   )
 }
 
-// ─── Map API evidence to ConfidenceMetric ────────────────────────────────────
-function mapApiToConfidenceMetric(ev: ApiEvidenceItem, idx: number): ConfidenceMetric {
-  const score     = Math.round(ev.confidence_score * 100)
-  const sources   = Object.keys(ev.source_lineage ?? {})
-  const userCount = ev.unique_user_count
-  const multiSrc  = sources.length > 1
-  const wConf     = score * 0.35
-  const wUser     = Math.min(userCount / 50, 1.0) * 0.25 * 100
-  const wCorr     = multiSrc ? 0.1 * 0.20 * 100 : 0
-  const wRec      = 0.95 * 0.20 * 100
-  const priority  = Math.round(wConf + wUser + wCorr + wRec)
-  const quotes    = Array.isArray(ev.representative_quotes)
-    ? ev.representative_quotes.map((q: any) => (typeof q === 'string' ? q : q.text ?? '')).filter(Boolean)
-    : []
-  return {
-    id: ev.id,
-    clusterId: ev.id,
-    name: ev.theme.split(' | ')[0].slice(0, 60),
-    score,
-    uncertainty: 8,
-    trend: 'stable' as const,
-    feedbackCount: userCount,
-    uniqueUsers: userCount,
-    sources,
-    category: 'Technical' as const,
-    w_confidence: wConf,
-    w_userCount: wUser,
-    w_sourceCorr: wCorr,
-    w_recency: wRec,
-    priorityScore: priority,
-    factors: [
-      multiSrc ? `Cross-source corroboration (${sources.join(' + ')})` : `Single source: ${sources[0] ?? 'unknown'}`,
-      `${userCount} unique user${userCount !== 1 ? 's' : ''}`,
-      ...(quotes.slice(0, 1).map((q) => `"${q.slice(0, 60)}…"`)),
-    ].filter(Boolean),
-    lastValidated: (ev.last_validated_at ?? '').split('T')[0],
-  }
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ConfidenceScores() {
   const hasData = hasUploadedData()
@@ -478,26 +438,6 @@ export default function ConfidenceScores() {
   )
   const [showUncertainty, setShowUncertainty] = useState(true)
   const [threshold, setThreshold]         = useState(() => [getThresholds().confidenceThreshold])
-
-  // Live mode
-  const [liveMode, setLiveModeState]   = useState(() => getLiveMode())
-  const [liveMetrics, setLiveMetrics]  = useState<ConfidenceMetric[] | null>(null)
-  const [liveLoading, setLiveLoading]  = useState(() => getLiveMode() && hasActiveSources())
-  const [liveError, setLiveError]      = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!liveMode) return
-    if (!hasActiveSources()) {
-      setLiveMetrics([])
-      setLiveLoading(false)
-      return
-    }
-    setLiveLoading(true)
-    setLiveError(null)
-    fetchLiveEvidence()
-      .then((r) => { setLiveMetrics(r.map(mapApiToConfidenceMetric)); setLiveLoading(false) })
-      .catch((err: Error) => { setLiveError(err.message); setLiveLoading(false) })
-  }, [liveMode])
 
   useEffect(() => {
     const onThresholds = () => setThreshold([getThresholds().confidenceThreshold])
@@ -521,34 +461,12 @@ export default function ConfidenceScores() {
     }))
   }
 
-  const activeMetrics = liveMode && liveMetrics ? liveMetrics : metrics
-  const showData      = liveMode ? !!liveMetrics : hasData
-  const visible  = showData ? activeMetrics.filter((m) => m.score >= threshold[0]).sort((a, b) => b.score - a.score) : []
-  const avgScore = showData && activeMetrics.length > 0 ? Math.round(activeMetrics.reduce((s, m) => s + m.score, 0) / activeMetrics.length) : 0
-  const highConf = showData ? activeMetrics.filter((m) => m.score >= 80).length : 0
-  const needsRev = showData ? activeMetrics.filter((m) => m.score >= 60 && m.score < 80).length : 0
-  const lowConf  = showData ? activeMetrics.filter((m) => m.score < 60).length : 0
-
-  if (liveMode && !hasActiveSources()) {
-    return (
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
-        <div style={{ fontSize:'32px' }}>📂</div>
-        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
-        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
-        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
-      </div>
-    )
-  }
-
-  // Flash guard: show a spinner (not mock JSX) while live data is still loading.
-  if (liveMode && hasActiveSources() && liveLoading) {
-    return (
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', gap:'12px', color:'#22c55e', fontSize:'14px' }}>
-        <span style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e', display:'inline-block', animation:'pulse 1.5s infinite' }} />
-        Loading V1 pipeline data…
-      </div>
-    )
-  }
+  const showData = hasData
+  const visible  = showData ? metrics.filter((m) => m.score >= threshold[0]).sort((a, b) => b.score - a.score) : []
+  const avgScore = showData && metrics.length > 0 ? Math.round(metrics.reduce((s, m) => s + m.score, 0) / metrics.length) : 0
+  const highConf = showData ? metrics.filter((m) => m.score >= 80).length : 0
+  const needsRev = showData ? metrics.filter((m) => m.score >= 60 && m.score < 80).length : 0
+  const lowConf  = showData ? metrics.filter((m) => m.score < 60).length : 0
 
   return (
     <div className="p-6 space-y-6">
@@ -561,34 +479,13 @@ export default function ConfidenceScores() {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {!hasData && !liveMode && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
-          <button
-            onClick={() => { const n = !liveMode; setLiveModeState(n); setLiveMode(n) }}
-            style={{ padding:'6px 14px', borderRadius:'6px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'12px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
-          >
-            <span style={{ width:8, height:8, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
-            {liveMode ? 'V1' : 'V0'}
-          </button>
+          {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
         </div>
       </div>
 
-      {liveMode && liveLoading && (
-        <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
-          <Wifi className="w-4 h-4 animate-pulse shrink-0" />Loading V1 confidence data…
-        </div>
-      )}
-      {liveMode && liveError && (
-        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">V1 pipeline error: {liveError}</div>
-      )}
-      {liveMode && liveMetrics && !liveLoading && (
-        <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
-          <Wifi className="w-4 h-4 shrink-0" />
-          V1 Intelligence Pipeline — {liveMetrics.length} clusters · avg confidence {avgScore}%
-        </div>
-      )}
-      {!hasData && !liveMode && (
+      {!hasData && (
         <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-          Upload feedback data on the Import Sources page, or enable V1 mode to show intelligence pipeline data.
+          Upload feedback data on the Import Sources page to show intelligence pipeline data.
         </div>
       )}
 
@@ -660,7 +557,7 @@ export default function ConfidenceScores() {
       {/* ── Metric cards ───────────────────────────────────────────────────── */}
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          Showing {visible.length} of {activeMetrics.length} clusters (threshold: ≥ {threshold[0]}%)
+          Showing {visible.length} of {metrics.length} clusters (threshold: ≥ {threshold[0]}%)
         </p>
         <AnimatePresence>
           {visible.map((metric, i) => (
@@ -686,7 +583,7 @@ export default function ConfidenceScores() {
             <p className="text-sm">
               {showData
                 ? `No clusters meet the ${threshold[0]}% threshold. Lower the slider to see more.`
-                : 'Upload feedback data or enable V1 mode to see insights'}
+                : 'Upload feedback data to see insights'}
             </p>
           </div>
         )}
