@@ -331,17 +331,18 @@ export default function Agents() {
         setLastRanAt(ranAtMap)
       }
 
-      // Health check with up to 8 retries, 1.5s apart
+      // Health check with up to 20 retries, 3s apart (~60s max) — long enough
+      // for Render's free tier to finish a 30-60s cold start before giving up.
       let healthy = false
       if (sessionStorage.getItem('veloquity_health_ready') === '1') {
         healthy = true
       } else {
-        for (let attempt = 1; attempt <= 8; attempt++) {
+        for (let attempt = 1; attempt <= 20; attempt++) {
           if (cancelled) return
           setHealthAttempt(attempt)
           healthy = await checkHealth(2500)
           if (healthy) break
-          if (attempt < 8) await new Promise<void>(r => setTimeout(r, 1500))
+          if (attempt < 20) await new Promise<void>(r => setTimeout(r, 3000))
         }
         if (healthy) sessionStorage.setItem('veloquity_health_ready', '1')
       }
