@@ -6,9 +6,11 @@
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+import boto3
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from dependencies import get_db_connection, get_lambda_client
 from schemas import AgentRunResult, AgentStatus
@@ -146,4 +148,57 @@ def run_agent(agent_name: str, lambda_client=Depends(get_lambda_client)):
         raise
     except Exception as exc:
         logger.error("Lambda invoke failed for agent=%s: %s", agent_name, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/pipeline/run")
+async def run_pipeline(request: Request):
+    """Trigger the evidence pipeline for a specific set of active sources.
+
+    Lists S3 objects scoped to the requested source prefixes, then invokes
+    the Evidence Lambda asynchronously (fire-and-forget) so the API returns
+    immediately while the pipeline processes in the background.
+    """
+    try:
+        body = await request.json()
+        active_sources: list[str] = body.get("active_sources") or []
+
+        region = os.environ.get("AWS_REGION_NAME", "us-east-1")
+        raw_bucket = os.environ.get("S3_RAW_BUCKET", "veloquity-raw-dev-082228066878")
+        evidence_fn = os.environ.get("EVIDENCE_LAMBDA_NAME", "veloquity-evidence-dev")
+
+        # List S3 objects for the requested source prefixes.
+        s3 = boto3.client("s3", region_name=region)
+        paginator = s3.get_paginator("list_objects_v2")
+        all_keys: list[str] = []
+
+        for page in paginator.paginate(Bucket=raw_bucket):
+            for obj in page.get("Contents", []):
+                key: str = obj["Key"]
+                source_prefix = key.split("/")[0] if "/" in key else ""
+                if not active_sources or source_prefix in active_sources:
+                    all_keys.append(key)
+
+        # Invoke Evidence Lambda asynchronously — caller does not wait.
+        lc = boto3.client("lambda", region_name=region)
+        lc.invoke(
+            FunctionName=evidence_fn,
+            InvocationType="Event",
+            Payload=json.dumps(
+                {"batch": all_keys, "active_sources": active_sources}
+            ).encode(),
+        )
+
+        logger.info(
+            "pipeline/run triggered: sources=%s keys=%d lambda=%s",
+            active_sources, len(all_keys), evidence_fn,
+        )
+        return {
+            "status": "pipeline_triggered",
+            "active_sources": active_sources,
+            "keys_queued": len(all_keys),
+        }
+
+    except Exception as exc:
+        logger.error("pipeline/run failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))

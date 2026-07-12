@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Bot, CheckCircle2, XCircle, Play, RefreshCw, Loader2, Zap, Database, Brain, Shield, AlertTriangle } from 'lucide-react'
-import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, hasActiveSources, getActiveSources } from '@/utils/uploadState'
 import { getAgentRunState, hasAgentsRun } from '@/utils/agentRunState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
-import { type AgentRunResult, type AgentStatus, checkHealth, getAgentStatus, runAgent } from '@/api/client'
+import { type AgentRunResult, type AgentStatus, type EvidenceItem as ApiEvidenceItem, checkHealth, getAgentStatus, runAgent, fetchLiveEvidence } from '@/api/client'
 import { MOCK_AGENTS, HOSPITAL_MOCK_AGENTS } from '@/api/mockData'
 
 type RunStatus = 'idle' | 'running' | 'success' | 'error'
@@ -188,7 +188,8 @@ function parsePayloadLines(
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function statusDot(lastRunAt: string | null | undefined, runStatus?: RunStatus): string {
+function statusDot(lastRunAt: string | null | undefined, runStatus?: RunStatus, sourcesConnected = true): string {
+  if (!sourcesConnected) return '#EF4444'
   if (runStatus === 'running') return '#F59E0B'
   if (runStatus === 'success') return '#10B981'
   if (runStatus === 'error')   return '#EF4444'
@@ -251,10 +252,48 @@ function AgentOutputBox({ lines, shortKey, accent }: { lines: string[]; shortKey
 export default function Agents() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
+  const sourcesConnected = hasActiveSources()
+  const activeSources = getActiveSources()
   const activeMockAgents = dataset === 'hospital_survey' ? HOSPITAL_MOCK_AGENTS : MOCK_AGENTS
+
+  // ── Live mode: derive pipeline counts from real evidence (V0 keeps literals) ──
+  const [liveMode] = useState(() => getLiveMode())
+  const [liveEvidence, setLiveEvidence] = useState<ApiEvidenceItem[] | null>(null)
+
+  useEffect(() => {
+    if (!liveMode || !hasActiveSources()) return
+    fetchLiveEvidence().then(setLiveEvidence).catch(() => {})
+  }, [liveMode])
+
+  const useLive = liveMode && liveEvidence !== null && liveEvidence.length > 0
+  // NOTE: source_lineage values are FRACTIONS (e.g. {app_store: 0.6, zendesk: 0.4}),
+  // not counts — multiply by the cluster's item_count to get real per-source items.
+  const clusterItems = (e: ApiEvidenceItem) => (e.item_count > 0 ? e.item_count : e.unique_user_count)
+  const liveSourceCounts: Record<string, number> = {}
+  if (liveEvidence) {
+    for (const e of liveEvidence) {
+      const n = clusterItems(e)
+      for (const [src, frac] of Object.entries(e.source_lineage ?? {})) {
+        liveSourceCounts[src] = (liveSourceCounts[src] ?? 0) + Math.round(n * Number(frac))
+      }
+    }
+  }
+  const liveTotalItems = liveEvidence
+    ? liveEvidence.reduce((s, e) => s + clusterItems(e), 0)
+    : 0
+
+  const sourceNodeDefs = dataset === 'hospital_survey'
+    ? [
+        { key: 'patient_portal', label: 'Patient Portal', icon: '🏥', count: useLive ? (liveSourceCounts['patient_portal'] ?? 0) : 155 },
+        { key: 'hospital_survey', label: 'Hospital Survey', icon: '📋', count: useLive ? (liveSourceCounts['hospital_survey'] ?? 0) : 155 },
+      ]
+    : [
+        { key: 'app_store', label: 'App Store Reviews', icon: '📱', count: useLive ? (liveSourceCounts['app_store'] ?? 0) : 275 },
+        { key: 'zendesk', label: 'Support Tickets', icon: '🎫', count: useLive ? (liveSourceCounts['zendesk'] ?? 0) : 272 },
+      ]
   const pipelineMetrics = dataset === 'hospital_survey'
-    ? { items: 310, clusters: 4, sourceNodes: [{ label: 'Patient Portal · 155', icon: '🏥' }, { label: 'Hospital Survey · 155', icon: '📋' }] }
-    : { items: 547, clusters: 6, sourceNodes: [{ label: 'App Store Reviews · 275', icon: '📱' }, { label: 'Support Tickets · 272', icon: '🎫' }] }
+    ? { items: useLive ? liveTotalItems : 310, clusters: useLive ? liveEvidence!.length : 4, sourceNodes: sourceNodeDefs }
+    : { items: useLive ? liveTotalItems : 547, clusters: useLive ? liveEvidence!.length : 6, sourceNodes: sourceNodeDefs }
   const activeFallbackLines = dataset === 'hospital_survey' ? HOSPITAL_FALLBACK_LINES : AGENT_FALLBACK_LINES
   const activeFallbacks     = dataset === 'hospital_survey' ? HOSPITAL_FALLBACKS : AGENT_FALLBACKS
   const [agents, setAgents]         = useState<AgentStatus[]>([])
@@ -292,17 +331,18 @@ export default function Agents() {
         setLastRanAt(ranAtMap)
       }
 
-      // Health check with up to 8 retries, 1.5s apart
+      // Health check with up to 20 retries, 3s apart (~60s max) — long enough
+      // for Render's free tier to finish a 30-60s cold start before giving up.
       let healthy = false
       if (sessionStorage.getItem('veloquity_health_ready') === '1') {
         healthy = true
       } else {
-        for (let attempt = 1; attempt <= 8; attempt++) {
+        for (let attempt = 1; attempt <= 20; attempt++) {
           if (cancelled) return
           setHealthAttempt(attempt)
           healthy = await checkHealth(2500)
           if (healthy) break
-          if (attempt < 8) await new Promise<void>(r => setTimeout(r, 1500))
+          if (attempt < 20) await new Promise<void>(r => setTimeout(r, 3000))
         }
         if (healthy) sessionStorage.setItem('veloquity_health_ready', '1')
       }
@@ -447,20 +487,25 @@ export default function Agents() {
         <div className="flex flex-col items-center">
           {/* Source nodes */}
           <div className="flex items-center gap-3 mb-1">
-            {pipelineMetrics.sourceNodes.map((src) => (
-              // FIX: bg-muted border-border text-muted-foreground instead of hardcoded dark values
-              <div key={src.label}
-                className="rounded-xl px-4 py-2 border border-border text-xs font-medium text-muted-foreground bg-muted flex items-center gap-1.5">
-                <span>{src.icon}</span>{src.label}
-              </div>
-            ))}
+            {pipelineMetrics.sourceNodes.map((src) => {
+              const connected = activeSources.includes(src.key)
+              return (
+                <div key={src.key}
+                  className="rounded-xl px-4 py-2 border border-border text-xs font-medium bg-muted flex items-center gap-1.5"
+                  style={{ color: connected ? '#22c55e' : undefined }}
+                >
+                  <span>{src.icon}</span>
+                  {connected ? `${src.label} · ${src.count}` : `${src.label} · Not connected`}
+                </div>
+              )
+            })}
           </div>
           <PipelineArrow />
 
           {AGENT_CONFIG.map((cfg, i) => {
             const a   = agentMap[cfg.lambdaName] ?? agentMap[cfg.shortKey]
             const rs  = runStatus[cfg.shortKey] ?? 'idle'
-            const dot = statusDot(a?.last_run_at, rs)
+            const dot = statusDot(a?.last_run_at, rs, sourcesConnected)
             const lastRun = resolveLastRun(cfg.shortKey, a?.last_run_at)
             const AgentIcon = cfg.Icon
 
@@ -486,7 +531,9 @@ export default function Agents() {
                         <span className="font-semibold text-sm text-foreground">{cfg.display}</span>
                       </div>
                       {/* FIX: text-muted-foreground instead of text-slate-500 */}
-                      <p className="text-[11px] text-muted-foreground mt-0.5">{cfg.subtitle}</p>
+                      <p className="text-[11px] mt-0.5" style={{ color: sourcesConnected ? undefined : '#EF4444' }}>
+                        {sourcesConnected ? cfg.subtitle : 'No sources connected'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
@@ -534,7 +581,7 @@ export default function Agents() {
           const a      = agentMap[cfg.lambdaName] ?? agentMap[cfg.shortKey]
           const rs     = runStatus[cfg.shortKey] ?? 'idle'
           const result = lastResult[cfg.shortKey]
-          const dot    = statusDot(a?.last_run_at, rs)
+          const dot    = statusDot(a?.last_run_at, rs, sourcesConnected)
           const AgentIcon = cfg.Icon
 
           const outputLines = result

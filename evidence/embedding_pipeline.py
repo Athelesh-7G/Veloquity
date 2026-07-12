@@ -24,7 +24,15 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from api.db import get_conn, release_conn
-from evidence.clustering import cluster_embeddings
+# Only the lightweight clustering constants (plain int/float, used as
+# default-argument values below) are imported at module level. cluster_embeddings
+# pulls in numpy/scipy/scikit-learn/hdbscan, so it is imported lazily inside
+# _cluster_and_write_embeddings() to keep Lambda cold-start init cheap.
+from evidence.clustering import (
+    MIN_CLUSTER_SIZE,
+    MIN_SAMPLES,
+    CLUSTER_SELECTION_EPSILON,
+)
 from evidence.confidence import compute_confidence
 from evidence.threshold import evaluate_cluster
 from evidence.evidence_writer import write_evidence, write_staging
@@ -398,17 +406,32 @@ def _read_and_embed_batch(s3_keys: list[str], bucket: str, model_version: str) -
     }
 
 
-def _cluster_and_write_embeddings(vector_items: list[dict]) -> dict:
+def _cluster_and_write_embeddings(
+    vector_items: list[dict],
+    min_cluster_size: int = MIN_CLUSTER_SIZE,
+    min_samples: int = MIN_SAMPLES,
+    epsilon: float = CLUSTER_SELECTION_EPSILON,
+) -> dict:
     """Cluster a full corpus of pre-computed embeddings and write results to DB.
 
     Args:
-        vector_items: List of dicts each containing at minimum
-                      {s3_key, item_id, text, source, hash, vector}.
+        vector_items:      List of dicts with {s3_key, text, source, hash, vector}.
+        min_cluster_size:  HDBSCAN minimum points to form a cluster.
+        min_samples:       HDBSCAN minimum samples for core-point classification.
+        epsilon:           HDBSCAN cluster selection epsilon.
 
     Returns:
         Dict with keys: clusters_found, accepted, rejected, errors.
     """
-    clusters = cluster_embeddings(vector_items)
+    from evidence.clustering import cluster_embeddings
+
+    embeddings = [item["vector"] for item in vector_items]
+    clusters = cluster_embeddings(
+        embeddings, vector_items,
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        epsilon=epsilon,
+    )
     logger.info("Clustering complete: clusters=%d", len(clusters))
 
     accepted = 0
@@ -421,7 +444,7 @@ def _cluster_and_write_embeddings(vector_items: list[dict]) -> dict:
             result = evaluate_cluster(cluster, score)
 
             if result["decision"] == "accept":
-                write_evidence(cluster, score)
+                write_evidence(cluster, score, bedrock_client=_get_bedrock())
                 accepted += 1
             else:
                 write_staging(cluster, score)
@@ -466,6 +489,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         event:   Lambda event dict.
         context: Lambda context object (unused).
     """
+    # Keep-warm ping: return immediately before any business logic so an
+    # EventBridge schedule can hold the container warm cheaply.
+    if event.get("is_warmup"):
+        logger.info("keep_warm_ping")
+        return {"status": "warm"}
+
     bucket = os.environ["S3_RAW_BUCKET"]
     model_version = os.environ["BEDROCK_EMBED_MODEL"]
     action = event.get("action", "full_pipeline")
@@ -507,6 +536,15 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     # ------------------------------------------------------------------ #
     # Default: full_pipeline (existing behaviour)                         #
     # ------------------------------------------------------------------ #
+    active_sources: list[str] = event.get("active_sources") or []
+
+    # Custom clustering params — allow the /recluster API endpoint to
+    # override defaults without code changes.
+    explicit_min_cluster_size = "min_cluster_size" in event
+    min_cluster_size = int(event.get("min_cluster_size", MIN_CLUSTER_SIZE))
+    min_samples      = int(event.get("min_samples", MIN_SAMPLES))
+    epsilon          = float(event.get("cluster_selection_epsilon", CLUSTER_SELECTION_EPSILON))
+
     if "s3_key" in event:
         s3_keys = [event["s3_key"]]
     elif "batch" in event and isinstance(event["batch"], list):
@@ -518,6 +556,73 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             "accepted": 0, "rejected": 0, "errors": 0,
             "message": "event must contain 's3_key' or 'batch'",
         }
+
+    # Filter S3 keys to only the requested sources when specified.
+    if active_sources:
+        original_count = len(s3_keys)
+        s3_keys = [
+            k for k in s3_keys
+            if (k.split("/")[0] if "/" in k else "") in active_sources
+        ]
+        logger.info(
+            "active_sources filter: %d → %d keys for sources=%s",
+            original_count, len(s3_keys), active_sources,
+        )
+
+        # Remove evidence clusters whose source_lineage contains ONLY sources
+        # that are no longer active (stale after a source disconnect).
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM evidence
+                    WHERE status = 'active'
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM jsonb_object_keys(source_lineage) AS src
+                        WHERE src = ANY(%s)
+                    )
+                    """,
+                    (active_sources,),
+                )
+                deleted = cur.rowcount if cur.rowcount != -1 else 0
+                if deleted > 0:
+                    logger.info("Removed %d stale clusters from inactive sources", deleted)
+            conn.commit()
+        except Exception as exc:
+            logger.warning("Stale cluster cleanup failed: %s", exc)
+            conn.rollback()
+        finally:
+            release_conn(conn)
+
+    # Log corpus composition for debugging domain issues
+    source_prefixes = list(set(k.split("/")[0] for k in s3_keys if "/" in k))
+    logger.info(
+        "Corpus: %d items from sources: %s",
+        len(s3_keys), source_prefixes,
+    )
+
+    # Auto-scale min_cluster_size to ~1% of corpus when not explicitly provided
+    if not explicit_min_cluster_size:
+        n_keys = len(s3_keys)
+        if n_keys < 100:
+            min_cluster_size = 5
+        elif n_keys < 500:
+            min_cluster_size = 8
+        elif n_keys < 1000:
+            min_cluster_size = 12
+        else:
+            min_cluster_size = 15
+        logger.info(
+            "Auto-scaled min_cluster_size=%d for corpus of %d items",
+            min_cluster_size, n_keys,
+        )
+
+    logger.info(
+        "Clustering params: min_cluster_size=%d min_samples=%d epsilon=%.2f",
+        min_cluster_size, min_samples, epsilon,
+    )
 
     total = len(s3_keys)
     logger.info("Phase 2 pipeline start: model=%s keys=%d", model_version, total)
@@ -533,7 +638,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         embed_result["cache_hits"], embed_result["bedrock_calls"],
     )
 
-    cluster_result = _cluster_and_write_embeddings(vector_items)
+    cluster_result = _cluster_and_write_embeddings(
+        vector_items,
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        epsilon=epsilon,
+    )
 
     errors = embed_errors + cluster_result["errors"]
     processed = total - embed_errors

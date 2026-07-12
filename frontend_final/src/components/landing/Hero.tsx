@@ -132,6 +132,7 @@ export default function Hero() {
               <Button
                 variant="outline"
                 size="lg"
+                onClick={() => window.open('https://youtu.be/wEG5jTQxlJ4', '_blank', 'noopener,noreferrer')}
                 className="h-14 px-8 rounded-full border-white/10 bg-white/5 hover:bg-white/10 hover:border-red-500/30 text-white backdrop-blur-md text-lg transition-all hover:scale-105"
               >
                 <Play className="mr-2 w-4 h-4 fill-white" />

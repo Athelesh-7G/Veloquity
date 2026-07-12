@@ -3,6 +3,8 @@
 // Typed API client for all Veloquity backend endpoints.
 // =============================================================
 
+import { getActiveSources } from '@/utils/uploadState'
+
 const BASE = (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL ?? 'http://localhost:8002'
 const V1 = `${BASE}/api/v1`
 
@@ -13,6 +15,7 @@ export interface EvidenceItem {
   theme: string
   confidence_score: number
   unique_user_count: number
+  item_count: number
   source_lineage: Record<string, number>
   representative_quotes: Array<{ text: string; source: string }>
   status: string
@@ -166,4 +169,118 @@ export async function checkHealth(timeoutMs = 5000): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+export async function fetchLiveEvidence(): Promise<EvidenceItem[]> {
+  const activeSources = getActiveSources()
+  const qs = activeSources.length > 0 ? `?sources=${activeSources.join(',')}` : ''
+  const res = await fetch(`${BASE}/api/v1/evidence/${qs}`)
+  if (!res.ok) throw new Error(`Evidence API error: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchLiveRecommendations(): Promise<ReasoningRun> {
+  const res = await fetch(`${BASE}/api/v1/recommendations/`)
+  if (!res.ok) throw new Error(`Recommendations API error: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchLiveAgentStatus(): Promise<AgentStatus[]> {
+  const res = await fetch(`${BASE}/api/v1/agents/status`)
+  if (!res.ok) throw new Error(`Agent status API error: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchLiveStats(): Promise<{
+  total_embedded: number
+  active_clusters: number
+  mapped_items: number
+  avg_confidence: number
+}> {
+  const res = await fetch(`${BASE}/api/v1/evidence/stats`)
+  if (!res.ok) throw new Error(`Stats error: ${res.status}`)
+  return res.json()
+}
+
+export async function triggerRecluster(params: {
+  min_cluster_size: number
+  cluster_selection_epsilon: number
+  active_sources: string[]
+}): Promise<{
+  status: string
+  min_cluster_size: number
+  cluster_selection_epsilon: number
+  keys_queued: number
+  active_sources: string[]
+}> {
+  const res = await fetch(`${BASE}/api/v1/evidence/recluster`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) throw new Error(`Recluster error: ${res.status}`)
+  return res.json()
+}
+
+export async function triggerLivePipeline(activeSources: string[]): Promise<{
+  status: string
+  active_sources: string[]
+  keys_queued: number
+}> {
+  const res = await fetch(`${BASE}/api/v1/agents/pipeline/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ active_sources: activeSources }),
+  })
+  if (!res.ok) throw new Error(`Pipeline trigger error: ${res.status}`)
+  return res.json()
+}
+
+// Real CSV ingestion: pushes the uploaded rows through ingestion -> S3, wipes
+// the dataset's stale evidence, and triggers a fresh clustering run so V1
+// reflects exactly the imported file. Returns once ingestion is done and
+// clustering has been triggered (clustering then completes asynchronously).
+export async function ingestSource(params: {
+  source_type: string
+  rows: Record<string, unknown>[]
+  active_sources: string[]
+  min_cluster_size?: number
+}): Promise<{
+  status: string
+  source_type: string
+  written: number
+  duplicates: number
+  corpus_size: number
+  min_cluster_size: number
+}> {
+  const res = await fetch(`${BASE}/api/v1/evidence/ingest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) throw new Error(`Ingest error: ${res.status}`)
+  return res.json()
+}
+
+export interface ClusterItem {
+  text: string
+  source: string
+  timestamp: string | null
+  item_id: string | null
+  rating?: number | null
+  title?: string | null
+}
+
+export async function fetchClusterItems(
+  evidenceId: string,
+  limit: number = 50
+): Promise<{
+  evidence_id: string
+  items: ClusterItem[]
+  total: number
+  source: string
+}> {
+  const res = await fetch(`${BASE}/api/v1/evidence/${evidenceId}/items?limit=${limit}`)
+  if (!res.ok) throw new Error(`Cluster items error: ${res.status}`)
+  return res.json()
 }

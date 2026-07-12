@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sliders, RotateCcw, Download, CheckCircle2, Clock, XCircle, Zap, Shield, TrendingUp, TrendingDown, Minus, Users, Hash, Layers, ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Target } from 'lucide-react'
-import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { Sliders, RotateCcw, Download, CheckCircle2, Clock, XCircle, Zap, Shield, TrendingUp, TrendingDown, Minus, Users, Hash, Layers, ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Sparkles, Target, Wifi } from 'lucide-react'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getThresholds, setThresholds, SOURCE_LABELS } from '@/utils/uploadState'
+import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
@@ -163,6 +164,45 @@ const HOSPITAL_CLUSTERS: Cluster[] = [
     tradeoff: 'Low effort (WebView fix + auth flow patch). Declining trend means urgency is lower than clusters 1–2, but access to medical records is a patient right.',
   },
 ]
+
+// ─── Map real API evidence to Cluster ────────────────────────────────────────
+function mapApiToCluster(ev: ApiEvidenceItem): Cluster {
+  const score     = Math.round(ev.confidence_score * 100)
+  const userCount = ev.unique_user_count
+  const sources   = Object.keys(ev.source_lineage ?? {})
+  const multiSrc  = sources.length > 1
+  const wConf     = score * 0.35
+  const wUser     = Math.min(userCount / 50, 1.0) * 0.25 * 100
+  const wCorr     = multiSrc ? 0.1 * 0.20 * 100 : 0
+  const wRec      = 0.95 * 0.20 * 100
+  const daysSince = ev.last_validated_at
+    ? Math.floor((Date.now() - new Date(ev.last_validated_at).getTime()) / 86_400_000)
+    : 999
+  const quotes = Array.isArray(ev.representative_quotes)
+    ? ev.representative_quotes.map((q: any) => (typeof q === 'string' ? q : q.text ?? '')).filter(Boolean)
+    : []
+  const effort: 'low' | 'medium' | 'high' = score > 85 ? 'high' : score >= 70 ? 'medium' : 'low'
+  const impact: 'low' | 'medium' | 'high' = userCount > 50 ? 'high' : userCount >= 20 ? 'medium' : 'low'
+  return {
+    id:             ev.id,
+    name:           ev.theme.split(' | ')[0].slice(0, 60),
+    confidence:     score,
+    uncertainty:    8,
+    feedbackCount:  ev.item_count > 0 ? ev.item_count : ev.unique_user_count,
+    uniqueUsers:    userCount,
+    sources,
+    category:       'Technical' as Category,
+    trend:          (daysSince <= 7 ? 'rising' : 'stable') as Trend,
+    priorityScore:  Math.round(wConf + wUser + wCorr + wRec),
+    effort,
+    impact,
+    rationale:      quotes[0]
+      ? `Live pipeline cluster: "${quotes[0].slice(0, 120)}". Source coverage: ${sources.join(', ')}.`
+      : `Live pipeline cluster from ${sources.join(', ')} · ${userCount} users affected.`,
+    riskFlags:      multiSrc ? [`Cross-source corroboration (${sources.join(' + ')})`] : [],
+    tradeoff:       `Confidence ${score}% · ±8% uncertainty · ${userCount} unique users. Review alongside adjacent clusters for shared root cause.`,
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const EFFORT_ORDER = { low: 0, medium: 1, high: 2 }
@@ -501,11 +541,63 @@ const DEFAULT_EV   = 40
 export default function DecisionPlayground() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
-  const CLUSTERS = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
-  const [confThreshold,  setConfThreshold]  = useState(DEFAULT_CONF)
-  const [uncTolerance,   setUncTolerance]   = useState(DEFAULT_UNC)
-  const [minEvidence,    setMinEvidence]    = useState(DEFAULT_EV)
+  const mockClusters = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
+
+  // Live mode — reads from localStorage on mount so toggling on another
+  // page persists correctly when the user navigates here.
+  const [liveMode,      setLiveModeState]  = useState(() => getLiveMode())
+  const [liveClusters,  setLiveClusters]   = useState<Cluster[] | null>(null)
+  const [liveLoading,   setLiveLoading]    = useState(() => getLiveMode() && hasActiveSources())
+  const [liveError,     setLiveError]      = useState<string | null>(null)
+
+  // Re-sync liveMode when another tab/window changes the localStorage value.
+  useEffect(() => {
+    const handleStorage = () => setLiveModeState(getLiveMode())
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
+  // Threshold changes are same-tab CustomEvents (see uploadState.setThresholds).
+  useEffect(() => {
+    const handleThresholds = () => {
+      const t = getThresholds()
+      setConfThreshold(t.confidenceThreshold)
+      setUncTolerance(t.uncertaintyTolerance)
+      setMinEvidence(t.minEvidence)
+    }
+    window.addEventListener('veloquity:thresholds', handleThresholds)
+    return () => window.removeEventListener('veloquity:thresholds', handleThresholds)
+  }, [])
+
+  useEffect(() => {
+    if (!liveMode) return
+    if (!hasActiveSources()) {
+      setLiveClusters([])
+      setLiveLoading(false)
+      return
+    }
+    setLiveLoading(true)
+    setLiveError(null)
+    fetchLiveEvidence()
+      .then((r) => { setLiveClusters(r.map(mapApiToCluster)); setLiveLoading(false) })
+      .catch((err: Error) => { setLiveError(err.message); setLiveLoading(false) })
+  }, [liveMode])
+
+  const scenarioDisplayClusters = useMemo(() => {
+    if (liveMode && liveClusters && liveClusters.length > 0) return liveClusters
+    return mockClusters
+  }, [liveMode, liveClusters, mockClusters])
+
+  const [confThreshold,  setConfThreshold]  = useState(() => getThresholds().confidenceThreshold)
+  const [uncTolerance,   setUncTolerance]   = useState(() => getThresholds().uncertaintyTolerance)
+  const [minEvidence,    setMinEvidence]    = useState(() => getThresholds().minEvidence)
   const [exported,       setExported]       = useState(false)
+
+  // When entering live mode, reset minEvidence to a scale appropriate for
+  // real pipeline clusters (5-10 items each vs mock 50-138 items).
+  useEffect(() => {
+    setMinEvidence(liveMode ? 3 : DEFAULT_EV)
+  }, [liveMode])
 
   const reset = () => {
     setConfThreshold(DEFAULT_CONF)
@@ -520,11 +612,11 @@ export default function DecisionPlayground() {
 
   // Compute decisions for all clusters
   const results = useMemo(() =>
-    CLUSTERS.map((c) => ({
+    scenarioDisplayClusters.map((c) => ({
       cluster: c,
       decision: getDecision(c, confThreshold, uncTolerance, minEvidence),
     })).sort((a, b) => b.cluster.priorityScore - a.cluster.priorityScore),
-  [confThreshold, uncTolerance, minEvidence])
+  [scenarioDisplayClusters, confThreshold, uncTolerance, minEvidence])
 
   const counts = {
     prioritize: results.filter((r) => r.decision === 'prioritize').length,
@@ -537,8 +629,30 @@ export default function DecisionPlayground() {
   const highImpact  = sprintItems.filter((r) => r.cluster.impact === 'high').length
   const totalUsers  = sprintItems.reduce((s, r) => s + r.cluster.uniqueUsers, 0)
 
-  const displayResults = hasData ? results : []
-  const displayCounts = hasData ? counts : { prioritize: 0, consider: 0, defer: 0 }
+  const showData = hasData || (liveMode && !!liveClusters)
+  const displayResults = showData ? results : []
+  const displayCounts = showData ? counts : { prioritize: 0, consider: 0, defer: 0 }
+
+  if (liveMode && !hasActiveSources()) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
+        <div style={{ fontSize:'32px' }}>📂</div>
+        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
+        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
+
+  // Flash guard: show a spinner (not mock JSX) while live data is still loading.
+  if (liveMode && hasActiveSources() && liveLoading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', gap:'12px', color:'#22c55e', fontSize:'14px' }}>
+        <span style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e', display:'inline-block', animation:'pulse 1.5s infinite' }} />
+        Loading V1 pipeline data…
+      </div>
+    )
+  }
 
   return (
   <div className="p-6 min-h-screen bg-background transition-colors">
@@ -555,8 +669,15 @@ export default function DecisionPlayground() {
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
-        {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
+      <div className="flex items-center gap-2 flex-wrap">
+        {!hasData && !liveMode && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
+        <button
+          onClick={() => { const n = !liveMode; setLiveModeState(n); setLiveMode(n) }}
+          style={{ padding:'6px 14px', borderRadius:'6px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'12px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
+        >
+          <span style={{ width:8, height:8, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
+          {liveMode ? 'V1' : 'V0'}
+        </button>
         <Button
           variant="ghost"
           className="text-muted-foreground hover:text-foreground gap-2"
@@ -585,9 +706,25 @@ export default function DecisionPlayground() {
       </div>
     </div>
 
-    {!hasData && (
+    {liveMode && liveLoading && (
+      <div className="mb-6 flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
+        <Wifi className="w-4 h-4 animate-pulse shrink-0" />Loading V1 pipeline data…
+      </div>
+    )}
+    {liveMode && liveError && (
+      <div className="mb-6 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">
+        V1 pipeline error: {liveError}
+      </div>
+    )}
+    {liveMode && liveClusters && !liveLoading && (
+      <div className="mb-6 flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
+        <Wifi className="w-4 h-4 shrink-0" />
+        V1 Intelligence Pipeline — {liveClusters.length} clusters · thresholds apply to real evidence
+      </div>
+    )}
+    {!hasData && !liveMode && (
       <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-        Upload feedback data on the Import Sources page to see insights
+        Upload feedback data on the Import Sources page, or enable V1 mode to show intelligence pipeline data.
       </div>
     )}
 
@@ -619,7 +756,7 @@ export default function DecisionPlayground() {
               max={95}
               step={5}
               unit="%"
-              onChange={setConfThreshold}
+              onChange={(val) => { setConfThreshold(val); setThresholds({ confidenceThreshold: val }) }}
               color="text-violet-500"
             />
 
@@ -631,19 +768,21 @@ export default function DecisionPlayground() {
               max={30}
               step={5}
               unit="±"
-              onChange={setUncTolerance}
+              onChange={(val) => { setUncTolerance(val); setThresholds({ uncertaintyTolerance: val }) }}
               color="text-blue-500"
             />
 
             <ControlSlider
               label="Minimum Evidence Items"
-              sub="Minimum number of feedback items to support a decision"
+              sub={liveMode
+                ? "Real pipeline clusters average 5–10 items (mock: 50–138)"
+                : "Minimum number of feedback items to support a decision"}
               value={minEvidence}
-              min={10}
-              max={120}
-              step={10}
+              min={liveMode ? 1 : 10}
+              max={liveMode ? 20 : 120}
+              step={liveMode ? 1 : 10}
               unit=" items"
-              onChange={setMinEvidence}
+              onChange={(val) => { setMinEvidence(val); setThresholds({ minEvidence: val }) }}
               color="text-amber-500"
             />
 
@@ -673,7 +812,7 @@ export default function DecisionPlayground() {
 
                   <motion.div
                     className={color}
-                    animate={{ width: `${(count / CLUSTERS.length) * 100}%` }}
+                    animate={{ width: `${(count / scenarioDisplayClusters.length) * 100}%` }}
                     transition={{ duration: 0.5 }}
                     style={{ height: '100%', borderRadius: 9999 }}
                   />
@@ -753,7 +892,7 @@ export default function DecisionPlayground() {
           </div>
 
           <span className="text-xs text-gray-500 dark:text-slate-500">
-            {CLUSTERS.length} clusters · threshold {confThreshold}%
+            {scenarioDisplayClusters.length} clusters · threshold {confThreshold}%
           </span>
 
         </div>
@@ -772,9 +911,9 @@ export default function DecisionPlayground() {
 
           ))}
 
-          {!hasData && displayResults.length === 0 && (
+          {!hasData && !liveMode && displayResults.length === 0 && (
             <div className="text-center py-12 text-muted-foreground text-sm">
-              Upload feedback data on the Import Sources page to see insights
+              Upload feedback data on the Import Sources page, or enable V1 mode to show intelligence pipeline data.
             </div>
           )}
 

@@ -10,9 +10,46 @@ import {
 } from 'lucide-react'
 import {
   getUploadedSources, addUploadedSource, removeUploadedSource,
-  type UploadedSource,
+  type UploadedSource, addActiveSource, removeActiveSource,
+  getActiveSources, setActiveSources, clearAllActiveSources, getLiveMode,
 } from '@/utils/uploadState'
 import { setAgentsDone, clearAgentRunState } from '@/utils/agentRunState'
+import { ingestSource } from '@/api/client'
+
+// Minimal RFC-4180-ish CSV parser (handles quoted fields with commas/newlines).
+function parseCSV(text: string): Record<string, string>[] {
+  const rows: string[][] = []
+  let cur: string[] = []
+  let field = ''
+  let inQuotes = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++ } else inQuotes = false
+      } else field += c
+    } else if (c === '"') {
+      inQuotes = true
+    } else if (c === ',') {
+      cur.push(field); field = ''
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++
+      cur.push(field); field = ''
+      if (cur.length > 1 || cur[0].length) rows.push(cur)
+      cur = []
+    } else field += c
+  }
+  if (field.length || cur.length) { cur.push(field); rows.push(cur) }
+  if (rows.length < 2) return []
+  const header = rows[0].map((h) => h.trim())
+  return rows.slice(1)
+    .filter((r) => r.some((v) => v.trim().length))
+    .map((r) => {
+      const o: Record<string, string> = {}
+      header.forEach((h, i) => { o[h] = (r[i] ?? '').trim() })
+      return o
+    })
+}
 
 // ─── Phase definitions ────────────────────────────────────────────────────────
 interface Phase {
@@ -81,7 +118,7 @@ interface SourceCardProps {
   Icon: React.ElementType
   connected: UploadedSource | null
   blockedMessage?: string
-  onConnect: (source: SourceId, filename: string, rowCount: number) => void
+  onConnect: (source: SourceId, filename: string, rowCount: number, rows: Record<string, string>[]) => void
   onDisconnect: (source: SourceId) => void
 }
 
@@ -133,8 +170,8 @@ function SourceCard({
     const reader = new FileReader()
     reader.onload = (e) => {
       const text = e.target?.result as string
-      const lines = text.split('\n').filter(l => l.trim().length > 0)
-      const rowCount = Math.max(0, lines.length - 1)
+      const parsedRows = parseCSV(text)
+      const rowCount = parsedRows.length
       const filename = selectedFile.name
 
       setConnecting(true)
@@ -153,7 +190,7 @@ function SourceCard({
         setSelectedFile(null)
         setPhaseLabel('')
         setProgress(0)
-        onConnect(id, filename, rowCount)
+        onConnect(id, filename, rowCount, parsedRows)
       }, CONNECT_TOTAL_MS)
       timersRef.current.push(done)
     }
@@ -275,13 +312,31 @@ function SourceCard({
   )
 }
 
+// Maps UI SourceId → pipeline source_type string stored in S3 keys
+const SOURCE_TYPE_MAP: Record<SourceId, string> = {
+  appstore:               'app_store',
+  support_tickets:        'zendesk',
+  patient_portal:         'patient_portal',
+  hospital_survey_ticket: 'hospital_survey',
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ImportSources() {
   const [sources, setSources] = useState<UploadedSource[]>(getUploadedSources)
 
-  const appstoreSource        = sources.find(s => s.source === 'appstore')          ?? null
-  const support_ticketsSource         = sources.find(s => s.source === 'support_tickets')           ?? null
-  const patientPortalSource   = sources.find(s => s.source === 'patient_portal')    ?? null
+  // Reconcile active sources with what the UI actually shows as connected.
+  // This clears any stale localStorage state (e.g., from seeding scripts)
+  // so only sources the user has explicitly connected are active.
+  useEffect(() => {
+    const uploaded = getUploadedSources()
+    clearAllActiveSources()
+    const active = uploaded.map(s => SOURCE_TYPE_MAP[s.source as SourceId]).filter(Boolean)
+    setActiveSources(active)
+  }, [])
+
+  const appstoreSource        = sources.find(s => s.source === 'appstore')              ?? null
+  const support_ticketsSource = sources.find(s => s.source === 'support_tickets')       ?? null
+  const patientPortalSource   = sources.find(s => s.source === 'patient_portal')        ?? null
   const hospitalSurveySource  = sources.find(s => s.source === 'hospital_survey_ticket') ?? null
 
   const appCount      = sources.filter(s => s.dataset === 'app_product').length
@@ -290,7 +345,9 @@ export default function ImportSources() {
   const appBlocked      = hospitalCount > 0 ? 'Disconnect Patient Hospital Survey sources first to switch datasets' : undefined
   const hospitalBlocked = appCount > 0 ? 'Disconnect App Product sources first to switch datasets' : undefined
 
-  function handleConnect(source: SourceId, filename: string, rowCount: number) {
+  function handleConnect(source: SourceId, filename: string, rowCount: number, rows: Record<string, string>[]) {
+    const currentlyLive = getLiveMode()
+
     const lower = filename.toLowerCase()
     const dataset: 'app_product' | 'hospital_survey' =
       lower.includes('patient') || lower.includes('hospital') ? 'hospital_survey' : 'app_product'
@@ -305,10 +362,26 @@ export default function ImportSources() {
     addUploadedSource(entry)
     setAgentsDone(new Date().toISOString())
     setSources(getUploadedSources())
+
+    // Track source_type for pipeline filtering
+    const sourceType = SOURCE_TYPE_MAP[source]
+    addActiveSource(sourceType)
+
+    if (currentlyLive) {
+      // V1: actually ingest the uploaded rows (ingestion -> S3, wipe stale
+      // evidence, re-cluster) so the pipeline reflects exactly this file.
+      if (rows.length > 0) {
+        ingestSource({ source_type: sourceType, rows, active_sources: getActiveSources() })
+          .catch(console.error)
+      }
+      return
+    }
   }
 
   function handleDisconnect(source: SourceId) {
     removeUploadedSource(source)
+    const sourceType = SOURCE_TYPE_MAP[source]
+    removeActiveSource(sourceType)
     const remaining = getUploadedSources().filter(s => s.source !== source)
     if (remaining.length === 0) clearAgentRunState()
     setSources(getUploadedSources())

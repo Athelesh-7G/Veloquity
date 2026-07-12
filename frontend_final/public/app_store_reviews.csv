@@ -1,0 +1,301 @@
+review_id,rating,title,review,date,version,author
+r0277,2,Export silently fails,Our weekly reporting workflow is blocked because CSV export silently fails for large date ranges.,2025-10-06,3.1.0,tech_lead_ryan
+r0016,1,Project switch kills app,The crash happens faster if you switch projects quickly. Slower switches sometimes work but not reliably. Issue #1015.,2026-03-26,3.1.0,power_user_max
+r0208,3,Starting from scratch with no help,I've used 29 project management tools. All of them have onboarding. This is the only exception. Note #4007.,2025-08-12,3.2.1,infra_lead_ian
+r0033,1,Instant crash when switching workspace,Fatal crash on workspace navigation. The null pointer in the project context handler is clearly a regression from 3.2.0. Three stars for everything else.,2025-11-21,3.3.0,mobile_dev_li
+r0226,3,First time user lost,Onboarding checklist is table stakes for a B2B SaaS in 2026. Please add one.,2025-12-31,3.1.1,qa_morgan
+r0095,1,Async init deadlock on start,After the 3.2.1 update every morning starts with a 25-second black screen. Please roll back the init changes. Review #2014.,2025-10-08,3.2.0,dev_luke
+r0029,1,Project switch kills app,Clicking any project in the sidebar crashes the app immediately. Started with 3.3.0. Completely unusable for multi-project teams. Ticket submitted to support.,2025-11-12,3.0.0,power_user_max
+r0042,1,Null pointer on project switch,Before 3.1.1 this worked fine. Now switching projects crashes immediately. Please roll back or hotfix this. Downgrading until fixed.,2025-08-07,3.2.1,ux_riley
+r0267,2,Export silently fails,Enterprise clients can't use data export at all. Blocking renewal conversations for us.,2026-03-13,3.0.1,data_eng_yuki
+r0117,2,Black screen after update,The black screen on launch is the first thing new users see. This is a terrible first impression for a $99/mo app. Build: 3.2.1.,2026-01-21,3.3.0,growth_hacker_zoe
+r0104,2,First launch shows black screen,All 6 users on our account hit black screen on launch. This has been happening since the 3.2.1 release.,2026-03-11,3.0.0,beta_tester_chloe
+r0066,1,Instant crash when switching workspace,On enterprise plan and this crash is blocking our cross-project work completely. Need a hotfix today. Downgrading until fixed.,2026-01-26,3.3.0,backend_kai
+r0049,2,Project context crash,The crash happens faster if you switch projects quickly. Slower switches sometimes work but not reliably.,2025-11-28,3.1.1,eng_lead_mia
+r0120,1,Black screen every morning,The deadlock appears in the async init sequence. Race condition between auth and data loading components.,2025-10-05,3.3.0,solo_founder
+r0031,2,Workspace switch causes crash,The project switch crash has been reported by multiple users for weeks. Still no fix. Unacceptable. Three stars for everything else.,2025-09-03,3.2.1,scrum_master_ben
+r0202,4,No onboarding wizard,Trial conversion must be suffering from the missing onboarding. New users don't know where to start.,2026-02-27,3.2.0,startup_cto
+r0089,1,Screen goes black on start,The black screen on launch is the first thing new users see. This is a terrible first impression for a $99/mo app. Build: 3.0.0.,2026-02-12,3.2.1,app_admin_dan
+r0074,2,Instant crash when switching workspace,On enterprise plan and this crash is blocking our cross-project work completely. Need a hotfix today.,2026-01-27,3.1.1,qa_morgan
+r0116,2,First launch shows black screen,Updated to 3.2.0 hoping this would be fixed. The black screen on cold launch is still present. 5 versions and no fix. Review #2035.,2026-03-02,3.1.0,infra_lead_ian
+r0121,1,Launch failure since update,My team reported this 8 weeks ago and it's still broken. Black screen on every fresh launch. Review #2040.,2026-02-10,3.0.1,beta_tester_chloe
+r0213,4,No welcome flow,Rated 3 stars instead of 5 because the onboarding experience is terrible. Love the product otherwise.,2025-09-01,3.1.0,eng_lead_mia
+r0132,1,Black screen after update,iOS and macOS both affected. The black screen on cold launch appears to be a server-side initialization issue.,2025-09-03,3.2.0,qa_morgan
+r0070,2,Fatal crash on project switch,Crash log shows null pointer exception in ProjectContextHandler. This is a critical bug introduced in 3.2.1.,2025-08-08,3.1.1,beta_tester_chloe
+r0106,1,Cold start shows nothing,Black screen appears for exactly 15 seconds then resolves. Not a crash but extremely annoying every morning.,2026-03-07,3.1.0,beta_tester_chloe
+r0005,1,App dies on project navigation,"Two projects, one crash. That's all it takes. Every. Single. Time. This makes the app worthless for my workflow.",2026-03-25,3.1.1,startup_cto
+r0203,4,Where is the welcome tour,I've used 23 project management tools. All of them have onboarding. This is the only exception.,2026-01-22,3.2.0,devops_jordan
+r0194,2,Dashboard crawls since update,Our enterprise account with 223 projects takes 10+ seconds to load the dashboard. Was under 1s before.,2025-09-02,3.0.0,pm_alex
+r0246,2,Download produces zero bytes,Enterprise clients can't use data export at all. Blocking renewal conversations for us.,2025-12-10,3.1.0,startup_cto
+r0073,1,Crash every time I change projects,I love this app but the project crash is a dealbreaker. Downgrading to 3.0.0 for now. Three stars for everything else.,2025-11-12,3.2.1,pm_alex
+r0261,3,Export feature completely broken,"Clicked export, got a success message, downloaded an empty file. Bug has been present since 3.1.0.",2025-11-09,3.2.0,dev_luke
+r0251,2,Export to CSV fails quietly,The export times out server-side and produces an empty CSV. No error message shown to the user.,2026-02-08,3.2.0,devops_jordan
+r0266,3,Export to CSV fails quietly,Server-side timeout with no client fallback is my best guess. The export worked fine before 3.1.0.,2025-10-14,3.0.1,app_admin_dan
+r0183,2,Dashboard crawls since update,The new dashboard renders all widgets sequentially instead of in parallel. That's why it's 67x slower.,2025-11-08,3.3.0,solo_founder
+r0256,2,CSV export produces empty file,The silent failure is the worst part. Users think it worked but got nothing. Please show an error.,2025-12-23,3.0.0,mobile_dev_li
+r0164,3,App dashboard too slow,The new dashboard renders all widgets sequentially instead of in parallel. That's why it's 60x slower.,2025-12-13,3.2.0,agile_coach_em
+r0240,4,Onboarding gap is painful,Set up wizard would pay for itself in reduced support tickets. Please add basic onboarding steps.,2025-10-13,3.2.1,product_jane
+r0143,2,App stuck on black screen,Warm restart resolves the issue but we shouldn't have to do this. Cold start should work. Regression since 3.1.0.,2026-01-19,3.0.0,vp_product_tom
+r0122,2,First launch shows black screen,My team reported this 22 weeks ago and it's still broken. Black screen on every fresh launch. Review #2041.,2025-08-04,3.1.0,mobile_dev_li
+r0144,2,Screen goes black on start,Measured the black screen duration: consistently 6 seconds on cold start. Warm restart is instant.,2025-10-30,3.0.0,cloud_arjun
+r0217,3,Onboarding gap is painful,The absence of an onboarding checklist is costing us serious time. Competitors all have this. Note #4016.,2025-10-12,3.1.1,agile_coach_em
+r0270,1,Data export is broken,Server-side timeout with no client fallback is my best guess. The export worked fine before 3.2.1.,2025-10-16,3.1.1,swe_priya
+r0160,3,Dashboard performance unacceptable,Loading spinner shows for 15 seconds every time I open the app. This was never an issue before 3.2.0. Entry #3014.,2025-11-22,3.2.1,backend_kai
+r0241,3,Missing setup guide,Onboarding checklist is table stakes for a B2B SaaS in 2025. Please add one. Note #4040.,2025-11-15,3.3.0,swe_priya
+r0114,1,Async init deadlock on start,The async init deadlock is clearly the cause. Background refresh is enabled on all devices. Black screen persists.,2025-11-07,3.3.0,solo_founder
+r0025,1,Null pointer on project switch,Before 3.1.0 this worked fine. Now switching projects crashes immediately. Please roll back or hotfix this. Issue #1024.,2026-03-26,3.3.0,beta_tester_chloe
+r0274,1,Export to CSV fails quietly,"Export shows a success toast but the file is 0 bytes. Tried Chrome, Safari, and Firefox. Item #5028.",2025-09-18,3.3.0,infra_lead_ian
+r0080,1,Switching projects = crash,I lose 20 minutes of work every time this crash hits me. At least implement autosave as a workaround.,2026-02-15,3.2.0,cto_nina
+r0100,2,Cold launch broken,iOS and macOS both affected. The black screen on cold launch appears to be a server-side initialization issue. Review #2019.,2026-02-02,3.1.0,app_admin_dan
+r0034,1,Reproducible crash on project change,I lose 46 minutes of work every time this crash hits me. At least implement autosave as a workaround. Three stars for everything else.,2026-03-29,3.0.1,qa_morgan
+r0088,1,Black screen every morning,Warm restart resolves the issue but we shouldn't have to do this. Cold start should work. Regression since 3.2.1.,2026-03-16,3.1.1,growth_hacker_zoe
+r0092,2,Cold start shows nothing,Measured the black screen duration: consistently 15 seconds on cold start. Warm restart is instant.,2026-01-17,3.1.1,app_admin_dan
+r0248,2,Download produces zero bytes,Reproducible: dataset over 3958 rows = empty CSV download. Under 3958 rows = works fine.,2025-10-17,3.2.0,growth_hacker_zoe
+r0008,1,Crash every time I change projects,Crash log shows null pointer exception in ProjectContextHandler. This is a critical bug introduced in 3.1.0. Downgrading until fixed.,2025-11-27,3.1.1,qa_morgan
+r0289,2,Push delay ruins real-time work,The push notification delay has been stable at around 52 minutes for the past 7 weeks.,2025-08-21,3.1.0,cto_nina
+r0174,2,Dashboard took forever to load,I miss when the dashboard loaded in under 2 seconds. 3.2.1 completely broke performance for large workspaces.,2026-02-26,3.0.1,platform_dev_ava
+r0193,3,App dashboard too slow,Measured 69 loads. Average before 3.1.0: 3s. Average after: 16s. Not a fluke.,2025-12-10,3.3.0,growth_hacker_zoe
+r0076,2,Null pointer on project switch,Crash log shows null pointer exception in ProjectContextHandler. This is a critical bug introduced in 3.3.0. Downgrading until fixed.,2025-09-28,3.1.0,swe_priya
+r0187,3,Dashboard took forever to load,The 3.1.0 frontend render cycle change broke dashboard performance. Scales badly with project count. Entry #3041.,2026-03-27,3.1.0,tech_lead_ryan
+r0214,4,Zero guidance for new users,New team member onboarding takes 30 minutes of manual walkthrough because there's no in-app guide.,2026-03-10,3.2.0,vp_product_tom
+r0176,2,Severe dashboard slowdown,I miss when the dashboard loaded in under 2 seconds. 3.1.1 completely broke performance for large workspaces.,2026-03-01,3.1.1,startup_cto
+r0169,3,Slowest dashboard ever,Before 3.2.1: dashboard loaded in 3 seconds. After 3.2.1: 18 seconds. Clear regression. Entry #3023.,2025-10-19,3.0.1,ux_riley
+r0180,3,Dashboard performance broke,I timed it: dashboard went from 3s to 18s after upgrading to 3.1.0. Please revert the render changes. 3.1.0 affected.,2025-09-01,3.0.0,pm_alex
+r0037,1,Project switch kills app,Crash log shows null pointer exception in ProjectContextHandler. This is a critical bug introduced in 3.1.1. Issue #1036.,2025-08-20,3.2.1,power_user_max
+r0099,1,Black screen after update,Black screen appears for exactly 9 seconds then resolves. Not a crash but extremely annoying every morning. Build: 3.1.1.,2026-03-10,3.0.0,qa_morgan
+r0171,2,Slowest dashboard ever,Loading spinner shows for 10 seconds every time I open the app. This was never an issue before 3.2.0.,2025-12-31,3.1.1,dev_luke
+r0110,1,Black screen on launch,The async init deadlock is clearly the cause. Background refresh is enabled on all devices. Black screen persists. Build: 3.1.1.,2025-12-14,3.1.1,cloud_arjun
+r0181,2,Enterprise dashboard broken,Before 3.1.0: dashboard loaded in 3 seconds. After 3.1.0: 17 seconds. Clear regression.,2026-01-09,3.2.0,cloud_arjun
+r0001,1,App freezes and crashes on switch,"Reproducible crash: open project A, click project B, app dies. Happening on both iOS and macOS since 3.1.0. Affects version 3.0.1.",2026-01-21,3.2.1,power_user_max
+r0050,2,App freezes and crashes on switch,App crashes 100% of the time when switching projects. I've tested on 3 different devices. Same result on all. Ticket submitted to support.,2025-12-10,3.2.1,scrum_master_ben
+r0204,4,Where is the welcome tour,The product is powerful but opaque. A 5-step setup wizard would dramatically reduce the learning curve.,2025-12-07,3.3.0,product_jane
+r0142,1,Update broke the launch,Updated to 3.1.0 and now the app shows a black screen for up to 7 seconds before loading.,2026-02-07,3.2.1,devops_jordan
+r0279,2,CSV export produces empty file,Enterprise clients can't use data export at all. Blocking renewal conversations for us. Item #5033.,2025-12-20,3.2.0,cloud_arjun
+r0196,2,Dashboard took forever to load,The new dashboard renders all widgets sequentially instead of in parallel. That's why it's 151x slower.,2025-08-30,3.0.0,growth_hacker_zoe
+r0231,3,First time user lost,Onboarding checklist is table stakes for a B2B SaaS in 2026. Please add one.,2025-11-26,3.2.0,frontend_sam
+r0056,1,Null pointer on project switch,"Every single time I switch projects the app exits. No warning, no autosave. Rating 1 star until this is fixed.",2025-09-05,3.0.1,pm_alex
+r0210,4,No onboarding wizard,Onboarding checklist is table stakes for a B2B SaaS in 2026. Please add one.,2025-10-16,3.1.1,startup_cto
+r0024,1,App dies on project navigation,"Reproducible crash: open project A, click project B, app dies. Happening on both iOS and macOS since 3.1.1.",2025-11-17,3.0.1,qa_morgan
+r0186,2,App dashboard too slow,I miss when the dashboard loaded in under 3 seconds. 3.2.1 completely broke performance for large workspaces. 3.1.1 affected.,2025-08-17,3.2.1,infra_lead_ian
+r0188,3,Enterprise dashboard broken,Measured 242 loads. Average before 3.1.0: 3s. Average after: 17s. Not a fluke. 3.2.1 affected.,2025-10-31,3.3.0,infra_lead_ian
+r0060,2,Project context crash,The project switch crash has been reported by multiple users for weeks. Still no fix. Unacceptable. Issue #1059.,2025-12-30,3.2.0,data_eng_yuki
+r0285,2,Push notifications hours late,Background refresh is enabled on all devices. Still getting push notifications 21 minutes late.,2025-11-04,3.0.0,agile_coach_em
+r0191,2,Enterprise dashboard broken,Enterprise account with 189+ data points is completely blocked. Dashboard takes over 16 seconds.,2025-08-21,3.1.0,data_eng_yuki
+r0146,2,Severe dashboard slowdown,I miss when the dashboard loaded in under 2 seconds. 3.2.1 completely broke performance for large workspaces.,2026-01-03,3.2.1,app_admin_dan
+r0021,2,App crashes switching projects,Before 3.1.0 this worked fine. Now switching projects crashes immediately. Please roll back or hotfix this. Downgrading until fixed.,2026-01-19,3.1.1,ux_riley
+r0245,3,Where is the welcome tour,We had 17 new signups this month. All of them emailed support asking how to get started. Add onboarding.,2026-02-05,3.1.0,platform_dev_ava
+r0023,1,App freezes and crashes on switch,Our CTO flagged this as a P0. We cannot use the app until project switching works without crashing. Issue #1022.,2025-08-16,3.1.1,growth_hacker_zoe
+r0165,2,Dashboard performance broke,Measured 154 loads. Average before 3.2.1: 2s. Average after: 15s. Not a fluke.,2026-02-19,3.2.1,scrum_master_ben
+r0032,1,Instant crash when switching workspace,Stack trace: NPE in ProjectContextHandler.switch() line 247. Easy to fix — please prioritize. Ticket submitted to support.,2025-12-16,3.0.1,tech_lead_ryan
+r0300,1,Late notifications on iOS and Android,iOS and Android both affected. Email works. Only push notifications are delayed by 120+ minutes.,2025-10-31,3.2.0,cto_nina
+r0257,2,CSV download gives empty file,Export to CSV has been broken since 3.1.0. Filed a support ticket with no resolution yet.,2026-02-26,3.0.0,growth_hacker_zoe
+r0242,4,No onboarding checklist,Trial conversion must be suffering from the missing onboarding. New users don't know where to start.,2026-03-13,3.0.0,marcus_dev
+r0215,3,Zero guidance for new users,New team member onboarding takes 30 minutes of manual walkthrough because there's no in-app guide.,2026-02-12,3.0.1,solo_founder
+r0177,3,12 second dashboard load,Dashboard load time jumped from 2s to 15s after the 3.2.1 update. Backend API is unchanged.,2025-09-30,3.1.1,startup_cto
+r0235,4,Needs a setup checklist,Trial conversion must be suffering from the missing onboarding. New users don't know where to start.,2025-08-11,3.1.0,ml_ops_omar
+r0156,2,App dashboard too slow,Performance regression tracked to the 3.2.0 release. Frontend re-renders everything on every state change. Entry #3010.,2025-11-20,3.2.0,cto_nina
+r0147,3,Slowest dashboard ever,Our enterprise account with 229 projects takes 10+ seconds to load the dashboard. Was under 2s before.,2025-10-29,3.0.0,swe_priya
+r0006,1,Workspace switch causes crash,I lose 28 minutes of work every time this crash hits me. At least implement autosave as a workaround. Ticket submitted to support.,2026-01-17,3.0.1,infra_lead_ian
+r0172,2,Dashboard performance broke,Performance regression tracked to the 3.2.1 release. Frontend re-renders everything on every state change.,2025-11-22,3.2.0,backend_kai
+r0009,1,App freezes and crashes on switch,The crash happens faster if you switch projects quickly. Slower switches sometimes work but not reliably. Issue #1008.,2026-02-27,3.0.0,platform_dev_ava
+r0041,2,App dies on project navigation,Our CTO flagged this as a P0. We cannot use the app until project switching works without crashing. Ticket submitted to support.,2026-03-12,3.0.0,beta_tester_chloe
+r0058,2,Project context crash,Rated 1 star specifically for the crash-on-project-switch bug. Everything else is great. Please fix 3.3.0.,2025-08-02,3.1.0,backend_kai
+r0090,2,Launch failure since update,The black screen on launch is the first thing new users see. This is a terrible first impression for a $99/mo app.,2026-03-23,3.1.0,swe_priya
+r0236,3,Missing setup guide,I've used 17 project management tools. All of them have onboarding. This is the only exception.,2025-09-21,3.3.0,mobile_dev_li
+r0134,1,App stuck on black screen,The async init deadlock is clearly the cause. Background refresh is enabled on all devices. Black screen persists.,2026-02-07,3.0.0,solo_founder
+r0013,2,App freezes and crashes on switch,Our CTO flagged this as a P0. We cannot use the app until project switching works without crashing.,2025-12-20,3.3.0,marcus_dev
+r0061,2,App crashes switching projects,"Every single time I switch projects the app exits. No warning, no autosave. Rating 1 star until this is fixed. Issue #1060.",2025-11-06,3.1.0,ux_riley
+r0135,2,Update broke the launch,After the 3.2.0 update every morning starts with a 21-second black screen. Please roll back the init changes. Review #2054.,2025-12-07,3.0.1,agile_coach_em
+r0258,2,Export to CSV fails quietly,Enterprise clients can't use data export at all. Blocking renewal conversations for us.,2026-01-27,3.0.0,mobile_dev_li
+r0151,3,Dashboard regression after update,Before 3.2.0: dashboard loaded in 1 seconds. After 3.2.0: 18 seconds. Clear regression.,2025-12-13,3.2.1,backend_kai
+r0027,1,Project context crash,Crash log shows null pointer exception in ProjectContextHandler. This is a critical bug introduced in 3.2.1.,2025-09-18,3.1.0,ux_riley
+r0136,1,Black screen on launch,My team reported this 14 weeks ago and it's still broken. Black screen on every fresh launch. Review #2055.,2025-12-01,3.3.0,cto_nina
+r0059,2,Project context crash,Our CTO flagged this as a P0. We cannot use the app until project switching works without crashing. Downgrading until fixed.,2025-11-20,3.1.1,marcus_dev
+r0255,1,CSV download gives empty file,CSV export works for small datasets but silently fails for anything over 3465 rows. No error shown.,2026-03-19,3.2.0,eng_lead_mia
+r0166,3,App dashboard too slow,Before 3.3.0: dashboard loaded in 1 seconds. After 3.3.0: 15 seconds. Clear regression.,2026-02-02,3.3.0,data_eng_yuki
+r0234,3,No welcome flow,The product is powerful but opaque. A 5-step setup wizard would dramatically reduce the learning curve.,2025-12-25,3.2.1,mobile_dev_li
+r0170,2,App dashboard too slow,The 3.1.1 frontend render cycle change broke dashboard performance. Scales badly with project count.,2025-12-08,3.3.0,mobile_dev_li
+r0260,2,Data export is broken,Export button shows loading spinner then success — but the file is always 0 bytes for our 6366k row dataset.,2025-08-21,3.2.1,data_eng_yuki
+r0107,1,First launch shows black screen,Measured the black screen duration: consistently 17 seconds on cold start. Warm restart is instant.,2026-01-06,3.0.0,pm_alex
+r0015,1,Reproducible crash on project change,Crash log shows null pointer exception in ProjectContextHandler. This is a critical bug introduced in 3.3.0. Three stars for everything else.,2025-09-09,3.1.0,infra_lead_ian
+r0011,2,App freezes and crashes on switch,Stack trace: NPE in ProjectContextHandler.switch() line 247. Easy to fix — please prioritize. Three stars for everything else.,2026-03-18,3.2.0,cto_nina
+r0273,1,Export silently fails,Export to CSV has been broken since 3.2.1. Filed a support ticket with no resolution yet.,2025-12-16,3.2.1,app_admin_dan
+r0264,1,Export broken for large datasets,"Export shows a success toast but the file is 0 bytes. Tried Chrome, Safari, and Firefox. Item #5018.",2025-09-22,3.0.0,teamlead_sarah
+r0249,3,CSV export produces empty file,Our weekly reporting workflow is blocked because CSV export silently fails for large date ranges. Item #5003.,2025-08-31,3.1.1,backend_kai
+r0269,1,Silent failure on export,Export to CSV has been broken since 3.3.0. Filed a support ticket with no resolution yet.,2025-10-28,3.2.1,data_eng_yuki
+r0168,2,Enterprise dashboard broken,Measured 146 loads. Average before 3.3.0: 1s. Average after: 11s. Not a fluke.,2026-01-19,3.2.1,app_admin_dan
+r0004,1,Project switch kills app,Our CTO flagged this as a P0. We cannot use the app until project switching works without crashing.,2025-08-24,3.1.1,teamlead_sarah
+r0276,2,Export to CSV fails quietly,CSV export works for small datasets but silently fails for anything over 7946 rows. No error shown.,2026-03-23,3.0.1,mobile_dev_li
+r0039,2,App crashes switching projects,"Two projects, one crash. That's all it takes. Every. Single. Time. This makes the app worthless for my workflow. Ticket submitted to support.",2026-02-16,3.2.0,power_user_max
+r0129,1,Screen goes black on start,Updated to 3.2.0 and now the app shows a black screen for up to 22 seconds before loading.,2025-11-10,3.1.0,ux_riley
+r0179,2,Dashboard took forever to load,I miss when the dashboard loaded in under 3 seconds. 3.2.1 completely broke performance for large workspaces. Entry #3033.,2025-08-05,3.1.0,ux_riley
+r0190,3,Enterprise dashboard broken,Backend API latency is fine — response times unchanged. This is a frontend rendering issue introduced in 3.2.1.,2026-02-22,3.0.0,growth_hacker_zoe
+r0275,2,Export feature completely broken,The export times out server-side and produces an empty CSV. No error message shown to the user.,2026-03-21,3.0.0,ux_riley
+r0162,2,Dashboard regression after update,Enterprise account with 179+ data points is completely blocked. Dashboard takes over 11 seconds.,2025-11-24,3.3.0,cloud_arjun
+r0157,2,Load time regression critical,Measured 106 loads. Average before 3.2.0: 1s. Average after: 16s. Not a fluke. 3.1.0 affected.,2025-12-09,3.2.1,teamlead_sarah
+r0133,1,App stuck on black screen,Updated to 3.1.0 and now the app shows a black screen for up to 9 seconds before loading.,2025-12-29,3.1.0,marcus_dev
+r0131,1,Black screen after update,All 11 users on our account hit black screen on launch. This has been happening since the 3.3.0 release.,2025-12-29,3.0.1,app_admin_dan
+r0057,2,Project context crash,Fatal crash on workspace navigation. The null pointer in the project context handler is clearly a regression from 3.1.1.,2025-11-15,3.0.0,ux_riley
+r0067,2,App freezes and crashes on switch,"Reproducible in 41 steps: open app, navigate to project list, tap any project. Crash.",2025-08-18,3.2.0,scrum_master_ben
+r0026,1,Crash every time I change projects,Our entire team of 36 is affected. Nobody can switch between projects without the app crashing. Please patch urgently.,2025-09-12,3.1.1,marcus_dev
+r0283,1,Push delay ruins real-time work,Had to switch to email notifications because push arrives 43 hours later. Defeats the purpose.,2025-12-13,3.0.0,app_admin_dan
+r0149,2,Enterprise dashboard broken,Dashboard is effectively unusable for enterprise users. 144 projects = 17 second load. Unacceptable.,2026-03-15,3.0.0,dev_luke
+r0223,4,No onboarding checklist,New team member onboarding takes 30 minutes of manual walkthrough because there's no in-app guide.,2025-09-08,3.2.0,power_user_max
+r0219,3,No onboarding wizard,We had 14 new signups this month. All of them emailed support asking how to get started. Add onboarding.,2025-11-11,3.0.0,cloud_arjun
+r0232,3,No welcome flow,I've used 24 project management tools. All of them have onboarding. This is the only exception.,2025-10-03,3.1.0,mobile_dev_li
+r0012,1,App dies on project navigation,Before 3.1.1 this worked fine. Now switching projects crashes immediately. Please roll back or hotfix this. Issue #1011.,2025-09-09,3.2.1,swe_priya
+r0247,2,Data export is broken,Export to CSV has been broken since 3.1.1. Filed a support ticket with no resolution yet.,2025-10-22,3.0.1,marcus_dev
+r0091,2,Async init deadlock on start,Updated to 3.2.1 hoping this would be fixed. The black screen on cold launch is still present. 7 versions and no fix.,2025-10-25,3.1.0,data_eng_yuki
+r0237,3,No onboarding wizard,Rated 3 stars instead of 5 because the onboarding experience is terrible. Love the product otherwise.,2026-01-05,3.2.1,cloud_arjun
+r0229,4,Missing setup guide,The absence of an onboarding checklist is costing us serious time. Competitors all have this.,2025-09-08,3.1.1,ml_ops_omar
+r0022,2,Workspace switch causes crash,Fatal crash on workspace navigation. The null pointer in the project context handler is clearly a regression from 3.3.0.,2025-09-18,3.0.0,teamlead_sarah
+r0292,2,Late notifications on iOS and Android,Push notifications arrive 109 minutes late on both iOS and Android. Email notifications are instant. Log #6011.,2026-03-05,3.1.1,scrum_master_ben
+r0239,3,Onboarding gap is painful,Every other SaaS tool I use has an onboarding checklist. This one has nothing. Major gap. Note #4038.,2025-11-13,3.2.1,biz_owner_tara
+r0010,1,App dies on project navigation,Rated 1 star specifically for the crash-on-project-switch bug. Everything else is great. Please fix 3.2.0.,2026-01-15,3.1.1,cto_nina
+r0184,2,Dashboard loads in 12 seconds now,Dashboard is effectively unusable for enterprise users. 241 projects = 16 second load. Unacceptable.,2025-10-28,3.0.1,growth_hacker_zoe
+r0244,3,No welcome flow,Set up wizard would pay for itself in reduced support tickets. Please add basic onboarding steps.,2026-02-24,3.0.0,frontend_sam
+r0130,1,Cold start shows nothing,Measured the black screen duration: consistently 7 seconds on cold start. Warm restart is instant. Build: 3.2.1.,2025-08-13,3.3.0,frontend_sam
+r0137,1,Cold launch broken,Switching to airplane mode and back sometimes resolves the black screen. Clearly a network init issue.,2026-03-19,3.0.0,frontend_sam
+r0103,2,Cold launch broken,Black screen for 20 seconds on every cold start since 3.2.0. Warm restart works but cold start does not.,2026-01-17,3.3.0,app_admin_dan
+r0262,3,Export to CSV fails quietly,"Export shows a success toast but the file is 0 bytes. Tried Chrome, Safari, and Firefox.",2026-02-01,3.2.0,vp_product_tom
+r0205,3,Missing setup guide,Rated 3 stars instead of 5 because the onboarding experience is terrible. Love the product otherwise.,2025-10-22,3.2.1,pm_alex
+r0154,3,Slowest dashboard ever,The new dashboard renders all widgets sequentially instead of in parallel. That's why it's 68x slower. Entry #3008.,2025-08-05,3.1.1,biz_owner_tara
+r0115,2,Cold start shows nothing,Cold start freezes on black screen. Killing and reopening the app twice usually fixes it. Frustrating.,2026-01-27,3.1.0,marcus_dev
+r0019,1,Reproducible crash on project change,App crashes 100% of the time when switching projects. I've tested on 3 different devices. Same result on all.,2025-10-03,3.0.1,startup_cto
+r0192,3,Dashboard regression after update,Enterprise account with 92+ data points is completely blocked. Dashboard takes over 17 seconds.,2025-11-23,3.0.0,growth_hacker_zoe
+r0109,1,App hangs on startup,Measured the black screen duration: consistently 19 seconds on cold start. Warm restart is instant.,2025-08-12,3.1.0,platform_dev_ava
+r0040,2,Project context crash,"Reproducible in 20 steps: open app, navigate to project list, tap any project. Crash. Affects version 3.3.0.",2025-08-07,3.0.1,growth_hacker_zoe
+r0238,3,Zero guidance for new users,The absence of an onboarding checklist is costing us serious time. Competitors all have this.,2025-08-26,3.1.1,frontend_sam
+r0062,2,Null pointer on project switch,The project switch crash has been reported by multiple users for weeks. Still no fix. Unacceptable.,2026-03-02,3.0.0,solo_founder
+r0227,4,Every other app has onboarding,The product is powerful but opaque. A 5-step setup wizard would dramatically reduce the learning curve. Note #4026.,2025-09-13,3.2.0,scrum_master_ben
+r0197,3,Dashboard performance broke,I timed it: dashboard went from 2s to 18s after upgrading to 3.3.0. Please revert the render changes.,2025-09-24,3.2.0,backend_kai
+r0254,1,CSV export produces empty file,Server-side timeout with no client fallback is my best guess. The export worked fine before 3.1.1.,2025-10-23,3.3.0,tech_lead_ryan
+r0128,1,Update broke the launch,The black screen on launch is the first thing new users see. This is a terrible first impression for a $99/mo app.,2025-11-22,3.1.1,pm_alex
+r0173,2,Slowest dashboard ever,The new dashboard renders all widgets sequentially instead of in parallel. That's why it's 129x slower.,2025-11-03,3.2.1,cloud_arjun
+r0105,2,Update broke the launch,Updated to 3.3.0 and now the app shows a black screen for up to 19 seconds before loading. Build: 3.0.0.,2026-03-11,3.2.1,dev_luke
+r0018,1,Project switch kills app,Fatal crash on workspace navigation. The null pointer in the project context handler is clearly a regression from 3.2.1.,2026-03-26,3.2.0,infra_lead_ian
+r0288,3,Push delay ruins real-time work,"Checked all device settings. Background refresh on, battery optimization off. Still 42 min delay. Log #6007.",2025-09-08,3.0.1,ux_riley
+r0218,3,Every other app has onboarding,Onboarding checklist is table stakes for a B2B SaaS in 2026. Please add one. Note #4017.,2025-11-19,3.0.1,power_user_max
+r0054,2,Fatal crash on project switch,Stack trace: NPE in ProjectContextHandler.switch() line 247. Easy to fix — please prioritize.,2026-03-01,3.2.0,eng_lead_mia
+r0119,2,Async init deadlock on start,iOS and macOS both affected. The black screen on cold launch appears to be a server-side initialization issue.,2025-09-14,3.0.1,dev_luke
+r0272,2,CSV export produces empty file,Server-side timeout with no client fallback is my best guess. The export worked fine before 3.2.1.,2025-10-02,3.1.0,ux_riley
+r0141,2,Cold launch broken,Updated to 3.1.0 hoping this would be fixed. The black screen on cold launch is still present. 15 versions and no fix.,2025-11-04,3.0.1,data_eng_yuki
+r0175,2,Dashboard performance unacceptable,Dashboard load time jumped from 1s to 14s after the 3.2.1 update. Backend API is unchanged.,2026-01-30,3.3.0,tech_lead_ryan
+r0284,1,Push notifications hours late,Push notifications arrive 117 minutes late on both iOS and Android. Email notifications are instant.,2026-03-04,3.2.1,pm_alex
+r0140,2,Black screen every morning,My team reported this 18 weeks ago and it's still broken. Black screen on every fresh launch. Build: 3.1.1.,2025-10-26,3.3.0,eng_lead_mia
+r0296,3,Mobile notifications delayed,"Checked all device settings. Background refresh on, battery optimization off. Still 29 min delay. Log #6015.",2025-10-01,3.2.0,app_admin_dan
+r0220,4,No welcome flow,The absence of an onboarding checklist is costing us serious time. Competitors all have this. Note #4019.,2025-12-08,3.1.1,infra_lead_ian
+r0145,2,Black screen every morning,Cold start freezes on black screen. Killing and reopening the app twice usually fixes it. Frustrating. Review #2064.,2026-03-05,3.2.0,devops_jordan
+r0030,2,Switching projects = crash,Before 3.3.0 this worked fine. Now switching projects crashes immediately. Please roll back or hotfix this. Ticket submitted to support.,2026-01-16,3.2.0,cloud_arjun
+r0094,1,Black screen every morning,Measured the black screen duration: consistently 22 seconds on cold start. Warm restart is instant.,2025-09-18,3.2.0,devops_jordan
+r0101,2,Async init deadlock on start,The black screen on launch is the first thing new users see. This is a terrible first impression for a $99/mo app.,2025-10-28,3.1.0,mobile_dev_li
+r0072,2,Instant crash when switching workspace,The crash happens faster if you switch projects quickly. Slower switches sometimes work but not reliably. Downgrading until fixed.,2025-12-04,3.2.0,infra_lead_ian
+r0097,1,Black screen every morning,Black screen for 18 seconds on every cold start since 3.3.0. Warm restart works but cold start does not. Build: 3.0.0.,2025-11-27,3.0.0,scrum_master_ben
+r0084,2,Update broke the launch,The async init deadlock is clearly the cause. Background refresh is enabled on all devices. Black screen persists.,2025-08-19,3.2.1,pm_alex
+r0063,1,App crashes switching projects,The crash happens faster if you switch projects quickly. Slower switches sometimes work but not reliably. Ticket submitted to support.,2026-02-10,3.0.0,pm_alex
+r0148,2,Dashboard performance broke,Before 3.1.1: dashboard loaded in 3 seconds. After 3.1.1: 16 seconds. Clear regression. Entry #3002.,2026-02-08,3.2.0,ux_riley
+r0126,2,Update broke the launch,Updated to 3.1.0 and now the app shows a black screen for up to 12 seconds before loading. Build: 3.2.0.,2025-11-25,3.1.0,data_eng_yuki
+r0287,2,20 minute notification lag,Push notifications arrive 22 minutes late on both iOS and Android. Email notifications are instant.,2025-12-16,3.1.0,marcus_dev
+r0207,3,Where is the welcome tour,Onboarding checklist is table stakes for a B2B SaaS in 2025. Please add one.,2025-09-13,3.2.1,agile_coach_em
+r0189,3,Dashboard loads in 12 seconds now,Measured 254 loads. Average before 3.1.0: 3s. Average after: 15s. Not a fluke.,2026-02-07,3.1.1,power_user_max
+r0075,1,Instant crash when switching workspace,Crash log shows null pointer exception in ProjectContextHandler. This is a critical bug introduced in 3.1.1. Ticket submitted to support.,2025-09-19,3.0.1,growth_hacker_zoe
+r0082,2,Black screen on launch,The black screen on launch is the first thing new users see. This is a terrible first impression for a $99/mo app. Build: 3.2.1.,2026-01-17,3.0.0,swe_priya
+r0225,4,No onboarding wizard,New employees at our company consistently struggle with first setup because there's no guided flow.,2026-02-25,3.0.0,devops_jordan
+r0268,1,Export feature completely broken,The export times out server-side and produces an empty CSV. No error message shown to the user.,2025-12-21,3.2.0,power_user_max
+r0081,2,Update broke the launch,The deadlock appears in the async init sequence. Race condition between auth and data loading components.,2025-10-18,3.2.0,agile_coach_em
+r0123,2,Cold start shows nothing,Black screen appears for exactly 13 seconds then resolves. Not a crash but extremely annoying every morning.,2025-08-28,3.2.1,pm_alex
+r0052,2,Null pointer on project switch,"Reproducible in 34 steps: open app, navigate to project list, tap any project. Crash. Downgrading until fixed.",2025-12-05,3.1.1,pm_alex
+r0178,2,App dashboard too slow,Dashboard is effectively unusable for enterprise users. 264 projects = 10 second load. Unacceptable.,2025-09-05,3.0.0,backend_kai
+r0155,3,Severe dashboard slowdown,Enterprise account with 231+ data points is completely blocked. Dashboard takes over 16 seconds.,2025-08-30,3.1.1,marcus_dev
+r0083,2,Black screen after update,All 7 users on our account hit black screen on launch. This has been happening since the 3.3.0 release. Review #2002.,2025-11-24,3.2.1,agile_coach_em
+r0243,4,No onboarding wizard,New employees at our company consistently struggle with first setup because there's no guided flow.,2025-11-25,3.2.1,mobile_dev_li
+r0281,2,Mobile notifications delayed,Had to switch to email notifications because push arrives 90 hours later. Defeats the purpose.,2025-10-05,3.3.0,app_admin_dan
+r0233,4,No onboarding wizard,The absence of an onboarding checklist is costing us serious time. Competitors all have this.,2025-10-21,3.1.1,devops_jordan
+r0265,3,CSV export produces empty file,The silent failure is the worst part. Users think it worked but got nothing. Please show an error.,2025-08-12,3.1.1,eng_lead_mia
+r0211,4,No onboarding checklist,New team member onboarding takes 30 minutes of manual walkthrough because there's no in-app guide.,2025-09-22,3.1.0,agile_coach_em
+r0271,3,Export feature completely broken,The silent failure is the worst part. Users think it worked but got nothing. Please show an error.,2025-09-06,3.3.0,eng_lead_mia
+r0111,2,First launch shows black screen,After the 3.1.1 update every morning starts with a 10-second black screen. Please roll back the init changes. Review #2030.,2026-01-06,3.2.1,pm_alex
+r0224,4,No welcome flow,New team member onboarding takes 30 minutes of manual walkthrough because there's no in-app guide.,2026-01-05,3.2.1,app_admin_dan
+r0113,1,Black screen on launch,The deadlock appears in the async init sequence. Race condition between auth and data loading components.,2025-08-19,3.1.1,devops_jordan
+r0085,1,Launch failure since update,After the 3.3.0 update every morning starts with a 11-second black screen. Please roll back the init changes. Review #2004.,2026-01-13,3.0.1,biz_owner_tara
+r0206,3,First time user lost,Rated 3 stars instead of 5 because the onboarding experience is terrible. Love the product otherwise.,2026-01-10,3.2.0,qa_morgan
+r0098,2,App stuck on black screen,Black screen appears for exactly 21 seconds then resolves. Not a crash but extremely annoying every morning.,2026-03-02,3.1.1,solo_founder
+r0159,3,12 second dashboard load,I miss when the dashboard loaded in under 1 seconds. 3.1.0 completely broke performance for large workspaces.,2026-02-10,3.2.0,infra_lead_ian
+r0216,3,No welcome flow,Set up wizard would pay for itself in reduced support tickets. Please add basic onboarding steps.,2025-08-24,3.1.1,tech_lead_ryan
+r0086,2,Launch failure since update,Measured the black screen duration: consistently 7 seconds on cold start. Warm restart is instant. Build: 3.0.0.,2025-12-31,3.2.1,app_admin_dan
+r0102,1,Black screen every morning,Updated to 3.2.1 hoping this would be fixed. The black screen on cold launch is still present. 15 versions and no fix. Build: 3.3.0.,2025-12-25,3.1.1,pm_alex
+r0002,1,Workspace switch causes crash,"Every single time I switch projects the app exits. No warning, no autosave. Rating 1 star until this is fixed. Ticket submitted to support.",2025-09-29,3.2.0,agile_coach_em
+r0252,1,Data export is broken,Server-side timeout with no client fallback is my best guess. The export worked fine before 3.3.0.,2026-01-22,3.3.0,agile_coach_em
+r0035,2,Fatal crash on project switch,"Reproducible crash: open project A, click project B, app dies. Happening on both iOS and macOS since 3.3.0. Downgrading until fixed.",2025-09-22,3.2.1,scrum_master_ben
+r0028,2,App crashes switching projects,On enterprise plan and this crash is blocking our cross-project work completely. Need a hotfix today. Issue #1027.,2025-12-07,3.3.0,tech_lead_ryan
+r0118,2,First launch shows black screen,Switching to airplane mode and back sometimes resolves the black screen. Clearly a network init issue. Review #2037.,2026-02-18,3.1.1,product_jane
+r0051,1,Switching projects = crash,The project switch crash has been reported by multiple users for weeks. Still no fix. Unacceptable. Downgrading until fixed.,2025-08-07,3.0.0,pm_alex
+r0282,2,20 minute notification lag,Had to switch to email notifications because push arrives 78 hours later. Defeats the purpose.,2025-09-13,3.0.1,growth_hacker_zoe
+r0153,2,Dashboard regression after update,Before 3.1.0: dashboard loaded in 2 seconds. After 3.1.0: 15 seconds. Clear regression.,2025-09-03,3.1.1,mobile_dev_li
+r0250,3,Silent failure on export,Reproducible: dataset over 8333 rows = empty CSV download. Under 8333 rows = works fine. Item #5004.,2026-03-23,3.1.0,devops_jordan
+r0161,3,Dashboard regression after update,Dashboard is effectively unusable for enterprise users. 68 projects = 10 second load. Unacceptable.,2025-08-10,3.0.0,devops_jordan
+r0280,1,Data export is broken,Our weekly reporting workflow is blocked because CSV export silently fails for large date ranges.,2025-11-06,3.2.0,app_admin_dan
+r0064,1,Crash every time I change projects,The app crashes without fail whenever I switch between projects. Lost all unsaved work twice. Version 3.3.0.,2025-12-23,3.0.1,eng_lead_mia
+r0065,2,Reproducible crash on project change,Crash log shows null pointer exception in ProjectContextHandler. This is a critical bug introduced in 3.2.0. Affects version 3.3.0.,2025-08-28,3.2.0,marcus_dev
+r0093,2,Black screen every morning,Black screen for 7 seconds on every cold start since 3.2.1. Warm restart works but cold start does not.,2025-08-30,3.3.0,cto_nina
+r0020,1,App dies on project navigation,The app crashes without fail whenever I switch between projects. Lost all unsaved work twice. Version 3.3.0. Downgrading until fixed.,2025-08-19,3.2.1,scrum_master_ben
+r0201,3,Onboarding gap is painful,"Signed up and had absolutely no idea where to start. No checklist, no welcome tour, nothing.",2026-01-04,3.0.0,startup_cto
+r0124,1,Update broke the launch,Black screen for 22 seconds on every cold start since 3.3.0. Warm restart works but cold start does not.,2026-01-13,3.0.0,scrum_master_ben
+r0077,2,Instant crash when switching workspace,The app crashes without fail whenever I switch between projects. Lost all unsaved work twice. Version 3.3.0. Issue #1076.,2026-01-26,3.0.1,scrum_master_ben
+r0108,2,First launch shows black screen,Switching to airplane mode and back sometimes resolves the black screen. Clearly a network init issue. Review #2027.,2025-08-26,3.3.0,scrum_master_ben
+r0071,2,App dies on project navigation,Our entire team of 18 is affected. Nobody can switch between projects without the app crashing. Please patch urgently. Three stars for everything else.,2025-10-11,3.2.0,ml_ops_omar
+r0112,2,Update broke the launch,The deadlock appears in the async init sequence. Race condition between auth and data loading components.,2025-11-26,3.1.0,data_eng_yuki
+r0293,1,Notifications arrive way too late,Server logs show the notification sent immediately but device receipt is 32 minutes later. Queue issue. Log #6012.,2025-09-24,3.3.0,ml_ops_omar
+r0017,1,Instant crash when switching workspace,Before 3.1.0 this worked fine. Now switching projects crashes immediately. Please roll back or hotfix this.,2026-02-11,3.2.0,infra_lead_ian
+r0294,3,Push delay ruins real-time work,Had to switch to email notifications because push arrives 54 hours later. Defeats the purpose. Log #6013.,2026-03-25,3.1.0,power_user_max
+r0295,2,Push delay ruins real-time work,Server logs show the notification sent immediately but device receipt is 104 minutes later. Queue issue. Log #6014.,2025-08-05,3.0.1,cloud_arjun
+r0253,1,Export broken for large datasets,Server-side timeout with no client fallback is my best guess. The export worked fine before 3.3.0.,2026-03-23,3.2.0,teamlead_sarah
+r0078,2,Null pointer on project switch,"Reproducible crash: open project A, click project B, app dies. Happening on both iOS and macOS since 3.1.0.",2025-10-27,3.0.1,product_jane
+r0069,2,Project switch kills app,Just updated to 3.2.0 and hit the project switch crash immediately. Thought this was fixed?,2025-10-22,3.3.0,pm_alex
+r0036,2,Instant crash when switching workspace,Just updated to 3.2.1 and hit the project switch crash immediately. Thought this was fixed?,2025-08-12,3.0.0,frontend_sam
+r0259,2,CSV export produces empty file,CSV export works for small datasets but silently fails for anything over 7834 rows. No error shown.,2025-09-16,3.3.0,dev_luke
+r0290,3,20 minute notification lag,Server logs show the notification sent immediately but device receipt is 51 minutes later. Queue issue.,2026-02-28,3.3.0,startup_cto
+r0087,2,Async init deadlock on start,The deadlock appears in the async init sequence. Race condition between auth and data loading components.,2026-01-27,3.1.1,qa_morgan
+r0125,1,Update broke the launch,The deadlock appears in the async init sequence. Race condition between auth and data loading components. Review #2044.,2025-08-12,3.0.0,backend_kai
+r0297,1,20 minute notification lag,The push notification delay has been stable at around 62 minutes for the past 8 weeks.,2026-02-19,3.2.1,growth_hacker_zoe
+r0199,3,Severe dashboard slowdown,Loading spinner shows for 15 seconds every time I open the app. This was never an issue before 3.2.0.,2026-03-17,3.1.0,beta_tester_chloe
+r0212,4,Where is the welcome tour,I've used 30 project management tools. All of them have onboarding. This is the only exception.,2025-09-03,3.3.0,devops_jordan
+r0150,3,Dashboard performance broke,Loading spinner shows for 10 seconds every time I open the app. This was never an issue before 3.1.0.,2026-01-03,3.1.1,vp_product_tom
+r0007,2,Instant crash when switching workspace,"Every single time I switch projects the app exits. No warning, no autosave. Rating 1 star until this is fixed.",2025-09-11,3.1.0,devops_jordan
+r0198,2,Slowest dashboard ever,Before 3.1.1: dashboard loaded in 2 seconds. After 3.1.1: 13 seconds. Clear regression.,2026-03-19,3.2.1,eng_lead_mia
+r0167,3,Dashboard performance unacceptable,Before 3.3.0: dashboard loaded in 1 seconds. After 3.3.0: 15 seconds. Clear regression.,2026-01-15,3.2.1,data_eng_yuki
+r0048,1,Project context crash,I lose 13 minutes of work every time this crash hits me. At least implement autosave as a workaround.,2026-01-05,3.2.0,backend_kai
+r0182,2,12 second dashboard load,Measured 50 loads. Average before 3.2.1: 3s. Average after: 12s. Not a fluke.,2025-12-25,3.1.1,swe_priya
+r0046,1,App crashes switching projects,Just updated to 3.3.0 and hit the project switch crash immediately. Thought this was fixed?,2026-03-31,3.2.1,biz_owner_tara
+r0014,2,App freezes and crashes on switch,"Reproducible crash: open project A, click project B, app dies. Happening on both iOS and macOS since 3.3.0. Three stars for everything else.",2025-09-10,3.1.1,marcus_dev
+r0278,1,CSV download gives empty file,The silent failure is the worst part. Users think it worked but got nothing. Please show an error.,2025-11-03,3.1.0,vp_product_tom
+r0209,3,Starting from scratch with no help,All 23 new users we brought on needed individual walkthroughs. An onboarding flow would fix this.,2025-12-06,3.2.1,mobile_dev_li
+r0263,2,Export feature completely broken,Reproducible: dataset over 3862 rows = empty CSV download. Under 3862 rows = works fine.,2025-09-09,3.1.0,ux_riley
+r0230,3,Zero guidance for new users,Trial conversion must be suffering from the missing onboarding. New users don't know where to start. Note #4029.,2025-12-11,3.0.1,mobile_dev_li
+r0221,3,No welcome flow,All 29 new users we brought on needed individual walkthroughs. An onboarding flow would fix this.,2025-11-09,3.1.0,platform_dev_ava
+r0299,2,Push notifications hours late,Notification delay makes the mobile app useless for real-time collaboration on our team.,2026-02-15,3.1.0,marcus_dev
+r0045,2,Project context crash,"Reproducible in 12 steps: open app, navigate to project list, tap any project. Crash. Downgrading until fixed.",2025-08-12,3.2.1,vp_product_tom
+r0068,2,App dies on project navigation,The app crashes without fail whenever I switch between projects. Lost all unsaved work twice. Version 3.2.1.,2026-01-29,3.0.1,vp_product_tom
+r0053,1,Project switch kills app,The app crashes without fail whenever I switch between projects. Lost all unsaved work twice. Version 3.1.0.,2025-12-21,3.0.1,biz_owner_tara
+r0139,1,Launch failure since update,Black screen appears for exactly 24 seconds then resolves. Not a crash but extremely annoying every morning. Review #2058.,2026-03-07,3.2.1,scrum_master_ben
+r0286,1,Late notifications on iOS and Android,Server logs show the notification sent immediately but device receipt is 81 minutes later. Queue issue.,2025-08-02,3.2.0,mobile_dev_li
+r0228,3,Starting from scratch with no help,The product is powerful but opaque. A 5-step setup wizard would dramatically reduce the learning curve.,2025-08-09,3.2.0,ml_ops_omar
+r0158,2,Load time regression critical,I miss when the dashboard loaded in under 3 seconds. 3.2.0 completely broke performance for large workspaces. 3.2.1 affected.,2025-08-27,3.0.1,qa_morgan
+r0003,2,App crashes switching projects,The crash happens faster if you switch projects quickly. Slower switches sometimes work but not reliably.,2026-02-24,3.3.0,marcus_dev
+r0047,2,App dies on project navigation,"Reproducible in 47 steps: open app, navigate to project list, tap any project. Crash. Three stars for everything else.",2026-01-18,3.1.1,frontend_sam
+r0055,2,Project switch kills app,I love this app but the project crash is a dealbreaker. Downgrading to 3.0.0 for now. Three stars for everything else.,2026-01-08,3.0.1,qa_morgan
+r0185,2,Dashboard crawls since update,I miss when the dashboard loaded in under 3 seconds. 3.3.0 completely broke performance for large workspaces.,2025-08-12,3.1.0,mobile_dev_li
+r0163,3,Dashboard crawls since update,Enterprise account with 178+ data points is completely blocked. Dashboard takes over 15 seconds. Entry #3017.,2025-08-27,3.3.0,power_user_max
+r0200,2,Dashboard performance broke,I miss when the dashboard loaded in under 3 seconds. 3.2.0 completely broke performance for large workspaces. Entry #3054.,2026-02-19,3.0.1,pm_alex
+r0291,2,Late notifications on iOS and Android,Push notifications arrive 31 minutes late on both iOS and Android. Email notifications are instant.,2025-12-20,3.1.1,product_jane
+r0298,1,Push notifications hours late,The push notification delay has been stable at around 115 minutes for the past 7 weeks. Log #6017.,2025-11-20,3.0.1,app_admin_dan
+r0079,1,Instant crash when switching workspace,I love this app but the project crash is a dealbreaker. Downgrading to 3.0.1 for now. Ticket submitted to support.,2025-09-08,3.0.1,platform_dev_ava
+r0138,2,Async init deadlock on start,All 9 users on our account hit black screen on launch. This has been happening since the 3.1.0 release.,2025-11-06,3.2.0,tech_lead_ryan
+r0043,2,Project context crash,The project switch crash has been reported by multiple users for weeks. Still no fix. Unacceptable.,2026-03-29,3.0.0,teamlead_sarah
+r0038,1,Project switch kills app,The crash happens faster if you switch projects quickly. Slower switches sometimes work but not reliably. Affects version 3.1.1.,2025-10-18,3.1.0,power_user_max
+r0127,2,App hangs on startup,My team reported this 18 weeks ago and it's still broken. Black screen on every fresh launch. Build: 3.2.0.,2026-01-15,3.0.0,app_admin_dan
+r0152,2,Dashboard loads in 12 seconds now,Enterprise account with 51+ data points is completely blocked. Dashboard takes over 16 seconds.,2026-02-13,3.0.1,infra_lead_ian
+r0044,2,Instant crash when switching workspace,Our entire team of 21 is affected. Nobody can switch between projects without the app crashing. Please patch urgently.,2026-02-03,3.3.0,frontend_sam
+r0195,3,Dashboard crawls since update,I timed it: dashboard went from 2s to 15s after upgrading to 3.3.0. Please revert the render changes. 3.2.0 affected.,2026-03-31,3.1.0,devops_jordan
+r0096,1,Launch failure since update,Black screen appears for exactly 8 seconds then resolves. Not a crash but extremely annoying every morning.,2026-01-29,3.0.1,backend_kai
+r0222,4,First time user lost,Rated 3 stars instead of 5 because the onboarding experience is terrible. Love the product otherwise.,2025-12-07,3.0.0,product_jane

@@ -63,6 +63,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     Returns:
         Dict with keys: total, written, duplicates, errors.
     """
+    # Keep-warm ping: return immediately before any business logic so an
+    # EventBridge schedule can hold the container warm cheaply.
+    if event.get("is_warmup"):
+        logger.info("keep_warm_ping")
+        return {"status": "warm"}
+
     source_type = event.get("source_type", "").strip()
     items = event.get("items", [])
 

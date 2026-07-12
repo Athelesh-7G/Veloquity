@@ -36,6 +36,12 @@ def handler(event: dict, context: Any) -> dict:
         {"statusCode": 200, "body": <JSON string of result>} on success.
         {"statusCode": 500, "body": <error message string>} on failure.
     """
+    # Keep-warm ping: return immediately before any business logic so an
+    # EventBridge schedule can hold the container warm cheaply.
+    if event.get("is_warmup"):
+        logger.info("keep_warm_ping")
+        return {"statusCode": 200, "body": json.dumps({"status": "warm"})}
+
     conn = None
     try:
         conn = get_conn()

@@ -55,3 +55,123 @@ export function getActiveDataset(): 'app_product' | 'hospital_survey' | null {
 export function clearAll(): void {
   try { localStorage.removeItem(KEY) } catch {}
 }
+
+export function getLiveMode(): boolean {
+  return localStorage.getItem('veloquity_live_mode') === 'true'
+}
+
+export function setLiveMode(enabled: boolean): void {
+  localStorage.setItem('veloquity_live_mode', enabled ? 'true' : 'false')
+}
+
+// ── Active pipeline sources (source_type strings sent to evidence Lambda) ────
+
+const ACTIVE_SOURCES_KEY = 'veloquity_active_sources'
+
+const KNOWN_PIPELINE_SOURCES = ['app_store', 'zendesk', 'patient_portal', 'hospital_survey']
+
+export function getActiveSources(): string[] {
+  try {
+    const stored = localStorage.getItem(ACTIVE_SOURCES_KEY)
+    const parsed: string[] = stored ? JSON.parse(stored) : []
+    if (parsed.length > 0) return parsed
+
+    // Fallback: check veloquity_source_count_* keys written by the Lambda ingest pipeline
+    const detected = KNOWN_PIPELINE_SOURCES.filter(src => {
+      const raw = localStorage.getItem(`veloquity_source_count_${src}`)
+      return raw !== null && parseInt(raw, 10) > 0
+    })
+    if (detected.length > 0) {
+      localStorage.setItem(ACTIVE_SOURCES_KEY, JSON.stringify(detected))
+      return detected
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+export function setActiveSources(sources: string[]): void {
+  localStorage.setItem(ACTIVE_SOURCES_KEY, JSON.stringify(sources))
+}
+
+export function addActiveSource(source: string): void {
+  const current = getActiveSources()
+  if (!current.includes(source)) {
+    setActiveSources([...current, source])
+  }
+}
+
+export function removeActiveSource(source: string): void {
+  setActiveSources(getActiveSources().filter(s => s !== source))
+}
+
+export function hasActiveSources(): boolean {
+  return getActiveSources().length > 0
+}
+
+export function clearAllActiveSources(): void {
+  localStorage.removeItem(ACTIVE_SOURCES_KEY)
+}
+
+// ── Threshold persistence ─────────────────────────────────────────────────────
+
+const THRESHOLD_KEY = 'veloquity_thresholds'
+
+interface ThresholdState {
+  confidenceThreshold: number
+  uncertaintyTolerance: number
+  minEvidence: number
+}
+
+const DEFAULT_THRESHOLDS: ThresholdState = {
+  // 60% matches the V1 pipeline auto-accept floor; real evidence clusters score
+  // 53-72%, so a 75% default would hide nearly all of them on the Confidence
+  // Scores / Scenarios pages.
+  confidenceThreshold: 60,
+  uncertaintyTolerance: 15,
+  minEvidence: 3,
+}
+
+export function getThresholds(): ThresholdState {
+  try {
+    const stored = localStorage.getItem(THRESHOLD_KEY)
+    return stored
+      ? { ...DEFAULT_THRESHOLDS, ...JSON.parse(stored) }
+      : DEFAULT_THRESHOLDS
+  } catch {
+    return DEFAULT_THRESHOLDS
+  }
+}
+
+// Same-tab sync uses a CustomEvent — a manually-dispatched StorageEvent is
+// non-idiomatic and also wakes every plain 'storage' listener (e.g. liveMode
+// sync) on each threshold write. 'veloquity:thresholds' is dedicated and clean.
+export const THRESHOLD_EVENT = 'veloquity:thresholds'
+
+export function setThresholds(t: Partial<ThresholdState>): void {
+  try {
+    const current = getThresholds()
+    const next = { ...current, ...t }
+    localStorage.setItem(THRESHOLD_KEY, JSON.stringify(next))
+    window.dispatchEvent(new CustomEvent(THRESHOLD_EVENT, { detail: next }))
+  } catch {}
+}
+
+export function resetThresholds(): void {
+  localStorage.removeItem(THRESHOLD_KEY)
+  window.dispatchEvent(new CustomEvent(THRESHOLD_EVENT, { detail: DEFAULT_THRESHOLDS }))
+}
+
+// ── Source label mapping ──────────────────────────────────────────────────────
+
+export const SOURCE_LABELS: Record<string, string> = {
+  app_store: 'App Store Reviews',
+  zendesk: 'Support Tickets',
+  patient_portal: 'Patient Portal Reviews',
+  hospital_survey: 'Hospital Survey Tickets',
+}
+
+export function getSourceLabel(key: string): string {
+  return SOURCE_LABELS[key] || key
+}

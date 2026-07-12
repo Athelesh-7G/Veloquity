@@ -16,15 +16,19 @@ logger = logging.getLogger(__name__)
 
 # Keys tried in order when extracting body text per source.
 _TEXT_KEYS = {
-    "app_store": ["body", "review", "text", "content", "description"],
-    "zendesk":   ["description", "body", "comment", "text", "content"],
+    "app_store":      ["body", "review", "text", "content", "description"],
+    "zendesk":        ["description", "body", "comment", "text", "content"],
+    "patient_portal": ["review", "body", "text", "content", "description"],
+    "hospital_survey":["description", "body", "text", "review", "content"],
 }
 _TEXT_KEYS_FALLBACK = ["body", "text", "description", "review", "content", "comment"]
 
 # Keys tried in order when extracting timestamp per source.
 _TS_KEYS = {
-    "app_store": ["date", "updated", "created_at", "timestamp"],
-    "zendesk":   ["created_at", "updated_at", "date", "timestamp"],
+    "app_store":      ["date", "updated", "created_at", "timestamp"],
+    "zendesk":        ["created_at", "updated_at", "date", "timestamp"],
+    "patient_portal": ["date", "updated", "created_at", "timestamp"],
+    "hospital_survey":["created_at", "updated_at", "date", "timestamp"],
 }
 _TS_KEYS_FALLBACK = ["created_at", "updated_at", "date", "timestamp"]
 
@@ -144,10 +148,25 @@ def normalize(raw: dict[str, Any], source: str) -> dict[str, Any]:
     content_hash = _sha256(clean_text)
     timestamp = _extract_timestamp(raw, source)
 
-    return {
+    result = {
         "id":        str(uuid.uuid4()),
         "source":    source,
         "text":      clean_text,
         "timestamp": timestamp,
         "hash":      content_hash,
     }
+
+    # Preserve optional structured fields so the evidence drill-down can show
+    # star ratings and titles for the original feedback items (source-to-decision
+    # traceability). These are metadata only and are NOT part of the dedup hash.
+    rating = raw.get("rating")
+    if rating is not None and str(rating).strip() != "":
+        try:
+            result["rating"] = max(1, min(5, int(float(rating))))
+        except (ValueError, TypeError):
+            pass
+    title = raw.get("title") or raw.get("subject")
+    if isinstance(title, str) and title.strip():
+        result["title"] = title.strip()[:200]
+
+    return result

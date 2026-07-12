@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { LineChart, TrendingUp, TrendingDown, Minus, Calendar, ArrowUpRight, ArrowDownRight, Filter, AlertTriangle } from 'lucide-react'
-import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { LineChart, TrendingUp, TrendingDown, Minus, Calendar, ArrowUpRight, ArrowDownRight, Filter, AlertTriangle, Wifi } from 'lucide-react'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getSourceLabel } from '@/utils/uploadState'
+import { fetchLiveEvidence, fetchLiveStats, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { HOSPITAL_CHART_DATA, HOSPITAL_TRENDS_METRICS } from '@/api/mockData'
 
 // ─── Static sparklines per metric (normalised 0–100 for height, last = current) ───
@@ -141,14 +142,127 @@ const EMPTY_TRENDS_METRICS = trendsData.map((t) => ({
   sparkline: Array(15).fill(50) as number[],
 }))
 
+function generateLiveInsights(
+  evidence: ApiEvidenceItem[],
+  stats: { total_embedded: number; active_clusters: number; mapped_items: number; avg_confidence: number } | null,
+) {
+  if (!evidence || evidence.length === 0) return []
+  const sortedByConf = [...evidence].sort((a, b) => b.confidence_score - a.confidence_score)
+  const topCluster = sortedByConf[0]
+  const avgConf = Math.round(evidence.reduce((s, e) => s + e.confidence_score * 100, 0) / evidence.length)
+  const allSources = new Set<string>()
+  evidence.forEach((e) => Object.keys(e.source_lineage || {}).forEach((s) => allSources.add(s)))
+  const sourceNames = Array.from(allSources).map((s) => getSourceLabel(s)).join(' and ')
+  const totalItems = stats?.total_embedded ?? 0
+  const recentCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+  const risingClusters = evidence.filter(
+    (e) => e.last_validated_at && new Date(e.last_validated_at) > recentCutoff,
+  ).slice(0, 2)
+
+  const insights: { icon: typeof TrendingUp; color: string; title: string; desc: string }[] = []
+  insights.push({
+    icon: TrendingUp, color: 'emerald',
+    title: `Feedback corpus: ${totalItems > 0 ? totalItems : evidence.reduce((s, e) => s + (e.item_count || e.unique_user_count || 0), 0)} items analyzed`,
+    desc: `${sourceNames} — ${evidence.length} cluster${evidence.length !== 1 ? 's' : ''} accepted at ≥ 0.60 confidence threshold. Cross-source corroboration strengthens cluster confidence.`,
+  })
+  insights.push({
+    icon: TrendingUp, color: 'blue',
+    title: `Avg cluster confidence: ${avgConf}%`,
+    desc: `${sortedByConf.filter((e) => e.confidence_score >= 0.60).length} of ${evidence.length} clusters exceed the 0.60 auto-accept threshold. Top cluster "${topCluster?.theme?.split(' | ')[0]?.slice(0, 40)}" sits at ${Math.round((topCluster?.confidence_score || 0) * 100)}%.`,
+  })
+  if (risingClusters.length > 0) {
+    insights.push({
+      icon: TrendingDown, color: 'amber',
+      title: `${risingClusters.length} cluster${risingClusters.length > 1 ? 's' : ''} validated recently`,
+      desc: risingClusters.map((c) => `"${c.theme?.split(' | ')[0]?.slice(0, 35)}" (${Math.round(c.confidence_score * 100)}% conf)`).join(' and ') + ' — actively corroborated across sources.',
+    })
+  }
+  return insights
+}
+
 export default function Trends() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
   const [timeRange, setTimeRange] = useState('30d')
   const [hoveredBar, setHoveredBar] = useState<number | null>(null)
 
-  const activeMetrics  = !hasData ? EMPTY_TRENDS_METRICS : dataset === 'hospital_survey' ? HOSPITAL_TRENDS_METRICS : trendsData
-  const activeInsights = !hasData ? [] : dataset === 'hospital_survey' ? HOSPITAL_INSIGHTS : INSIGHTS
+  // Live mode
+  const [liveMode, setLiveModeState]      = useState(() => getLiveMode())
+  const [liveEvidence, setLiveEvidence]   = useState<ApiEvidenceItem[] | null>(null)
+  const [liveStats, setLiveStats]         = useState<{ total_embedded: number; active_clusters: number; mapped_items: number; avg_confidence: number } | null>(null)
+  const [liveLoading, setLiveLoading]     = useState(() => getLiveMode() && hasActiveSources())
+  const [liveError, setLiveError]         = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!liveMode) return
+    if (!hasActiveSources()) {
+      setLiveEvidence([])
+      setLiveLoading(false)
+      return
+    }
+    setLiveLoading(true)
+    setLiveError(null)
+    fetchLiveEvidence()
+      .then((ev) => {
+        setLiveEvidence(ev)
+        // Stats endpoint may not be deployed — derive from evidence on failure
+        fetchLiveStats()
+          .then((stats) => setLiveStats(stats))
+          .catch(() => {
+            const totalItems = ev.reduce((s, e) => s + (e.item_count ?? 0), 0)
+            const avgConf = ev.length > 0 ? ev.reduce((s, e) => s + e.confidence_score, 0) / ev.length : 0
+            setLiveStats({
+              total_embedded: totalItems,
+              active_clusters: ev.length,
+              mapped_items: totalItems,
+              avg_confidence: avgConf,
+            })
+          })
+        setLiveLoading(false)
+      })
+      .catch((err: Error) => { setLiveError(err.message); setLiveLoading(false) })
+  }, [liveMode])
+
+  // Derive live metrics from API evidence
+  const liveTrendsMetrics = liveEvidence ? [
+    {
+      id: 'l1', name: 'Evidence Clusters',
+      currentValue: liveEvidence.length, previousValue: 0, change: 0, trend: 'stable' as const,
+      unit: '', positiveIsGood: true,
+      sparkline: Array(15).fill(0).map((_, i) => Math.round((i / 14) * 100)) as number[],
+    },
+    {
+      id: 'l2', name: 'Avg Confidence Score',
+      currentValue: liveEvidence.length > 0 ? Math.round(liveEvidence.reduce((s, e) => s + e.confidence_score, 0) / liveEvidence.length * 100) : 0,
+      previousValue: 0, change: 0, trend: 'stable' as const,
+      unit: '%', positiveIsGood: true,
+      sparkline: liveEvidence.map((e) => Math.round(e.confidence_score * 100)).slice(0, 15).concat(Array(Math.max(0, 15 - liveEvidence.length)).fill(50)) as number[],
+    },
+    {
+      id: 'l3', name: 'Total Unique Users',
+      currentValue: liveEvidence.reduce((s, e) => s + e.unique_user_count, 0),
+      previousValue: 0, change: 0, trend: 'stable' as const,
+      unit: '', positiveIsGood: true,
+      sparkline: Array(15).fill(50) as number[],
+    },
+    {
+      id: 'l4', name: 'Active Sources',
+      currentValue: new Set(liveEvidence.flatMap((e) => Object.keys(e.source_lineage ?? {}))).size,
+      previousValue: 0, change: 0, trend: 'stable' as const,
+      unit: '', positiveIsGood: true,
+      sparkline: Array(15).fill(50) as number[],
+    },
+  ] : null
+
+  const activeMetrics  = liveMode && liveTrendsMetrics ? liveTrendsMetrics
+    : !hasData ? EMPTY_TRENDS_METRICS
+    : dataset === 'hospital_survey' ? HOSPITAL_TRENDS_METRICS : trendsData
+  const liveInsightList = liveMode && liveEvidence && liveEvidence.length > 0
+    ? generateLiveInsights(liveEvidence, liveStats)
+    : null
+  const activeInsights = liveMode
+    ? (liveInsightList ?? [])
+    : (!hasData ? [] : dataset === 'hospital_survey' ? HOSPITAL_INSIGHTS : INSIGHTS)
   const activeChartMap = dataset === 'hospital_survey' ? HOSPITAL_CHART_DATA : CHART_DATA
   const src1Label      = dataset === 'hospital_survey' ? 'Patient Portal'  : 'App Store'
   const src2Label      = dataset === 'hospital_survey' ? 'Hospital Survey' : 'Support Tickets'
@@ -156,18 +270,45 @@ export default function Trends() {
   const chartData = activeChartMap[timeRange]
   const chartMax  = hasData ? Math.max(...chartData.map((d) => d.appStore + d.supportTickets)) : 100
 
+  if (liveMode && !hasActiveSources()) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
+        <div style={{ fontSize:'32px' }}>📂</div>
+        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
+        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
+
+  if (liveMode && hasActiveSources() && liveLoading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', gap:'12px', color:'#22c55e', fontSize:'14px' }}>
+        <span style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e', display:'inline-block', animation:'pulse 1.5s infinite' }} />
+        Loading V1 trend data…
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-semibold text-foreground">Trends</h1>
-            {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 border">No Data — Upload to Begin</Badge>}
+            {!hasData && !liveMode && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 border">No Data — Upload to Begin</Badge>}
           </div>
           <p className="text-muted-foreground mt-1">Track key metrics over time</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => { const n = !liveMode; setLiveModeState(n); setLiveMode(n) }}
+            style={{ padding:'6px 14px', borderRadius:'6px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'12px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
+          >
+            <span style={{ width:8, height:8, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
+            {liveMode ? 'V1' : 'V0'}
+          </button>
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-[140px]">
               <Calendar className="w-4 h-4 mr-2" />
@@ -184,12 +325,26 @@ export default function Trends() {
         </div>
       </div>
 
+      {liveMode && liveLoading && (
+        <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
+          <Wifi className="w-4 h-4 animate-pulse shrink-0" />Loading V1 trend data…
+        </div>
+      )}
+      {liveMode && liveError && (
+        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">V1 pipeline error: {liveError}</div>
+      )}
+      {liveMode && liveEvidence && !liveLoading && (
+        <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
+          <Wifi className="w-4 h-4 shrink-0" />
+          V1 Intelligence Pipeline — metrics derived from {liveEvidence.length} real evidence clusters.
+        </div>
+      )}
       {/* No-data banner */}
-      {!hasData && (
+      {!hasData && !liveMode && (
         <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
           <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
           <p className="text-sm text-amber-600 dark:text-amber-400">
-            Upload feedback data on the <span className="font-medium">Import Sources</span> page to unlock trends intelligence
+            Upload feedback data on the <span className="font-medium">Import Sources</span> page, or enable V1 mode to unlock trends intelligence
           </p>
         </div>
       )}
@@ -361,6 +516,11 @@ export default function Trends() {
               </>
             )}
           </div>
+          {liveMode && (
+            <p className="text-xs text-muted-foreground/60 mt-3 italic">
+              Chart reflects V0 sample dataset. Connect sources in Import Sources to populate with real volume data.
+            </p>
+          )}
         </CardContent>
       </Card>
 

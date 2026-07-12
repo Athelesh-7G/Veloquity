@@ -62,14 +62,25 @@ def compute_confidence(cluster: dict) -> float:
         return 0.0
 
     variance = sum(distances) / len(distances)
-    raw = 1.0 - (variance * 2.0)
+
+    # Confidence blends three signals so that large, internally-consistent
+    # clusters of real (textually varied) feedback are not unfairly penalised
+    # the way a pure centroid-variance score is. A 40-item crash cluster that
+    # users phrase 40 different ways is a STRONG signal, not a weak one.
+    #   tightness   — how close members sit to the centroid (1 - variance)
+    #   similarity  — mean pairwise intra-cluster cosine similarity
+    #   size_factor — larger clusters are stronger signals (saturates at 35)
+    tightness   = 1.0 - variance
+    intra       = float(cluster.get("avg_intra_similarity", 0.0) or 0.0)
+    size_factor = min(1.0, len(items) / 35.0)
+    raw = 0.55 * tightness + 0.25 * intra + 0.20 * size_factor
 
     # Clamp to [0.0, 1.0].
     score = max(0.0, min(1.0, raw))
 
     logger.debug(
-        "Confidence: cluster_id=%s variance=%.4f raw=%.4f score=%.4f",
-        cluster.get("cluster_id", "?"), variance, raw, score,
+        "Confidence: cluster_id=%s variance=%.4f intra=%.4f size=%d score=%.4f",
+        cluster.get("cluster_id", "?"), variance, intra, len(items), score,
     )
     return score
 

@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Shield, TrendingUp, ExternalLink, Layers, ChevronRight,
-  Info, Link2, BarChart3, CheckCircle2, Users, Hash
+  Info, Link2, BarChart3, CheckCircle2, Users, Hash, Wifi
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { MOCK_EVIDENCE } from '@/api/mockData'
-import { getEvidence } from '@/api/client'
+import { getEvidence, fetchLiveEvidence, triggerRecluster, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
 import { cn } from '@/lib/utils'
-import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, getActiveSources, hasActiveSources, getThresholds, setThresholds, SOURCE_LABELS } from '@/utils/uploadState'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EvidenceCategory = 'Technical' | 'Feature' | 'UX'
@@ -492,6 +492,33 @@ function EvidenceCard({
   )
 }
 
+// ─── Map real API evidence to local EvidenceItem shape ───────────────────────
+function mapApiToEvidenceItem(e: ApiEvidenceItem): EvidenceItem {
+  const confPct = Math.round(e.confidence_score * 100)
+  // theme is a pipe-joined quote dump — use first segment as title
+  const title = e.theme.split(' | ')[0].trim()
+  return {
+    id: e.id,
+    clusterId: e.id,
+    title,
+    sources: Object.keys(e.source_lineage ?? {}) as any,
+    confidence: confPct,
+    uncertaintyRange: [
+      Math.max(0,   confPct - 8),
+      Math.min(100, confPct + 5),
+    ] as [number, number],
+    feedbackCount: e.item_count > 0 ? e.item_count : e.unique_user_count,
+    uniqueUsers: e.unique_user_count,
+    category: 'Technical' as EvidenceCategory,
+    trend: 'stable' as EvidenceTrend,
+    lastValidated: (e.last_validated_at ?? '').split('T')[0],
+    representativeQuotes: Array.isArray(e.representative_quotes)
+      ? e.representative_quotes.map((q: any) => (typeof q === 'string' ? q : q.text ?? ''))
+      : [],
+    linkedFeedback: [],
+  }
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function EvidenceGrid() {
   const hasData = hasUploadedData()
@@ -500,6 +527,24 @@ export default function EvidenceGrid() {
   const [evidenceList, setEvidenceList] = useState<EvidenceItem[]>(
     dataset === 'hospital_survey' ? HOSPITAL_EVIDENCE_DATA : EVIDENCE_DATA
   )
+
+  // Live mode state
+  const [liveMode, setLiveModeState] = useState(() => getLiveMode())
+  const [liveList, setLiveList] = useState<EvidenceItem[] | null>(null)
+  const [liveLoading, setLiveLoading] = useState(() => getLiveMode() && hasActiveSources())
+  const [liveError, setLiveError] = useState<string | null>(null)
+
+  // Tier 1: client-side min-items filter (instant, no Lambda call)
+  const [minItems, setMinItems] = useState(() => getThresholds().minEvidence)
+  // Tier 2: Re-cluster button state
+  const [reclustering, setReclustering] = useState(false)
+
+  useEffect(() => {
+    const onThresholds = () => setMinItems(getThresholds().minEvidence)
+    window.addEventListener('veloquity:thresholds', onThresholds)
+    return () => window.removeEventListener('veloquity:thresholds', onThresholds)
+  }, [])
+  const [reclusterDone, setReclusterDone] = useState(false)
 
   // Only replace mock data if the API returns well-formed evidence clusters.
   useEffect(() => {
@@ -534,15 +579,70 @@ export default function EvidenceGrid() {
       .catch(() => {})  // silently keep mock data on any error
   }, [])
 
+  useEffect(() => {
+    if (!liveMode) return
+    if (!hasActiveSources()) {
+      setLiveList([])
+      setLiveLoading(false)
+      return
+    }
+    setLiveLoading(true)
+    setLiveError(null)
+    fetchLiveEvidence()
+      .then((r) => {
+        setLiveList(r.map(mapApiToEvidenceItem))
+        setLiveLoading(false)
+      })
+      .catch((err: Error) => {
+        setLiveError(err.message)
+        setLiveLoading(false)
+      })
+  }, [liveMode])
+
   const toggleExpand = (id: string) =>
     setExpandedId(expandedId === id ? null : id)
 
-  const avgConf = Math.round(
-    evidenceList.reduce((s, e) => s + e.confidence, 0) / evidenceList.length,
-  )
-  const totalFbClustered = evidenceList.reduce((s, e) => s + e.feedbackCount, 0)
+  const activeList = liveMode && liveList ? liveList : evidenceList
 
-  const displayList = hasData ? evidenceList : []
+  // Tier 1: apply client-side min-items filter in live mode
+  const filteredList = liveMode && liveList
+    ? liveList.filter(e => e.feedbackCount >= minItems)
+    : activeList
+
+  const sortedEvidence = useMemo(() => {
+    if (!liveMode || !liveList) return filteredList
+    return [...filteredList]
+      .map(e => ({ ...e, _priority: (e.confidence * 0.35) + ((e.uniqueUsers ?? 0) * 0.40) + ((e.feedbackCount ?? 0) * 0.25) }))
+      .sort((a, b) => b._priority - a._priority)
+  }, [liveMode, liveList, filteredList])
+
+  const avgConf = filteredList.length > 0
+    ? Math.round(filteredList.reduce((s, e) => s + e.confidence, 0) / filteredList.length)
+    : 0
+  const totalFbClustered = filteredList.reduce((s, e) => s + e.feedbackCount, 0)
+
+  const displayList = liveMode ? sortedEvidence : hasData ? evidenceList : []
+
+  if (liveMode && !hasActiveSources()) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
+        <div style={{ fontSize:'32px' }}>📂</div>
+        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
+        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
+        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
+      </div>
+    )
+  }
+
+  // Flash guard: show a spinner (not mock JSX) while live data is still loading.
+  if (liveMode && hasActiveSources() && liveLoading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', gap:'12px', color:'#22c55e', fontSize:'14px' }}>
+        <span style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e', display:'inline-block', animation:'pulse 1.5s infinite' }} />
+        Loading V1 pipeline data…
+      </div>
+    )
+  }
 
   return (
     <div className="p-6">
@@ -554,17 +654,123 @@ export default function EvidenceGrid() {
             pgvector cosine clusters · Titan Embed V2 · confidence ≥ 0.60 auto-accept
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
+        <div className="flex items-center gap-3 flex-wrap">
+          {!hasData && !liveMode && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-0">No Data — Upload to Begin</Badge>}
+          <button
+            onClick={() => {
+              const next = !liveMode
+              setLiveModeState(next)
+              setLiveMode(next)
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '6px',
+              border: '1px solid',
+              borderColor: liveMode ? '#22c55e' : '#6b7280',
+              background: liveMode ? '#052e16' : 'transparent',
+              color: liveMode ? '#22c55e' : '#9ca3af',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: liveMode ? '#22c55e' : '#6b7280',
+              display: 'inline-block',
+            }} />
+            {liveMode ? 'V1' : 'V0'}
+          </button>
           <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700">
             <Shield className="w-4 h-4 mr-2" />Create Evidence
           </Button>
         </div>
       </div>
 
-      {!hasData && (
+      {liveMode && liveLoading && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
+          <Wifi className="w-4 h-4 animate-pulse shrink-0" />
+          Loading V1 pipeline data…
+        </div>
+      )}
+      {liveMode && liveError && (
+        <div className="mb-4 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">
+          V1 pipeline error: {liveError}
+        </div>
+      )}
+      {liveMode && liveList && !liveLoading && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
+          <Wifi className="w-4 h-4 shrink-0" />
+          V1 Intelligence Pipeline — showing {filteredList.length} of {liveList.length} clusters
+          {liveList.length !== filteredList.length && ` (min ${minItems} items filter active)`}
+        </div>
+      )}
+
+      {/* ── Tier 1 filter + Tier 2 Re-cluster (live mode only) ──────────── */}
+      {liveMode && (
+        <div className="mb-4 flex flex-wrap items-center gap-4 p-4 rounded-xl border border-border bg-muted/30">
+          <span className="text-sm font-medium text-foreground whitespace-nowrap">Min Evidence Items</span>
+          <div className="flex items-center gap-3 flex-1 min-w-[200px]">
+            <input
+              type="range"
+              min={2}
+              max={50}
+              step={1}
+              value={minItems}
+              onChange={e => { const val = Number(e.target.value); setMinItems(val); setThresholds({ minEvidence: val }) }}
+              className="flex-1 accent-violet-600"
+            />
+            <span className="text-sm font-bold text-violet-600 dark:text-violet-400 w-16 text-right">
+              {minItems} items
+            </span>
+          </div>
+          <button
+            onClick={async () => {
+              if (reclustering) return
+              setReclustering(true)
+              setReclusterDone(false)
+              try {
+                await triggerRecluster({
+                  min_cluster_size: minItems,
+                  cluster_selection_epsilon: minItems >= 30 ? 0.5 : 0.3,
+                  active_sources: getActiveSources(),
+                })
+                setReclusterDone(true)
+                setTimeout(() => {
+                  setReclusterDone(false)
+                  fetchLiveEvidence()
+                    .then(r => setLiveList(r.map(mapApiToEvidenceItem)))
+                    .catch(console.error)
+                }, 45000)
+              } catch (err) {
+                console.error('Recluster failed:', err)
+              } finally {
+                setReclustering(false)
+              }
+            }}
+            disabled={reclustering}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap ${
+              reclustering
+                ? 'border-muted-foreground text-muted-foreground cursor-not-allowed'
+                : reclusterDone
+                ? 'border-green-500 bg-green-500/10 text-green-600 dark:text-green-400'
+                : 'border-violet-500 bg-violet-600 text-white hover:bg-violet-700 cursor-pointer'
+            }`}
+          >
+            {reclustering
+              ? 'Re-clustering…'
+              : reclusterDone
+              ? 'Done — refreshing in 45s'
+              : 'Re-cluster'}
+          </button>
+        </div>
+      )}
+      {!hasData && !liveMode && (
         <div className="mb-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-          Upload feedback data on the Import Sources page to see insights
+          Upload feedback data on the Import Sources page, or enable V1 mode to show intelligence pipeline data.
         </div>
       )}
 
@@ -572,19 +778,19 @@ export default function EvidenceGrid() {
       <div className="grid sm:grid-cols-4 gap-4 mb-8">
         {[
           {
-            icon: Shield,       label: 'Evidence Clusters',  value: hasData ? evidenceList.length : 0,
+            icon: Shield,       label: 'Evidence Clusters',  value: (liveMode || hasData) ? filteredList.length : 0,
             gradient: 'from-blue-500/5 to-blue-500/10',      iconColor: 'text-blue-600',
           },
           {
-            icon: TrendingUp,   label: 'Avg Confidence',     value: hasData ? `${avgConf}%` : '0%',
+            icon: TrendingUp,   label: 'Avg Confidence',     value: (liveMode || hasData) ? `${avgConf}%` : '0%',
             gradient: 'from-violet-500/5 to-violet-500/10',  iconColor: 'text-violet-600',
           },
           {
-            icon: Layers,       label: 'Feedback Clustered', value: hasData ? totalFbClustered.toLocaleString() : '0',
+            icon: Layers,       label: 'Feedback Clustered', value: (liveMode || hasData) ? totalFbClustered.toLocaleString() : '0',
             gradient: 'from-green-500/5 to-green-500/10',    iconColor: 'text-green-600',
           },
           {
-            icon: ExternalLink, label: 'Unique Sources',     value: hasData ? UNIQUE_SOURCES : 0,
+            icon: ExternalLink, label: 'Unique Sources',     value: (liveMode || hasData) ? UNIQUE_SOURCES : 0,
             gradient: 'from-orange-500/5 to-orange-500/10',  iconColor: 'text-orange-600',
           },
         ].map(({ icon: Icon, label, value, gradient, iconColor }) => (
@@ -626,9 +832,9 @@ export default function EvidenceGrid() {
             onToggle={() => toggleExpand(item.id)}
           />
         ))}
-        {!hasData && displayList.length === 0 && (
+        {!hasData && !liveMode && displayList.length === 0 && (
           <div className="lg:col-span-2 text-center py-16 text-muted-foreground text-sm">
-            Upload feedback data on the Import Sources page to see insights
+            Upload feedback data on the Import Sources page, or enable V1 mode to show intelligence pipeline data.
           </div>
         )}
       </div>

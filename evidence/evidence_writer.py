@@ -223,6 +223,174 @@ def _build_theme(quotes: list[dict], max_len: int = 500) -> str:
     return joined[: max_len - 1] + "\u2026"
 
 
+def _synthesize_cluster_name(quotes: list[dict], bedrock_client) -> str:
+    """Use Nova Pro to synthesize a short formal cluster name from quotes.
+
+    Falls back to truncated first quote if Bedrock call fails or no client.
+    Format: 4-8 words, title case, describes the issue not the complaint.
+
+    Args:
+        quotes:         List of {"text": str, "source": str} dicts.
+        bedrock_client: Boto3 bedrock-runtime client, or None.
+
+    Returns:
+        A 4-8 word title-case cluster name, or a truncated first quote on failure.
+    """
+    if not quotes or not bedrock_client:
+        return _build_theme(quotes, max_len=80)
+
+    sample_texts = [q.get("text", "")[:200] for q in quotes[:5] if q]
+    sample_texts = [t for t in sample_texts if t]
+
+    if not sample_texts:
+        return _build_theme(quotes, max_len=80)
+
+    prompt = (
+        "You are analyzing product feedback clusters. "
+        "Given these user feedback samples from the same cluster, "
+        "generate a concise formal cluster name (4-8 words, title case) "
+        "that describes the underlying issue, not the complaint. "
+        "Return ONLY the cluster name, nothing else.\n\n"
+        "Feedback samples:\n"
+        + "\n".join(f"- {t}" for t in sample_texts)
+    )
+
+    try:
+        response = bedrock_client.invoke_model(
+            modelId="us.amazon.nova-pro-v1:0",
+            body=json.dumps({
+                "messages": [{"role": "user", "content": [{"text": prompt}]}],
+                "inferenceConfig": {"maxTokens": 30, "temperature": 0.1},
+            }),
+            contentType="application/json",
+            accept="application/json",
+        )
+        raw = json.loads(response["body"].read())
+        name = raw["output"]["message"]["content"][0]["text"].strip().strip("\"'").strip()
+        return name[:80] if name else _build_theme(quotes, max_len=80)
+    except Exception as exc:
+        logger.warning("_synthesize_cluster_name failed, using fallback: %s", exc)
+        return _build_theme(quotes, max_len=80)
+
+
+def rename_existing_clusters(conn, bedrock_client) -> dict:
+    """One-time rename of clusters whose theme is still raw quote text.
+
+    Identifies active clusters with themes longer than 50 chars or
+    containing sentence-end punctuation / common pronoun patterns —
+    signatures of raw quote dumps produced before _synthesize_cluster_name()
+    was added.
+
+    For each raw-quote cluster:
+      1. Synthesize a clean 4-8 word name via Nova Pro.
+      2. If the synthesized name is already taken by a cleaner cluster,
+         this row is a semantic duplicate — DELETE it.
+      3. Otherwise UPDATE the theme in place.
+
+    Args:
+        conn:           Live psycopg2 connection (caller owns the lifecycle).
+        bedrock_client: Boto3 bedrock-runtime client.
+
+    Returns:
+        {"renamed": int, "deleted_duplicates": int, "total_checked": int, "skipped": int}
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, theme, representative_quotes
+            FROM evidence
+            WHERE status = 'active'
+            AND (
+                LENGTH(theme) > 50
+                OR theme LIKE '%.%'
+                OR theme LIKE '%?%'
+                OR theme LIKE '%!%'
+                OR theme ~* '(^|\s)(the|this|our|my|i|we|you)\s'
+            )
+            ORDER BY confidence_score DESC
+            """,
+        )
+        rows = cur.fetchall()
+
+    renamed  = 0
+    deleted  = 0
+    skipped  = 0
+
+    with conn.cursor() as cur:
+        for row in rows:
+            evidence_id = row[0]
+            old_theme   = row[1]
+            quotes_raw  = row[2]
+
+            try:
+                # representative_quotes stored as JSONB — psycopg2 returns a list.
+                if isinstance(quotes_raw, list):
+                    quotes = quotes_raw
+                elif isinstance(quotes_raw, str):
+                    quotes = json.loads(quotes_raw)
+                else:
+                    quotes = []
+
+                new_name = _synthesize_cluster_name(quotes, bedrock_client)
+
+                if not new_name or new_name == old_theme or len(new_name) > 80:
+                    skipped += 1
+                    continue
+
+                # Check if the synthesized name already exists for a different (clean) row.
+                cur.execute(
+                    "SELECT id FROM evidence WHERE theme = %s AND id != %s AND status = 'active'",
+                    (new_name, evidence_id),
+                )
+                conflict = cur.fetchone()
+
+                if conflict:
+                    # A clean version of this cluster already exists. This raw-quote
+                    # row is a semantic duplicate — remove it and its item map entries.
+                    cur.execute(
+                        "DELETE FROM evidence_item_map WHERE evidence_id = %s",
+                        (evidence_id,),
+                    )
+                    cur.execute(
+                        "DELETE FROM evidence WHERE id = %s",
+                        (evidence_id,),
+                    )
+                    logger.info(
+                        "rename_existing_clusters: deleted duplicate id=%s (clean name '%s' already exists)",
+                        evidence_id, new_name,
+                    )
+                    deleted += 1
+                else:
+                    cur.execute(
+                        "UPDATE evidence SET theme = %s WHERE id = %s",
+                        (new_name, evidence_id),
+                    )
+                    logger.info(
+                        "rename_existing_clusters: id=%s '%s' → '%s'",
+                        evidence_id, old_theme[:60], new_name,
+                    )
+                    renamed += 1
+
+            except Exception as exc:
+                logger.warning(
+                    "rename_existing_clusters: skipping id=%s error=%s",
+                    evidence_id, exc,
+                )
+                skipped += 1
+
+    conn.commit()
+    logger.info(
+        "rename_existing_clusters: total=%d renamed=%d deleted=%d skipped=%d",
+        len(rows), renamed, deleted, skipped,
+    )
+    return {
+        "renamed":           renamed,
+        "deleted_duplicates": deleted,
+        "total_checked":     len(rows),
+        "skipped":           skipped,
+    }
+
+
 def _vector_to_pg(vector: list[float]) -> str:
     """Format a list of floats as a pgvector literal string.
 
@@ -272,6 +440,14 @@ def write_item_map(conn, evidence_id: str, cluster_items: list[dict]) -> int:
                 {k: item.get(k) for k in ("id", "hash", "source")},
             )
             continue
+        # Store text/rating/title inline so the drill-down (/items) reads them
+        # straight from the DB — no per-request S3 dependency. This survives the
+        # raw S3 objects being deleted (re-imports, lifecycle, wipes).
+        rating = item.get("rating")
+        try:
+            rating = int(rating) if rating is not None else None
+        except (ValueError, TypeError):
+            rating = None
         rows.append((
             evidence_id,
             item_hash,
@@ -279,6 +455,9 @@ def write_item_map(conn, evidence_id: str, cluster_items: list[dict]) -> int:
             item.get("source", "unknown"),
             item_id,
             _parse_timestamp(item.get("timestamp")),
+            (item.get("text") or "")[:2000] or None,
+            rating,
+            (item.get("title") or None),
         ))
 
     if not rows:
@@ -288,9 +467,13 @@ def write_item_map(conn, evidence_id: str, cluster_items: list[dict]) -> int:
         cur.executemany(
             """
             INSERT INTO evidence_item_map
-                (evidence_id, dedup_hash, s3_key, source, item_id, item_timestamp)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (evidence_id, dedup_hash) DO NOTHING
+                (evidence_id, dedup_hash, s3_key, source, item_id, item_timestamp,
+                 text, rating, title)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (evidence_id, dedup_hash) DO UPDATE SET
+                text   = COALESCE(EXCLUDED.text,   evidence_item_map.text),
+                rating = COALESCE(EXCLUDED.rating, evidence_item_map.rating),
+                title  = COALESCE(EXCLUDED.title,  evidence_item_map.title)
             """,
             rows,
         )
@@ -303,16 +486,22 @@ def write_item_map(conn, evidence_id: str, cluster_items: list[dict]) -> int:
     return inserted
 
 
-def write_evidence(cluster: dict[str, Any], confidence_score: float) -> str:
+def write_evidence(
+    cluster: dict[str, Any],
+    confidence_score: float,
+    bedrock_client=None,
+) -> str:
     """Insert an accepted cluster into the evidence table.
 
     Computes source lineage, extracts representative quotes (JSONB),
-    derives a theme, inserts the evidence row, and bulk-inserts the
-    item-to-evidence map — all within a single atomic transaction.
+    synthesizes a formal cluster name via Nova Pro (falls back to raw quotes),
+    inserts the evidence row, and bulk-inserts the item-to-evidence map —
+    all within a single atomic transaction.
 
     Args:
         cluster:          Cluster dict with 'items' and 'centroid_vector' keys.
         confidence_score: Float in [0.0, 1.0] from compute_confidence().
+        bedrock_client:   Optional boto3 bedrock-runtime client for name synthesis.
 
     Returns:
         String UUID of the newly inserted evidence row.
@@ -327,13 +516,51 @@ def write_evidence(cluster: dict[str, Any], confidence_score: float) -> str:
 
     source_lineage = compute_source_lineage(items)
     quotes = _extract_quotes(items, max_quotes=5)
-    theme = _build_theme(quotes)
+    # Synthesize a formal cluster name; falls back to raw quote concat on error.
+    theme = _synthesize_cluster_name(quotes, bedrock_client)
     unique_user_count = len(items)
     vector_str = _vector_to_pg(centroid)
 
     conn = get_conn()
     try:
         with conn.cursor() as cur:
+            # Domain-suffix guard: if a cluster with the EXACT same synthesized
+            # name already exists but comes from a completely different domain
+            # (no source overlap), add a domain suffix so hospital clusters
+            # don't overwrite app-product clusters with the same name.
+            cur.execute(
+                "SELECT id, source_lineage FROM evidence "
+                "WHERE theme = %s AND status = 'active' LIMIT 1",
+                (theme,),
+            )
+            exact_match = cur.fetchone()
+            if exact_match:
+                existing_sources = set((exact_match[1] or {}).keys())
+                new_sources = set(source_lineage.keys())
+                if (existing_sources != new_sources
+                        and not existing_sources.intersection(new_sources)):
+                    # Completely different domain — append a disambiguating suffix.
+                    domain = list(new_sources)[0].split("_")[0]
+                    theme = f"{theme} ({domain.title()})"
+                    logger.info(
+                        "write_evidence: domain suffix applied theme='%s' "
+                        "existing_sources=%s new_sources=%s",
+                        theme, existing_sources, new_sources,
+                    )
+
+            # If a cluster with the same first-3-word prefix already exists,
+            # reuse its canonical name so ON CONFLICT (theme) fires correctly
+            # even when Nova Pro generates a slightly different phrasing.
+            first_words = " ".join(theme.split()[:3]).lower()
+            cur.execute(
+                "SELECT theme FROM evidence "
+                "WHERE LOWER(theme) LIKE %s AND status = 'active' LIMIT 1",
+                (first_words + "%",),
+            )
+            existing = cur.fetchone()
+            if existing:
+                theme = existing[0]
+
             cur.execute(
                 """
                 INSERT INTO evidence (
@@ -359,6 +586,13 @@ def write_evidence(cluster: dict[str, Any], confidence_score: float) -> str:
                     NOW(),
                     NOW()
                 )
+                ON CONFLICT (theme) DO UPDATE SET
+                    confidence_score      = EXCLUDED.confidence_score,
+                    unique_user_count     = EXCLUDED.unique_user_count,
+                    source_lineage        = EXCLUDED.source_lineage,
+                    representative_quotes = EXCLUDED.representative_quotes,
+                    last_validated_at     = NOW(),
+                    status                = 'active'
                 RETURNING id
                 """,
                 (
