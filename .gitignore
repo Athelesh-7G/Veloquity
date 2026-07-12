@@ -60,6 +60,10 @@ lambda_reasoning.zip
 lambda_governance.zip
 *.zip
 
+# Scratch Lambda invoke output — not for repo
+/response.json
+/response_governance.json
+
 # Local only — not for repo
 CLAUDE.md
 ARCHITECTURE_OVERVIEW.md

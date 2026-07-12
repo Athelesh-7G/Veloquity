@@ -191,6 +191,8 @@ veloquity/
 
 **Domain-agnostic pipeline** — zero hardcoded product or domain vocabulary; same Lambda code handles SaaS feedback and hospital patient surveys
 
+**Single default experience** — the V1 live-pipeline mode toggle was removed due to bugs and reliability issues.
+
 ---
 
 ## Validation
@@ -221,6 +223,8 @@ Every production failure below was real, encountered during build, and resolved:
 **Lambda Handler Mismatch** — Handler path in CloudFormation pointed to wrong function. Corrected to evidence.embedding_pipeline.handler.
 
 **Missing python-multipart** — FastAPI file upload returned HTTP 422 silently. Added to requirements.txt.
+
+**Lambda Cold Start Latency** — Evidence Lambda loaded a 254MB ML dependency stack (numpy/scipy/scikit-learn/hdbscan) at module init on every cold start. Fixed with lazy imports (loaded only when clustering runs), `is_warmup` guards on all 4 Lambda handlers, and 8 EventBridge keep-warm rules pinging every 5 minutes. `deploy.sh` now force-updates Lambda code after every CloudFormation deploy.
 
 ---
 
