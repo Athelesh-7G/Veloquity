@@ -408,6 +408,93 @@ Resources:
           Id: GovernanceLambdaTarget
 
   # ------------------------------------------------------------
+  # Keep-Warm — EventBridge rules ping each Lambda every 5 minutes
+  # with {"is_warmup": true}. Each handler early-returns on the
+  # is_warmup flag before any business logic, so the container stays
+  # initialized and cold starts don't hit users on the Agents/Chat
+  # pages. Cheap: a warm ping does no DB/Bedrock/S3 work.
+  # ------------------------------------------------------------
+  IngestionKeepWarmRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub veloquity-ingestion-keepwarm-${Env}
+      Description: Keep Ingestion Lambda warm (every 5 minutes)
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt IngestionLambda.Arn
+          Id: IngestionKeepWarmTarget
+          Input: '{"is_warmup": true}'
+
+  IngestionKeepWarmPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt IngestionLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt IngestionKeepWarmRule.Arn
+
+  EvidenceKeepWarmRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub veloquity-evidence-keepwarm-${Env}
+      Description: Keep Evidence Lambda warm (every 5 minutes)
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt EvidenceLambda.Arn
+          Id: EvidenceKeepWarmTarget
+          Input: '{"is_warmup": true}'
+
+  EvidenceKeepWarmPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt EvidenceLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EvidenceKeepWarmRule.Arn
+
+  ReasoningKeepWarmRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub veloquity-reasoning-keepwarm-${Env}
+      Description: Keep Reasoning Lambda warm (every 5 minutes)
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ReasoningLambda.Arn
+          Id: ReasoningKeepWarmTarget
+          Input: '{"is_warmup": true}'
+
+  ReasoningKeepWarmPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ReasoningLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ReasoningKeepWarmRule.Arn
+
+  GovernanceKeepWarmRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub veloquity-governance-keepwarm-${Env}
+      Description: Keep Governance Lambda warm (every 5 minutes)
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt GovernanceLambda.Arn
+          Id: GovernanceKeepWarmTarget
+          Input: '{"is_warmup": true}'
+
+  GovernanceKeepWarmPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt GovernanceLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt GovernanceKeepWarmRule.Arn
+
+  # ------------------------------------------------------------
   # CloudWatch Log Groups (explicit, with retention)
   # ------------------------------------------------------------
   IngestionLogGroup:

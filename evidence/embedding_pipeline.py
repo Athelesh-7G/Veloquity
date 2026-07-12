@@ -24,8 +24,11 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from api.db import get_conn, release_conn
+# Only the lightweight clustering constants (plain int/float, used as
+# default-argument values below) are imported at module level. cluster_embeddings
+# pulls in numpy/scipy/scikit-learn/hdbscan, so it is imported lazily inside
+# _cluster_and_write_embeddings() to keep Lambda cold-start init cheap.
 from evidence.clustering import (
-    cluster_embeddings,
     MIN_CLUSTER_SIZE,
     MIN_SAMPLES,
     CLUSTER_SELECTION_EPSILON,
@@ -420,6 +423,8 @@ def _cluster_and_write_embeddings(
     Returns:
         Dict with keys: clusters_found, accepted, rejected, errors.
     """
+    from evidence.clustering import cluster_embeddings
+
     embeddings = [item["vector"] for item in vector_items]
     clusters = cluster_embeddings(
         embeddings, vector_items,
@@ -484,6 +489,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         event:   Lambda event dict.
         context: Lambda context object (unused).
     """
+    # Keep-warm ping: return immediately before any business logic so an
+    # EventBridge schedule can hold the container warm cheaply.
+    if event.get("is_warmup"):
+        logger.info("keep_warm_ping")
+        return {"status": "warm"}
+
     bucket = os.environ["S3_RAW_BUCKET"]
     model_version = os.environ["BEDROCK_EMBED_MODEL"]
     action = event.get("action", "full_pipeline")

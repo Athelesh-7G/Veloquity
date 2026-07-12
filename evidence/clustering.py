@@ -5,10 +5,12 @@ Replaces greedy cosine similarity. HDBSCAN naturally handles variable cluster
 sizes, noise rejection, and semantic grouping without a fixed threshold.
 """
 import logging
-import numpy as np
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import normalize
-from sklearn.cluster import HDBSCAN
+
+# NOTE: numpy / scipy / scikit-learn / hdbscan are imported lazily inside the
+# functions that use them (cosine_similarity, cluster_embeddings) rather than at
+# module level. This keeps Lambda cold-start container init cheap: importing this
+# module (e.g. to read the MIN_CLUSTER_SIZE constants below) no longer pulls in
+# the ~250MB ML stack. The heavy imports only fire when clustering actually runs.
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,8 @@ def cosine_similarity(a, b) -> float:
     Kept for backward compatibility with evidence/confidence.py which imports
     this function to compute per-item distances inside compute_confidence().
     """
+    import numpy as np
+
     a = np.asarray(a, dtype=np.float64)
     b = np.asarray(b, dtype=np.float64)
     na = np.linalg.norm(a)
@@ -79,6 +83,11 @@ def cluster_embeddings(
             representative_quotes  — up to 5 closest-to-centroid quote dicts
             unique_user_count      — count of distinct user/item ids
     """
+    import numpy as np
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import normalize
+    from sklearn.cluster import HDBSCAN
+
     if not embeddings or len(embeddings) < min_cluster_size:
         logger.warning("Too few embeddings: %d", len(embeddings))
         return []
