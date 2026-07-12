@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bot, Send, Sparkles, Database, Shield, BarChart3, Activity, Layers, Hash, AlertTriangle, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { type ChatMessage, getAgentStatus, getEvidence, getRecommendations, sendChatMessage, fetchLiveEvidence, fetchClusterItems, type EvidenceItem as ApiEvidenceItem, type ClusterItem } from '@/api/client'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, getSourceLabel } from '@/utils/uploadState'
+import { type ChatMessage, getAgentStatus, getEvidence, getRecommendations, sendChatMessage } from '@/api/client'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
 import { APP_PRODUCT_ITEMS, HOSPITAL_ITEMS, MOCK_EVIDENCE, HOSPITAL_MOCK_DATA } from '@/api/mockData'
 import { EvidenceDrawer, type EvidenceItem } from '@/components/EvidenceDrawer'
 
@@ -196,108 +196,19 @@ function detectClusters(
   return [...found]
 }
 
-// ─── Match a V0 cluster name to the best live cluster by keyword overlap ───────
-function matchLiveCluster(clusterName: string, liveEvidence: import('@/api/client').EvidenceItem[]) {
-  const keywords = clusterName.toLowerCase().split(/\s+/).filter((w) => w.length > 3)
-  let best = liveEvidence[0]
-  let bestScore = 0
-  for (const cluster of liveEvidence) {
-    const theme = cluster.theme.toLowerCase()
-    const score = keywords.filter((kw) => theme.includes(kw)).length
-    if (score > bestScore) { bestScore = score; best = cluster }
-  }
-  if (bestScore === 0) {
-    best = liveEvidence.reduce((b, c) => c.confidence_score > b.confidence_score ? c : b, liveEvidence[0])
-  }
-  return best
-}
-
-// ─── Find explicit cluster mention in a user query — returns null for general queries ──
-const GENERAL_QUERY_PHRASES = ['top 3', 'top three', 'show me', 'what are', 'list all', 'all cluster', 'give me', 'summarize', 'overview', 'all the', 'which cluster', 'each cluster']
-const GENERAL_SOLO_WORDS = new Set(['top', 'all', 'list', 'what', 'overview', 'clusters', 'every', 'any', 'are', 'the', 'show'])
-
-function findExplicitClusterMention(
-  userMessage: string,
-  evidence: ApiEvidenceItem[],
-): ApiEvidenceItem | null {
-  if (!evidence || evidence.length === 0) return null
-  const q = userMessage.toLowerCase().trim()
-  if (GENERAL_QUERY_PHRASES.some((p) => q.includes(p))) return null
-  const words = q.split(/\s+/).filter((w) => w.length > 2)
-  if (words.length > 0 && words.every((w) => GENERAL_SOLO_WORDS.has(w))) return null
-  for (const cluster of evidence) {
-    const themeWords = cluster.theme.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
-    const matchCount = themeWords.filter((tw) => words.some((qw) => qw.includes(tw) || tw.includes(qw))).length
-    const overlap = themeWords.length > 0 ? matchCount / themeWords.length : 0
-    if (overlap >= 0.4 && matchCount >= 3) return cluster
-  }
-  return null
-}
-
-// ─── Pick which live clusters to drill into for an answered query ──────────────
-// Mirrors V0 exactly: "top 3" → drill-downs for the top 3 clusters; an explicit
-// single-cluster mention → that one; "all/every cluster" → all of them; any
-// other answer that used evidence context → the single strongest cluster.
-// Clusters are ranked the same way the Evidence Grid ranks them (by size).
-const _WORD_NUM: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, ten: 10 }
-
-function rankLiveClusters(evidence: ApiEvidenceItem[]): ApiEvidenceItem[] {
-  return [...evidence].sort(
-    (a, b) => (b.item_count || b.unique_user_count || 0) - (a.item_count || a.unique_user_count || 0),
-  )
-}
-
-function selectLiveClusterIds(
-  query: string,
-  evidence: ApiEvidenceItem[] | null,
-  usedContext: boolean,
-): string[] {
-  if (!evidence || evidence.length === 0) return []
-  const q = query.toLowerCase()
-  const ranked = rankLiveClusters(evidence)
-
-  // Explicit single-cluster mention wins (e.g. "tell me about the crash cluster").
-  const explicit = findExplicitClusterMention(query, evidence)
-  if (explicit) return [explicit.id]
-
-  // "top 3" / "top three" / "first 5" / "biggest 4" → that many top clusters.
-  const m = q.match(/\b(?:top|first|main|biggest|leading)\s+(\d+|one|two|three|four|five|six|ten)\b/)
-  if (m) {
-    const n = /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : (_WORD_NUM[m[1]] ?? 3)
-    return ranked.slice(0, Math.max(1, Math.min(n, ranked.length))).map((c) => c.id)
-  }
-
-  // "all clusters" / "every theme" / "list the issues" → all (capped).
-  if (/\b(all|every|each|list|overview|summary|summarize)\b/.test(q) && /cluster|theme|issue|signal|feedback/.test(q)) {
-    return ranked.slice(0, 10).map((c) => c.id)
-  }
-
-  // Any other answer grounded in evidence → show the single strongest cluster.
-  if (usedContext) return [ranked[0].id]
-  return []
-}
-
 // ─── Inline evidence section ──────────────────────────────────────────────────
 function InlineEvidence({
   clusterNames,
   dataset,
   onViewAll,
-  liveMode,
-  liveEvidence: liveEvidenceProp,
 }: {
   clusterNames: string[]
   dataset: 'app_product' | 'hospital_survey' | null
   onViewAll: (cluster: string, items: EvidenceItem[], count: number) => void
-  liveMode?: boolean
-  liveEvidence?: import('@/api/client').EvidenceItem[]
 }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const allItems = dataset === 'hospital_survey' ? HOSPITAL_ITEMS : APP_PRODUCT_ITEMS
   const clusterConf = (name: string) => {
-    if (liveMode && liveEvidenceProp && liveEvidenceProp.length > 0) {
-      const matched = matchLiveCluster(name, liveEvidenceProp)
-      return Math.round(matched.confidence_score * 100)
-    }
     const list = dataset === 'hospital_survey' ? HOSPITAL_CLUSTERS : APP_CLUSTERS
     return list.find((c) => c.name === name)?.conf ?? 80
   }
@@ -305,26 +216,9 @@ function InlineEvidence({
   return (
     <div className="mt-2 space-y-2">
       {clusterNames.map((clusterName) => {
-        // ── V1 mode: use representative_quotes from real live cluster ──────────
-        const useV1 = liveMode && liveEvidenceProp && liveEvidenceProp.length > 0
-        const liveCluster = useV1 ? matchLiveCluster(clusterName, liveEvidenceProp!) : null
-        const liveQuoteItems: EvidenceItem[] = liveCluster
-          ? (liveCluster.representative_quotes || []).map((q, idx) => ({
-              id: `live-${liveCluster.id}-${idx}`,
-              text: q.text,
-              source: getSourceLabel(q.source),
-              date: liveCluster.last_validated_at?.split('T')[0] ?? '',
-              cluster: liveCluster.theme.split(' | ')[0],
-            }))
-          : []
-
-        const items = useV1 ? liveQuoteItems : allItems.filter((i) => i.cluster === clusterName)
-        const displayCount = useV1
-          ? (liveCluster?.item_count || liveCluster?.unique_user_count || liveQuoteItems.length)
-          : (CLUSTER_ITEM_COUNTS[clusterName] ?? items.length)
-        const displayName = useV1 && liveCluster
-          ? liveCluster.theme.split(' | ')[0].slice(0, 55)
-          : clusterName
+        const items = allItems.filter((i) => i.cluster === clusterName)
+        const displayCount = CLUSTER_ITEM_COUNTS[clusterName] ?? items.length
+        const displayName = clusterName
 
         const isExpanded = expanded[clusterName] ?? false
         const shown = isExpanded ? items : items.slice(0, 3)
@@ -340,7 +234,7 @@ function InlineEvidence({
             <div className="flex items-center gap-1.5">
               <span className="text-xs">📊</span>
               <span className="text-[10px] font-medium text-violet-600 dark:text-violet-400 uppercase tracking-wide">
-                {useV1 ? 'V1 evidence cluster' : 'Based on evidence clusters'}
+                Based on evidence clusters
               </span>
             </div>
             <div className="flex items-center justify-between gap-2">
@@ -368,7 +262,7 @@ function InlineEvidence({
                     {item.text}
                   </p>
                   <span className="text-[10px] text-muted-foreground/60 shrink-0 ml-0.5 whitespace-nowrap">
-                    — {useV1 ? item.source : (SRC_LABEL[item.source] ?? item.source)}
+                    — {SRC_LABEL[item.source] ?? item.source}
                   </span>
                 </div>
               ))}
@@ -407,103 +301,6 @@ function InlineEvidence({
           </div>
         )
       })}
-    </div>
-  )
-}
-
-// ─── V1 inline evidence: fetches real items via S3-backed API ─────────────────
-function InlineEvidenceV1({
-  cluster,
-  onViewAll,
-}: {
-  cluster: ApiEvidenceItem
-  onViewAll: (clusterName: string, items: EvidenceItem[], count: number) => void
-}) {
-  const [items, setItems] = useState<ClusterItem[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState(false)
-
-  useEffect(() => {
-    setLoading(true)
-    // Fetch the full cluster (capped at the endpoint's 200 max) so the drawer
-    // shows every item, matching the Evidence Grid count — not just a sample.
-    const want = Math.min(cluster.item_count || cluster.unique_user_count || 50, 200)
-    fetchClusterItems(cluster.id, want)
-      .then((res) => { setItems(res.items); setTotal(res.total); setLoading(false) })
-      .catch(() => {
-        const quotes = cluster.representative_quotes || []
-        setItems(quotes.map((q) => ({ text: q.text, source: q.source, timestamp: null, item_id: null })))
-        setTotal(cluster.item_count || cluster.unique_user_count || quotes.length)
-        setLoading(false)
-      })
-  }, [cluster.id])
-
-  const displayName = cluster.theme.split(' | ')[0].slice(0, 55)
-  const conf = Math.round(cluster.confidence_score * 100)
-  // Authoritative count = the cluster's item_count (same number shown in the
-  // Evidence Grid), so the drill-down never claims fewer than 3-4 items.
-  const count = cluster.item_count || cluster.unique_user_count || total
-  const shown = expanded ? items : items.slice(0, 3)
-  const hiddenCount = items.length - 3
-
-  return (
-    <div className="mt-2">
-      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs">📊</span>
-          <span className="text-[10px] font-medium text-violet-600 dark:text-violet-400 uppercase tracking-wide">
-            V1 evidence cluster
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-foreground leading-snug flex-1 min-w-0 truncate">{displayName}</span>
-          <span className={`text-[10px] font-bold shrink-0 ${conf >= 85 ? 'text-emerald-500' : conf >= 75 ? 'text-blue-500' : 'text-amber-500'}`}>{conf}% conf</span>
-        </div>
-        <div className="h-px bg-border" />
-        {loading ? (
-          <div className="flex items-center gap-2 py-1">
-            <Loader2 className="w-3 h-3 animate-spin text-violet-400" />
-            <span className="text-xs text-muted-foreground">Loading feedback items…</span>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-1.5">
-              {shown.map((item, idx) => (
-                <div key={item.item_id ?? idx} className="flex items-start gap-2">
-                  <span className="text-[10px] text-muted-foreground/50 shrink-0 mt-0.5 select-none">"</span>
-                  <p className="text-xs text-muted-foreground leading-relaxed flex-1 italic line-clamp-2">{item.text}</p>
-                  <span className="text-[10px] text-muted-foreground/60 shrink-0 ml-0.5 whitespace-nowrap">— {getSourceLabel(item.source)}</span>
-                </div>
-              ))}
-            </div>
-            {hiddenCount > 0 && !expanded && (
-              <button type="button" onClick={() => setExpanded(true)} className="flex items-center gap-1 text-xs text-violet-500 hover:text-violet-400 transition-colors">
-                <ChevronDown className="w-3.5 h-3.5" />Show {hiddenCount} more
-              </button>
-            )}
-            {expanded && items.length > 3 && (
-              <button type="button" onClick={() => setExpanded(false)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                <ChevronUp className="w-3.5 h-3.5" />Show less
-              </button>
-            )}
-          </>
-        )}
-        <button
-          type="button"
-          onClick={() => onViewAll(displayName, items.map((item, idx) => ({
-            id: item.item_id ?? `item-${idx}`,
-            text: item.text,
-            source: getSourceLabel(item.source),
-            date: item.timestamp?.split('T')[0] ?? '',
-            rating: item.rating ?? undefined,
-            cluster: displayName,
-          })), count)}
-          className="w-full text-xs font-medium px-3 py-1.5 rounded-lg border border-violet-500/30 bg-violet-500/8 text-violet-500 hover:bg-violet-500/15 transition-colors flex items-center justify-center gap-1.5"
-        >
-          VIEW ALL {count} ITEMS →
-        </button>
-      </div>
     </div>
   )
 }
@@ -548,10 +345,6 @@ interface Message extends ChatMessage {
   timestamp?: string
   evidenceClusters?: string[]
   showEvidence?: boolean
-  // V1: ids of the live evidence clusters to drill into, attached at send-time
-  // (mirrors how V0 attaches evidenceClusters/showEvidence to the message).
-  // Multiple ids → multiple drill-down cards (e.g. a "top 3" query).
-  liveClusterIds?: string[]
 }
 
 // ─── Context item ──────────────────────────────────────────────────────────────
@@ -674,57 +467,7 @@ export default function Chat() {
   // Guided recommendation flow state
   const [awaitingContext, setAwaitingContext] = useState<{ cluster: string } | null>(null)
 
-  // Live mode
-  const [liveMode, setLiveModeState]        = useState(() => getLiveMode())
-  const [liveEvidenceData, setLiveEvidenceData] = useState<ApiEvidenceItem[] | null>(null)
-  const [liveLoading, setLiveLoading]       = useState(false)
-
-  // Source key → display name map for Nova Pro system prompt
-  const PROMPT_SOURCE_DISPLAY: Record<string, string> = {
-    app_store: 'App Store Reviews',
-    zendesk: 'Support Tickets',
-    patient_portal: 'Patient Portal Reviews',
-    hospital_survey: 'Hospital Survey Tickets',
-  }
-
-  // Build V1 system context from real evidence clusters
-  const liveContext = liveEvidenceData && liveEvidenceData.length > 0
-    ? `You are Veloquity AI, an evidence intelligence assistant with access to V1 pipeline data.
-
-V1 EVIDENCE CLUSTERS (${liveEvidenceData.length} clusters from real Bedrock + pgvector pipeline):
-${liveEvidenceData.map((e, i) => {
-  const name = e.theme.split(' | ')[0].slice(0, 80)
-  const conf = Math.round(e.confidence_score * 100)
-  const sourceNames = Object.keys(e.source_lineage ?? {})
-    .map(k => PROMPT_SOURCE_DISPLAY[k] || k)
-    .join(' + ')
-  return `${i + 1}. ${name}\n   Confidence: ${conf}% | Users: ${e.unique_user_count} | Sources: ${sourceNames}`
-}).join('\n')}
-
-DATA SOURCES: ${[...new Set(liveEvidenceData.flatMap((e) => Object.keys(e.source_lineage ?? {})))].map(k => PROMPT_SOURCE_DISPLAY[k] || k).join(', ')}
-TOTAL UNIQUE USERS: ${liveEvidenceData.reduce((s, e) => s + e.unique_user_count, 0)}
-LAST PIPELINE RUN: ${liveEvidenceData[0]?.last_validated_at?.split('T')[0] ?? 'unknown'}
-
-Answer questions based ONLY on this evidence. Reference specific cluster names and confidence scores. Respond in plain conversational text only. No markdown headers or bullets.`
-    : null
-
-  const noSourcesContext = 'No feedback sources are connected. Please connect sources in Import Sources to enable V1 intelligence mode.'
-
-  const systemContext = liveMode
-    ? (liveContext ?? noSourcesContext)
-    : mockContext
-
-  useEffect(() => {
-    if (!liveMode) return
-    if (!hasActiveSources()) {
-      setLiveEvidenceData([])
-      return
-    }
-    setLiveLoading(true)
-    fetchLiveEvidence()
-      .then((r) => { setLiveEvidenceData(r); setLiveLoading(false) })
-      .catch(() => { setLiveLoading(false) })
-  }, [liveMode])
+  const systemContext = mockContext
 
   // Cold start state
   const [healthReady, setHealthReady]           = useState(false)
@@ -865,8 +608,6 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               timestamp: replyTime,
               evidenceClusters: guidedClusters,
               showEvidence: guidedClusters.length > 0,
-              liveClusterIds: liveMode && liveEvidenceData && liveEvidenceData.length > 0
-                ? [matchLiveCluster(cluster, liveEvidenceData).id] : [],
             },
           ])
         } catch {
@@ -882,8 +623,6 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
               timestamp: replyTime,
               evidenceClusters: guidedFallbackClusters,
               showEvidence: guidedFallbackClusters.length > 0,
-              liveClusterIds: liveMode && liveEvidenceData && liveEvidenceData.length > 0
-                ? [matchLiveCluster(cluster, liveEvidenceData).id] : [],
             },
           ])
         } finally {
@@ -959,7 +698,6 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           timestamp: replyTime,
           evidenceClusters: apiClusters,
           showEvidence: apiClusters.length > 0,
-          liveClusterIds: selectLiveClusterIds(text, liveEvidenceData, !!(res.context_used && res.context_used.length > 0)),
         },
       ])
     } catch {
@@ -976,7 +714,6 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           timestamp: replyTime,
           evidenceClusters: fallbackClusters,
           showEvidence: fallbackClusters.length > 0,
-          liveClusterIds: selectLiveClusterIds(text, liveEvidenceData, true),
         },
       ])
     } finally {
@@ -988,17 +725,6 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
   }
 
   sendRef.current = send
-
-  if (liveMode && !hasActiveSources()) {
-    return (
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
-        <div style={{ fontSize:'32px' }}>📂</div>
-        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
-        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
-        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
-      </div>
-    )
-  }
 
   return (
     <>
@@ -1015,18 +741,9 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
             <h2 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
               System Context
             </h2>
-            <button
-              onClick={() => { const n = !liveMode; setLiveModeState(n); setLiveMode(n) }}
-              style={{ padding:'3px 8px', borderRadius:'4px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'10px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'4px' }}
-            >
-              <span style={{ width:6, height:6, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
-              {liveMode ? 'V1' : 'V0'}
-            </button>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            {liveMode && liveContext
-              ? `V1 pipeline: ${liveEvidenceData?.length ?? 0} real clusters`
-              : 'The assistant has access to Veloquity intelligence pipeline data:'}
+            The assistant has access to Veloquity intelligence pipeline data:
           </p>
         </div>
 
@@ -1046,9 +763,7 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           <ContextPill
             icon={Database}
             label="Feedback Corpus"
-            value={liveMode && liveEvidenceData && liveEvidenceData.length > 0
-              ? `${liveEvidenceData.reduce((s, e) => s + (e.item_count || e.unique_user_count || 0), 0)} items`
-              : `${pipelineMetrics.items} items`}
+            value={`${pipelineMetrics.items} items`}
             accent="border-green-500/30"
           />
           <ContextPill
@@ -1070,35 +785,22 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">
             Active Clusters
           </p>
-          {liveMode && liveLoading ? (
-            <div className="flex items-center gap-2 py-2">
-              <Loader2 className="w-3 h-3 animate-spin text-violet-400 shrink-0" />
-              <span className="text-[10px] text-muted-foreground">Loading V1 clusters…</span>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {(liveMode && liveEvidenceData && liveEvidenceData.length > 0
-                ? liveEvidenceData.map(e => ({
-                    name: e.theme.split(' | ')[0].slice(0, 40),
-                    conf: Math.round(e.confidence_score * 100),
-                  }))
-                : activeClusters
-              ).map(({ name, conf }) => (
-                <div key={name} className="flex items-center gap-2 group">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-muted-foreground truncate leading-snug group-hover:text-foreground transition-colors">
-                      {name}
-                    </p>
-                  </div>
-                  <span className={`text-[10px] font-bold shrink-0 ${
-                    conf >= 85 ? 'text-emerald-500' :
-                    conf >= 75 ? 'text-blue-500' :
-                                 'text-amber-500'
-                  }`}>{conf}%</span>
+          <div className="space-y-1.5">
+            {activeClusters.map(({ name, conf }) => (
+              <div key={name} className="flex items-center gap-2 group">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground truncate leading-snug group-hover:text-foreground transition-colors">
+                    {name}
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
+                <span className={`text-[10px] font-bold shrink-0 ${
+                  conf >= 85 ? 'text-emerald-500' :
+                  conf >= 75 ? 'text-blue-500' :
+                               'text-amber-500'
+                }`}>{conf}%</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Pipeline status */}
@@ -1155,26 +857,22 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
 
               {/* Starter questions */}
               <div className="grid grid-cols-2 gap-2 w-full max-w-xl">
-                {starters.map(({ icon: Icon, text }) => {
-                  const blocked = liveMode && liveLoading
-                  return (
-                    <motion.button
-                      key={text}
-                      whileHover={blocked ? {} : { y: -2, scale: 1.01 }}
-                      whileTap={blocked ? {} : { scale: 0.98 }}
-                      onClick={() => !blocked && send(text)}
-                      disabled={blocked}
-                      className={`flex items-start gap-2.5 text-left px-3.5 py-3 rounded-xl border border-border bg-card transition-all group ${blocked ? 'opacity-40 cursor-not-allowed' : 'hover:border-violet-500/40 hover:bg-violet-500/5'}`}
-                    >
-                      <div className="p-1.5 rounded-lg bg-muted group-hover:bg-violet-500/10 transition-colors shrink-0 mt-0.5">
-                        <Icon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-violet-500 transition-colors" />
-                      </div>
-                      <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
-                        {text}
-                      </span>
-                    </motion.button>
-                  )
-                })}
+                {starters.map(({ icon: Icon, text }) => (
+                  <motion.button
+                    key={text}
+                    whileHover={{ y: -2, scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => send(text)}
+                    className="flex items-start gap-2.5 text-left px-3.5 py-3 rounded-xl border border-border bg-card transition-all group hover:border-violet-500/40 hover:bg-violet-500/5"
+                  >
+                    <div className="p-1.5 rounded-lg bg-muted group-hover:bg-violet-500/10 transition-colors shrink-0 mt-0.5">
+                      <Icon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-violet-500 transition-colors" />
+                    </div>
+                    <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors leading-relaxed">
+                      {text}
+                    </span>
+                  </motion.button>
+                ))}
               </div>
             </motion.div>
           )}
@@ -1240,49 +938,17 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
                   )}
 
                   {/* Evidence drill-down */}
-                  {m.role === 'assistant' && !m.pending && (() => {
-                    if (liveMode && liveEvidenceData && liveEvidenceData.length > 0) {
-                      // Use the clusters attached at send-time (mirrors V0's
-                      // m.evidenceClusters), not a render-time re-scan. A "top N"
-                      // query attaches N ids → N drill-down cards.
-                      const liveClusters = (m.liveClusterIds ?? [])
-                        .map((id) => liveEvidenceData.find((c) => c.id === id))
-                        .filter((c): c is ApiEvidenceItem => !!c)
-                      if (liveClusters.length > 0) {
-                        return (
-                          <>
-                            {liveClusters.map((c) => (
-                              <InlineEvidenceV1
-                                key={c.id}
-                                cluster={c}
-                                onViewAll={(clusterName, items, count) => {
-                                  setDrawerCluster(clusterName)
-                                  setDrawerItems(items)
-                                  setDrawerCount(count)
-                                }}
-                              />
-                            ))}
-                          </>
-                        )
-                      }
-                      return null
-                    }
-                    if (hasData && m.showEvidence && m.evidenceClusters && m.evidenceClusters.length > 0) {
-                      return (
-                        <InlineEvidence
-                          clusterNames={m.evidenceClusters}
-                          dataset={dataset}
-                          onViewAll={(cluster, items, count) => {
-                            setDrawerCluster(cluster)
-                            setDrawerItems(items)
-                            setDrawerCount(count)
-                          }}
-                          liveMode={false}
-                        />
-                      )
-                    }
-                    return null
-                  })()}
+                  {m.role === 'assistant' && !m.pending && hasData && m.showEvidence && m.evidenceClusters && m.evidenceClusters.length > 0 && (
+                    <InlineEvidence
+                      clusterNames={m.evidenceClusters}
+                      dataset={dataset}
+                      onViewAll={(cluster, items, count) => {
+                        setDrawerCluster(cluster)
+                        setDrawerItems(items)
+                        setDrawerCount(count)
+                      }}
+                    />
+                  )}
                 </div>
               </motion.div>
             ))}

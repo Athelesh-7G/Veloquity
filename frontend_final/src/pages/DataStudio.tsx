@@ -5,8 +5,7 @@ import {
   ChevronDown, X, Check, Archive, Layers, AlertCircle,
   CheckCircle2, Clock, RefreshCw
 } from 'lucide-react'
-import { hasUploadedData, getActiveDataset, getLiveMode } from '@/utils/uploadState'
-import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
+import { hasUploadedData, getActiveDataset } from '@/utils/uploadState'
 import { APP_PRODUCT_ITEMS, HOSPITAL_ITEMS, type FeedbackDataItem } from '@/api/mockData'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -775,18 +774,6 @@ export default function DataStudio() {
     dataset === 'hospital_survey' ? HOSPITAL_FEEDBACK_LIST : APP_FEEDBACK_LIST
   )
 
-  // Live mode
-  const [liveMode]      = useState(() => getLiveMode())
-  const [liveEvidence, setLiveEvidence] = useState<ApiEvidenceItem[] | null>(null)
-
-  useEffect(() => {
-    if (!liveMode) return
-    fetchLiveEvidence().then(setLiveEvidence).catch(console.error)
-  }, [liveMode])
-
-  const liveTotal    = liveEvidence?.reduce((s, e) => s + (e.item_count > 0 ? e.item_count : e.unique_user_count), 0) ?? 0
-  const liveClusters2 = liveEvidence?.length ?? 0
-
   const effectiveSearch = searchQuery || localSearch
 
   const filteredFeedback = useMemo(() => {
@@ -878,10 +865,10 @@ export default function DataStudio() {
       {/* ── Quick-stat pills ───────────────────────────────────────────────── */}
       <div className="flex flex-wrap gap-2 mb-5">
         {[
-          { label: `${liveMode && liveEvidence ? liveTotal : hasData ? totalItems : 0} Total`,            color: 'bg-muted text-foreground' },
-          { label: `${liveMode && liveEvidence ? liveTotal : hasData ? analyzedCount : 0} Analyzed`,     color: 'bg-green-500/10 text-green-600' },
-          { label: `${liveMode && liveEvidence ? 0 : hasData ? newCount : 0} New`,                      color: 'bg-blue-500/10 text-blue-600' },
-          { label: `${liveMode && liveEvidence ? liveClusters2 : hasData ? clusterCount : 0} Evidence Clusters`, color: 'bg-violet-500/10 text-violet-600' },
+          { label: `${hasData ? totalItems : 0} Total`,            color: 'bg-muted text-foreground' },
+          { label: `${hasData ? analyzedCount : 0} Analyzed`,     color: 'bg-green-500/10 text-green-600' },
+          { label: `${hasData ? newCount : 0} New`,                      color: 'bg-blue-500/10 text-blue-600' },
+          { label: `${hasData ? clusterCount : 0} Evidence Clusters`, color: 'bg-violet-500/10 text-violet-600' },
         ].map(({ label, color }) => (
           <span key={label} className={cn('px-3 py-1 rounded-full text-xs font-medium', color)}>{label}</span>
         ))}
@@ -1004,7 +991,7 @@ export default function DataStudio() {
       </AnimatePresence>
 
       <p className="text-sm text-muted-foreground mb-4">
-        Showing {liveMode && liveEvidence ? liveTotal : hasData ? totalItems : 0} of {liveMode && liveEvidence ? liveTotal : hasData ? totalItems : 0} items
+        Showing {hasData ? totalItems : 0} of {hasData ? totalItems : 0} items
       </p>
 
       {/* ── Cards grid ────────────────────────────────────────────────────── */}

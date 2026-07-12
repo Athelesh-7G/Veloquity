@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Bot, CheckCircle2, XCircle, Play, RefreshCw, Loader2, Zap, Database, Brain, Shield, AlertTriangle } from 'lucide-react'
-import { hasUploadedData, getActiveDataset, getLiveMode, hasActiveSources, getActiveSources } from '@/utils/uploadState'
+import { hasUploadedData, getActiveDataset, hasActiveSources, getActiveSources } from '@/utils/uploadState'
 import { getAgentRunState, hasAgentsRun } from '@/utils/agentRunState'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
-import { type AgentRunResult, type AgentStatus, type EvidenceItem as ApiEvidenceItem, checkHealth, getAgentStatus, runAgent, fetchLiveEvidence } from '@/api/client'
+import { type AgentRunResult, type AgentStatus, checkHealth, getAgentStatus, runAgent } from '@/api/client'
 import { MOCK_AGENTS, HOSPITAL_MOCK_AGENTS } from '@/api/mockData'
 
 type RunStatus = 'idle' | 'running' | 'success' | 'error'
@@ -256,44 +256,18 @@ export default function Agents() {
   const activeSources = getActiveSources()
   const activeMockAgents = dataset === 'hospital_survey' ? HOSPITAL_MOCK_AGENTS : MOCK_AGENTS
 
-  // ── Live mode: derive pipeline counts from real evidence (V0 keeps literals) ──
-  const [liveMode] = useState(() => getLiveMode())
-  const [liveEvidence, setLiveEvidence] = useState<ApiEvidenceItem[] | null>(null)
-
-  useEffect(() => {
-    if (!liveMode || !hasActiveSources()) return
-    fetchLiveEvidence().then(setLiveEvidence).catch(() => {})
-  }, [liveMode])
-
-  const useLive = liveMode && liveEvidence !== null && liveEvidence.length > 0
-  // NOTE: source_lineage values are FRACTIONS (e.g. {app_store: 0.6, zendesk: 0.4}),
-  // not counts — multiply by the cluster's item_count to get real per-source items.
-  const clusterItems = (e: ApiEvidenceItem) => (e.item_count > 0 ? e.item_count : e.unique_user_count)
-  const liveSourceCounts: Record<string, number> = {}
-  if (liveEvidence) {
-    for (const e of liveEvidence) {
-      const n = clusterItems(e)
-      for (const [src, frac] of Object.entries(e.source_lineage ?? {})) {
-        liveSourceCounts[src] = (liveSourceCounts[src] ?? 0) + Math.round(n * Number(frac))
-      }
-    }
-  }
-  const liveTotalItems = liveEvidence
-    ? liveEvidence.reduce((s, e) => s + clusterItems(e), 0)
-    : 0
-
   const sourceNodeDefs = dataset === 'hospital_survey'
     ? [
-        { key: 'patient_portal', label: 'Patient Portal', icon: '🏥', count: useLive ? (liveSourceCounts['patient_portal'] ?? 0) : 155 },
-        { key: 'hospital_survey', label: 'Hospital Survey', icon: '📋', count: useLive ? (liveSourceCounts['hospital_survey'] ?? 0) : 155 },
+        { key: 'patient_portal', label: 'Patient Portal', icon: '🏥', count: 155 },
+        { key: 'hospital_survey', label: 'Hospital Survey', icon: '📋', count: 155 },
       ]
     : [
-        { key: 'app_store', label: 'App Store Reviews', icon: '📱', count: useLive ? (liveSourceCounts['app_store'] ?? 0) : 275 },
-        { key: 'zendesk', label: 'Support Tickets', icon: '🎫', count: useLive ? (liveSourceCounts['zendesk'] ?? 0) : 272 },
+        { key: 'app_store', label: 'App Store Reviews', icon: '📱', count: 275 },
+        { key: 'zendesk', label: 'Support Tickets', icon: '🎫', count: 272 },
       ]
   const pipelineMetrics = dataset === 'hospital_survey'
-    ? { items: useLive ? liveTotalItems : 310, clusters: useLive ? liveEvidence!.length : 4, sourceNodes: sourceNodeDefs }
-    : { items: useLive ? liveTotalItems : 547, clusters: useLive ? liveEvidence!.length : 6, sourceNodes: sourceNodeDefs }
+    ? { items: 310, clusters: 4, sourceNodes: sourceNodeDefs }
+    : { items: 547, clusters: 6, sourceNodes: sourceNodeDefs }
   const activeFallbackLines = dataset === 'hospital_survey' ? HOSPITAL_FALLBACK_LINES : AGENT_FALLBACK_LINES
   const activeFallbacks     = dataset === 'hospital_survey' ? HOSPITAL_FALLBACKS : AGENT_FALLBACKS
   const [agents, setAgents]         = useState<AgentStatus[]>([])

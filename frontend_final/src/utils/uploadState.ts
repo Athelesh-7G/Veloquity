@@ -56,14 +56,6 @@ export function clearAll(): void {
   try { localStorage.removeItem(KEY) } catch {}
 }
 
-export function getLiveMode(): boolean {
-  return localStorage.getItem('veloquity_live_mode') === 'true'
-}
-
-export function setLiveMode(enabled: boolean): void {
-  localStorage.setItem('veloquity_live_mode', enabled ? 'true' : 'false')
-}
-
 // ── Active pipeline sources (source_type strings sent to evidence Lambda) ────
 
 const ACTIVE_SOURCES_KEY = 'veloquity_active_sources'

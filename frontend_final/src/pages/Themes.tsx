@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,10 +8,9 @@ import { Progress } from '@/components/ui/progress'
 import {
   Layers, Search, Plus, MessageSquare, TrendingUp, TrendingDown,
   Users, Merge, Edit2, Trash2, X, ExternalLink, Hash, Shield,
-  AlertCircle, ChevronDown, ChevronUp, ArrowUpDown, Minus, AlertTriangle, Wifi
+  AlertCircle, ChevronDown, ChevronUp, ArrowUpDown, Minus, AlertTriangle
 } from 'lucide-react'
-import { hasUploadedData, getActiveDataset, getLiveMode, setLiveMode, hasActiveSources, SOURCE_LABELS } from '@/utils/uploadState'
-import { fetchLiveEvidence, type EvidenceItem as ApiEvidenceItem } from '@/api/client'
+import { hasUploadedData, getActiveDataset, SOURCE_LABELS } from '@/utils/uploadState'
 import { HOSPITAL_THEMES } from '@/api/mockData'
 
 
@@ -346,29 +345,6 @@ function ExpandedRow({ theme }: { theme: ThemeItem }) {
 type SortKey = 'feedbackCount' | 'uniqueUsers' | 'confidence' | 'name'
 type SortDir = 'asc' | 'desc'
 
-// ─── Map API evidence to ThemeItem ────────────────────────────────────────────
-function mapApiToThemeItem(ev: ApiEvidenceItem): ThemeItem {
-  const name    = ev.theme.split(' | ')[0].slice(0, 60)
-  const sources = Object.keys(ev.source_lineage ?? {})
-  const quotes  = Array.isArray(ev.representative_quotes)
-    ? ev.representative_quotes.map((q: any) => (typeof q === 'string' ? q : q.text ?? '')).filter(Boolean)
-    : []
-  return {
-    id: ev.id, clusterId: ev.id, name,
-    description: quotes.slice(0, 2).join(' ') || name,
-    feedbackCount: ev.item_count > 0 ? ev.item_count : ev.unique_user_count,
-    uniqueUsers: ev.unique_user_count,
-    confidence: Math.round(ev.confidence_score * 100),
-    sentiment: 'negative' as const,
-    trend: 'stable' as const,
-    keywords: sources.concat([ev.status]),
-    color: 'bg-violet-500',
-    sources,
-    representativeQuotes: quotes,
-    category: 'Technical' as const,
-  }
-}
-
 export default function Themes() {
   const hasData = hasUploadedData()
   const dataset = getActiveDataset()
@@ -387,27 +363,7 @@ export default function Themes() {
   const [sortKey, setSortKey]           = useState<SortKey>('feedbackCount')
   const [sortDir, setSortDir]           = useState<SortDir>('desc')
 
-  // Live mode
-  const [liveMode, setLiveModeState]    = useState(() => getLiveMode())
-  const [liveThemes, setLiveThemes]     = useState<ThemeItem[] | null>(null)
-  const [liveLoading, setLiveLoading]   = useState(() => getLiveMode() && hasActiveSources())
-  const [liveError, setLiveError]       = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!liveMode) return
-    if (!hasActiveSources()) {
-      setLiveThemes([])
-      setLiveLoading(false)
-      return
-    }
-    setLiveLoading(true)
-    setLiveError(null)
-    fetchLiveEvidence()
-      .then((r) => { setLiveThemes(r.map(mapApiToThemeItem)); setLiveLoading(false) })
-      .catch((err: Error) => { setLiveError(err.message); setLiveLoading(false) })
-  }, [liveMode])
-
-  const activeList = liveMode && liveThemes ? liveThemes : themeList
+  const activeList = themeList
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
@@ -440,26 +396,6 @@ export default function Themes() {
     </button>
   )
 
-  if (liveMode && !hasActiveSources()) {
-    return (
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'60vh', gap:'16px', color:'var(--text-secondary)' }}>
-        <div style={{ fontSize:'32px' }}>📂</div>
-        <div style={{ fontSize:'16px', fontWeight:600 }}>No sources connected</div>
-        <div style={{ fontSize:'13px', textAlign:'center', maxWidth:'300px' }}>Connect feedback sources in Import Sources to enable V1 intelligence mode.</div>
-        <a href="/app/import-sources" style={{ padding:'8px 16px', background:'var(--accent-primary)', color:'white', borderRadius:'6px', textDecoration:'none', fontSize:'13px', fontWeight:600 }}>Go to Import Sources</a>
-      </div>
-    )
-  }
-
-  if (liveMode && hasActiveSources() && liveLoading) {
-    return (
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', gap:'12px', color:'#22c55e', fontSize:'14px' }}>
-        <span style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e', display:'inline-block', animation:'pulse 1.5s infinite' }} />
-        Loading V1 themes…
-      </div>
-    )
-  }
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -467,18 +403,11 @@ export default function Themes() {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-semibold text-foreground">Themes</h1>
-            {!hasData && !liveMode && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 border">No Data — Upload to Begin</Badge>}
+            {!hasData && <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 border">No Data — Upload to Begin</Badge>}
           </div>
           <p className="text-muted-foreground mt-1">Clustered feedback signals · pgvector cosine · Titan Embed V2</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => { const n = !liveMode; setLiveModeState(n); setLiveMode(n) }}
-            style={{ padding:'6px 14px', borderRadius:'6px', border:'1px solid', borderColor: liveMode ? '#22c55e' : '#6b7280', background: liveMode ? '#052e16' : 'transparent', color: liveMode ? '#22c55e' : '#9ca3af', fontSize:'12px', fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:'6px' }}
-          >
-            <span style={{ width:8, height:8, borderRadius:'50%', background: liveMode ? '#22c55e' : '#6b7280', display:'inline-block' }} />
-            {liveMode ? 'V1' : 'V0'}
-          </button>
           {selectedThemes.length > 1 && (
             <Button variant="outline"><Merge className="w-4 h-4 mr-2" />Merge Selected</Button>
           )}
@@ -488,26 +417,12 @@ export default function Themes() {
         </div>
       </div>
 
-      {liveMode && liveLoading && (
-        <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/30 bg-green-500/5 text-sm text-green-600 dark:text-green-400">
-          <Wifi className="w-4 h-4 animate-pulse shrink-0" />Loading V1 themes…
-        </div>
-      )}
-      {liveMode && liveError && (
-        <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">V1 pipeline error: {liveError}</div>
-      )}
-      {liveMode && liveThemes && !liveLoading && (
-        <div className="flex items-center gap-2 p-3 rounded-xl border border-green-500/40 bg-green-500/8 text-sm text-green-600 dark:text-green-400">
-          <Wifi className="w-4 h-4 shrink-0" />
-          V1 Intelligence Pipeline — {liveThemes.length} themes from real evidence clusters
-        </div>
-      )}
       {/* No-data banner */}
-      {!hasData && !liveMode && (
+      {!hasData && (
         <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
           <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
           <p className="text-sm text-amber-600 dark:text-amber-400">
-            Upload feedback data on the <span className="font-medium">Import Sources</span> page, or enable V1 mode to unlock evidence themes
+            Upload feedback data on the <span className="font-medium">Import Sources</span> page to unlock evidence themes
           </p>
         </div>
       )}
