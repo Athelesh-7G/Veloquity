@@ -32,33 +32,48 @@ python3 -m pip install psycopg2-binary \
   -t .build/deps \
   --quiet
 
-# Evidence-only step: install the ML stack (numpy/scipy/scikit-learn/hdbscan/
-# joblib + psycopg2-binary) for Linux x86_64 into a SEPARATE dir. Only the
-# Evidence Lambda's clustering code needs these; the other 3 functions do not.
-# Kept in .build/deps_evidence so build_lambda_zip bundles it into evidence.zip
-# ONLY (see the conditional in build_lambda_zip below).
-echo "  Installing Evidence ML dependencies (Linux x86_64) from evidence/requirements.txt..."
-rm -rf .build/deps_evidence
-mkdir -p .build/deps_evidence
-python3 -m pip install -r evidence/requirements.txt \
+# ML stack (numpy/scipy/scikit-learn/hdbscan/joblib) now ships as a Lambda LAYER
+# rather than inside evidence.zip. This drops evidence.zip from ~81MB to ~3MB, so
+# routine code deploys upload 3MB instead of 81MB and the ML stack is re-uploaded
+# only when its pins change. Only the Evidence Lambda attaches the layer.
+#
+# NOTE: a layer does NOT get its own 250MB budget — AWS counts function code and
+# every attached layer against the SAME 250MB unzipped quota. This split is a
+# deploy-speed and separation win, not extra headroom. To actually raise the
+# ceiling, move Evidence to container-image packaging (10GB limit).
+echo "  Building ML Lambda Layer (numpy/scipy/scikit-learn/hdbscan/joblib)..."
+rm -rf .build/layer_ml
+mkdir -p .build/layer_ml/python
+python3 -m pip install \
+  numpy==2.0.2 \
+  scipy==1.13.1 \
+  scikit-learn==1.6.1 \
+  hdbscan==0.8.42 \
+  joblib \
   --platform manylinux2014_x86_64 \
   --python-version 3.12 \
   --only-binary=:all: \
-  -t .build/deps_evidence \
+  -t .build/layer_ml/python \
   --quiet
 
-# Prune the ML stack down under Lambda's 250MB unzipped ceiling. Test suites,
-# package metadata, and bytecode caches are not needed at runtime for numpy/
-# scipy/scikit-learn/hdbscan and account for tens of MB.
-echo "  Pruning Evidence deps (tests, dist-info, __pycache__)..."
-find .build/deps_evidence -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
-find .build/deps_evidence -name "test_*.py" -delete 2>/dev/null || true
-find .build/deps_evidence -type d -name "*.dist-info" -exec rm -rf {} + 2>/dev/null || true
-find .build/deps_evidence -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-echo "  Evidence deps size after prune: $(du -sh .build/deps_evidence | cut -f1)"
+# Prune: the layer counts against the function's 250MB unzipped quota, so this
+# still matters. Test suites, package metadata, and bytecode caches are not
+# needed at runtime and account for tens of MB across numpy/scipy/scikit-learn.
+echo "  Pruning ML Layer (tests, dist-info, __pycache__)..."
+find .build/layer_ml/python -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true
+find .build/layer_ml/python -name "test_*.py" -delete 2>/dev/null || true
+find .build/layer_ml/python -type d -name "*.dist-info" -exec rm -rf {} + 2>/dev/null || true
+find .build/layer_ml/python -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+echo "  ML Layer size: $(du -sh .build/layer_ml | cut -f1)"
+
+rm -f .build/layer_ml.zip
+(cd .build/layer_ml && zip -r ../layer_ml.zip . -x "*.pyc" -x "*__pycache__*") > /dev/null
+echo "  Built layer_ml.zip ($(du -sh .build/layer_ml.zip | cut -f1))"
 
 # Helper: build a Lambda zip from one or more source dirs.
 # Usage: build_lambda_zip <output.zip> <src_dir> [<src_dir> ...]
+# Every zip gets: the Lambda's own package(s) + api/ + psycopg2-binary.
+# The ML stack is NOT bundled here — Evidence gets it from the layer at runtime.
 build_lambda_zip() {
   local zipfile="$1"; shift
   local pkgdir=".build/pkg_$(basename ${zipfile%.zip})"
@@ -68,12 +83,6 @@ build_lambda_zip() {
     cp -r "$srcdir" "$pkgdir/"
   done
   cp -r api "$pkgdir/"
-  # Evidence Lambda ONLY: overlay the ML stack (numpy/scipy/scikit-learn/
-  # hdbscan/joblib). The other 3 functions skip this and stay lightweight.
-  if [ "$(basename ${zipfile%.zip})" = "evidence" ]; then
-    echo "    + bundling Evidence ML stack from .build/deps_evidence"
-    cp -r .build/deps_evidence/. "$pkgdir/"
-  fi
   (cd "$pkgdir" && zip -r "../$(basename $zipfile)" . -x "*.pyc" -x "*__pycache__*") > /dev/null
   echo "  Built $zipfile ($(du -sh .build/$(basename $zipfile) | cut -f1))"
 }
@@ -99,6 +108,7 @@ aws s3 cp .build/ingestion.zip  s3://${DEPLOY_BUCKET}/lambda/ingestion.zip
 aws s3 cp .build/evidence.zip   s3://${DEPLOY_BUCKET}/lambda/evidence.zip
 aws s3 cp .build/reasoning.zip  s3://${DEPLOY_BUCKET}/lambda/reasoning.zip
 aws s3 cp .build/governance.zip s3://${DEPLOY_BUCKET}/lambda/governance.zip
+aws s3 cp .build/layer_ml.zip   s3://${DEPLOY_BUCKET}/lambda/layer_ml.zip --region ${REGION}
 
 # 3. Validate CloudFormation template
 echo "[3/6] Validating CloudFormation template..."
@@ -137,6 +147,32 @@ echo "  Stack deployed."
 # Runs BEFORE migrations on purpose: the migration step depends on a local psql
 # client and must never be able to skip the code update if psql is missing.
 echo "[5/6] Forcing Lambda code updates from s3://${DEPLOY_BUCKET}..."
+
+# Publish a new ML layer version and attach it to the Evidence function.
+# Same reason as the code-update loop below: CloudFormation will not publish a
+# new LayerVersion while the template's S3Key string is unchanged, so the layer
+# content would silently go stale exactly like the function code did.
+echo "  Publishing ML Layer..."
+LAYER_ARN=$(aws lambda publish-layer-version \
+  --layer-name veloquity-ml-layer-${ENV} \
+  --content S3Bucket=${DEPLOY_BUCKET},S3Key=lambda/layer_ml.zip \
+  --compatible-runtimes python3.12 \
+  --compatible-architectures x86_64 \
+  --region ${REGION} \
+  --query 'LayerVersionArn' --output text)
+echo "  Layer ARN: ${LAYER_ARN}"
+
+echo "  Attaching ML Layer to veloquity-evidence-${ENV}..."
+aws lambda update-function-configuration \
+  --function-name veloquity-evidence-${ENV} \
+  --layers ${LAYER_ARN} \
+  --region ${REGION} > /dev/null
+# Required: a config update puts the function in Pending. Without this wait the
+# update-function-code call below races it and fails with ResourceConflictException.
+aws lambda wait function-updated \
+  --function-name veloquity-evidence-${ENV} \
+  --region ${REGION}
+
 for fn in ingestion evidence reasoning governance; do
   FUNCTION_NAME="veloquity-${fn}-${ENV}"
   echo "  Updating ${FUNCTION_NAME} (lambda/${fn}.zip)..."

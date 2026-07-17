@@ -1,6 +1,9 @@
-numpy==2.0.2
-scipy==1.13.1
-scikit-learn==1.6.1
-hdbscan==0.8.42
-joblib
+# The ML stack (numpy / scipy / scikit-learn / hdbscan / joblib) is NOT listed
+# here — it ships as the veloquity-ml-layer Lambda Layer, built and published by
+# infra/deploy.sh. The layer has its own 250MB unzipped budget, which keeps
+# evidence.zip small and off the function's 250MB ceiling. Pinned versions live
+# in the layer build step in deploy.sh.
+#
+# Local dev / test installs still need the ML stack — install it explicitly:
+#   pip install numpy==2.0.2 scipy==1.13.1 scikit-learn==1.6.1 hdbscan==0.8.42 joblib
 psycopg2-binary

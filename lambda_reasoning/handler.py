@@ -21,6 +21,28 @@ logger.setLevel(logging.INFO)
 BUCKET = os.environ.get("REPORT_BUCKET", "veloquity-reports-dev-082228066878")
 REGION = os.environ.get("AWS_REGION", os.environ.get("AWS_REGION_NAME", "us-east-1"))
 
+# Cached boto3 clients (one per Lambda container lifetime). Client construction
+# loads botocore service models and resolves credentials — real latency to repeat
+# on every warm invocation. Lazily built so import stays cheap at cold start.
+_bedrock = None
+_s3 = None
+
+
+def _get_bedrock():
+    """Return the cached Bedrock runtime client, creating it on first use."""
+    global _bedrock
+    if _bedrock is None:
+        _bedrock = boto3.client("bedrock-runtime", region_name=REGION)
+    return _bedrock
+
+
+def _get_s3():
+    """Return the cached S3 client, creating it on first use."""
+    global _s3
+    if _s3 is None:
+        _s3 = boto3.client("s3", region_name=REGION)
+    return _s3
+
 
 def handler(event: dict, context: Any) -> dict:
     """Lambda entry point for the Reasoning Agent.
@@ -45,10 +67,7 @@ def handler(event: dict, context: Any) -> dict:
     conn = None
     try:
         conn = get_conn()
-        bedrock = boto3.client("bedrock-runtime", region_name=REGION)
-        s3 = boto3.client("s3", region_name=REGION)
-
-        result = run_reasoning_agent(conn, bedrock, s3, BUCKET)
+        result = run_reasoning_agent(conn, _get_bedrock(), _get_s3(), BUCKET)
         logger.info(
             "Reasoning Agent complete: run_id=%s recommendations=%d",
             result.get("run_id"), len(result.get("recommendations", [])),

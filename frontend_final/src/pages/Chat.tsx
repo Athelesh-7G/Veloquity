@@ -476,6 +476,9 @@ export default function Chat() {
   const [healthWarming, setHealthWarming]       = useState(false)
   const [optimisticReady, setOptimisticReady]   = useState(false)
   const [progressLabel, setProgressLabel]       = useState('')
+  // Cold-start banners stay hidden until the user actually tries to send — an
+  // idle visitor should never be greeted by a backend warning on page load.
+  const [hasInteracted, setHasInteracted]       = useState(false)
 
   const bottomRef      = useRef<HTMLDivElement>(null)
   const inputRef       = useRef<HTMLInputElement>(null)
@@ -544,6 +547,7 @@ export default function Chat() {
 
   async function send(text: string) {
     if (!text.trim() || sending) return
+    setHasInteracted(true)
     // Queue if optimistically unlocked but health not yet confirmed
     if (!healthReady && optimisticReady) {
       pendingMessage.current = text
@@ -956,8 +960,8 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           <div ref={bottomRef} />
         </div>
 
-        {/* Warming up banner — only shown from attempt 3 onward */}
-        {healthWarming && healthAttempt >= 3 && (
+        {/* Warming up banner — only after the user has tried to send */}
+        {hasInteracted && healthWarming && healthAttempt >= 3 && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-500/30 bg-amber-500/8 mb-2">
             <Loader2 className="w-4 h-4 text-amber-500 shrink-0 animate-spin" />
             <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -966,7 +970,8 @@ Provide a specific, actionable recommendation plan with clear steps. Reference t
           </div>
         )}
 
-        {/* Health failed banner */}
+        {/* Health failed banner — always shown: it carries the only Retry
+            affordance, and the composer is disabled while healthFailed. */}
         {healthFailed && (
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/8 mb-2">
             <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
