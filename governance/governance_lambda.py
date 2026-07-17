@@ -19,6 +19,20 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 REPORTS_BUCKET = os.environ.get("REPORTS_BUCKET", "veloquity-reports-dev-082228066878")
+REGION = os.environ.get("AWS_REGION_NAME", "us-east-1")
+
+# Cached boto3 client (one per Lambda container lifetime). Client construction
+# loads botocore service models and resolves credentials — real latency to repeat
+# on every warm invocation. Lazily built so import stays cheap at cold start.
+_s3 = None
+
+
+def _get_s3():
+    """Return the cached S3 client, creating it on first use."""
+    global _s3
+    if _s3 is None:
+        _s3 = boto3.client("s3", region_name=REGION)
+    return _s3
 
 
 def handler(event: dict, context) -> dict:
@@ -47,12 +61,11 @@ def handler(event: dict, context) -> dict:
     conn = None
     try:
         conn = get_conn()
-        s3 = boto3.client("s3", region_name="us-east-1")
 
         stale = stale_detection.detect_and_flag_stale(conn)
         promoted = signal_promotion.promote_staging_signals(conn)
         cost = cost_monitor.check_cost_signals(conn)
-        report_url = html_report.generate_and_upload(conn, s3, REPORTS_BUCKET)
+        report_url = html_report.generate_and_upload(conn, _get_s3(), REPORTS_BUCKET)
 
         results = {
             "stale_flagged": stale,

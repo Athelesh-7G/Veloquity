@@ -10,8 +10,8 @@ import {
 } from 'lucide-react'
 import {
   getUploadedSources, addUploadedSource, removeUploadedSource,
-  type UploadedSource, addActiveSource, removeActiveSource,
-  setActiveSources, clearAllActiveSources,
+  type UploadedSource, type SourceId, addActiveSource, removeActiveSource,
+  setActiveSources, clearAllActiveSources, PIPELINE_SOURCE_TYPES,
 } from '@/utils/uploadState'
 import { setAgentsDone, clearAgentRunState } from '@/utils/agentRunState'
 
@@ -65,8 +65,6 @@ const PHASES: Phase[] = [
   { label: () => 'Finalizing intelligence report…',      startAt: 13000, targetProgress: 100 },
 ]
 const CONNECT_TOTAL_MS = 16000
-
-type SourceId = 'appstore' | 'support_tickets' | 'patient_portal' | 'hospital_survey_ticket'
 
 function cleanFilename(name: string): string {
   return name.replace(/[_-]?sample[_-]?/gi, '')
@@ -311,12 +309,50 @@ function SourceCard({
   )
 }
 
-// Maps UI SourceId → pipeline source_type string stored in S3 keys
-const SOURCE_TYPE_MAP: Record<SourceId, string> = {
-  appstore:               'app_store',
-  support_tickets:        'zendesk',
-  patient_portal:         'patient_portal',
-  hospital_survey_ticket: 'hospital_survey',
+// ─── Sample Data card ─────────────────────────────────────────────────────────
+// Sits between the two dataset sections: once App Product shows as connected,
+// downloading the Patient Portal CSV is the natural next step for a reviewer.
+function SampleDataCard() {
+  return (
+    <Card className="border-violet-500/30 bg-violet-500/[0.03]">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Download className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+          Download Sample Data
+        </CardTitle>
+        <CardDescription>
+          Download and connect Patient Portal survey data to see healthcare domain analysis —
+          disconnect the App Product sources above first to switch datasets.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <a href="/samples/patient_portal.csv" download className="inline-block">
+          <Button className="gap-2 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white">
+            <Hospital className="w-4 h-4" />
+            Download Patient Portal CSV
+          </Button>
+        </a>
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-xs text-muted-foreground mr-1">Other samples:</span>
+          <a href="/samples/hospital_survey.csv" download>
+            <Button variant="outline" size="sm" className="bg-transparent gap-1.5">
+              <ClipboardList className="w-3.5 h-3.5" />Hospital Survey
+            </Button>
+          </a>
+          <a href="/samples/app_store_reviews.csv" download>
+            <Button variant="outline" size="sm" className="bg-transparent gap-1.5">
+              <Smartphone className="w-3.5 h-3.5" />App Store
+            </Button>
+          </a>
+          <a href="/samples/support_tickets.csv" download>
+            <Button variant="outline" size="sm" className="bg-transparent gap-1.5">
+              <Ticket className="w-3.5 h-3.5" />Support Tickets
+            </Button>
+          </a>
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -329,7 +365,7 @@ export default function ImportSources() {
   useEffect(() => {
     const uploaded = getUploadedSources()
     clearAllActiveSources()
-    const active = uploaded.map(s => SOURCE_TYPE_MAP[s.source as SourceId]).filter(Boolean)
+    const active = uploaded.map(s => PIPELINE_SOURCE_TYPES[s.source as SourceId]).filter(Boolean)
     setActiveSources(active)
   }, [])
 
@@ -361,13 +397,13 @@ export default function ImportSources() {
     setSources(getUploadedSources())
 
     // Track source_type for pipeline filtering
-    const sourceType = SOURCE_TYPE_MAP[source]
+    const sourceType = PIPELINE_SOURCE_TYPES[source]
     addActiveSource(sourceType)
   }
 
   function handleDisconnect(source: SourceId) {
     removeUploadedSource(source)
-    const sourceType = SOURCE_TYPE_MAP[source]
+    const sourceType = PIPELINE_SOURCE_TYPES[source]
     removeActiveSource(sourceType)
     const remaining = getUploadedSources().filter(s => s.source !== source)
     if (remaining.length === 0) clearAgentRunState()
@@ -417,6 +453,9 @@ export default function ImportSources() {
         </div>
       </div>
 
+      {/* ── Download Sample Data ───────────────────────────────────────────── */}
+      <SampleDataCard />
+
       {/* ── Section 2: Patient Hospital Survey ─────────────────────────────── */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
@@ -446,44 +485,6 @@ export default function ImportSources() {
           />
         </div>
       </div>
-
-      {/* ── Download Sample Files ───────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Download className="w-4 h-4 text-violet-600" />Download Sample Files
-          </CardTitle>
-          <CardDescription>
-            Use these sample CSVs to try out the platform before connecting real data
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <a href="/samples/app_store_reviews.csv" download>
-            <Button variant="outline" className="bg-transparent gap-2">
-              <Smartphone className="w-4 h-4" />
-              Download App Store CSV
-            </Button>
-          </a>
-          <a href="/samples/support_tickets.csv" download>
-            <Button variant="outline" className="bg-transparent gap-2">
-              <Ticket className="w-4 h-4" />
-              Download Support Tickets CSV
-            </Button>
-          </a>
-          <a href="/samples/patient_portal.csv" download>
-            <Button variant="outline" className="bg-transparent gap-2">
-              <Hospital className="w-4 h-4" />
-              Download Patient Portal CSV
-            </Button>
-          </a>
-          <a href="/samples/hospital_survey.csv" download>
-            <Button variant="outline" className="bg-transparent gap-2">
-              <ClipboardList className="w-4 h-4" />
-              Download Hospital Survey CSV
-            </Button>
-          </a>
-        </CardContent>
-      </Card>
     </div>
   )
 }

@@ -9,7 +9,6 @@ import { type AgentRunResult, type AgentStatus, checkHealth, getAgentStatus, run
 import { MOCK_AGENTS, HOSPITAL_MOCK_AGENTS } from '@/api/mockData'
 
 type RunStatus = 'idle' | 'running' | 'success' | 'error'
-type HealthStatus = 'checking' | 'ready' | 'failed'
 
 const AGENT_CONFIG = [
   {
@@ -275,69 +274,45 @@ export default function Agents() {
   const [lastResult, setLastResult] = useState<Record<string, AgentRunResult>>({})
   const [lastRanAt, setLastRanAt]   = useState<Record<string, Date>>({})
   const [toasts, setToasts]         = useState<{ id: number; msg: string; ok: boolean }[]>([])
-  const [loading, setLoading]       = useState(true)
-  const [healthStatus, setHealthStatus] = useState<HealthStatus>('checking')
-  const [healthAttempt, setHealthAttempt] = useState(0)
-  const [retryKey, setRetryKey]     = useState(0)
 
   const anyRunning = Object.values(runStatus).includes('running')
 
   useEffect(() => {
     let cancelled = false
 
-    async function init() {
-      setHealthStatus('checking')
-      setHealthAttempt(0)
-      setLoading(true)
-
-      // Pre-populate run state from localStorage if agents have already been triggered
-      if (hasAgentsRun()) {
-        const stored = getAgentRunState()
-        const statusMap: Record<string, RunStatus> = {}
-        const ranAtMap: Record<string, Date> = {}
-        for (const a of stored) {
-          if (a.status === 'done' && a.ranAt) {
-            statusMap[a.name] = 'success'
-            ranAtMap[a.name] = new Date(a.ranAt)
-          }
+    // Pre-populate run state from localStorage if agents have already been triggered
+    if (hasAgentsRun()) {
+      const stored = getAgentRunState()
+      const statusMap: Record<string, RunStatus> = {}
+      const ranAtMap: Record<string, Date> = {}
+      for (const a of stored) {
+        if (a.status === 'done' && a.ranAt) {
+          statusMap[a.name] = 'success'
+          ranAtMap[a.name] = new Date(a.ranAt)
         }
-        setRunStatus(statusMap)
-        setLastRanAt(ranAtMap)
       }
-
-      // Health check with up to 20 retries, 3s apart (~60s max) — long enough
-      // for Render's free tier to finish a 30-60s cold start before giving up.
-      let healthy = false
-      if (sessionStorage.getItem('veloquity_health_ready') === '1') {
-        healthy = true
-      } else {
-        for (let attempt = 1; attempt <= 20; attempt++) {
-          if (cancelled) return
-          setHealthAttempt(attempt)
-          healthy = await checkHealth(2500)
-          if (healthy) break
-          if (attempt < 20) await new Promise<void>(r => setTimeout(r, 3000))
-        }
-        if (healthy) sessionStorage.setItem('veloquity_health_ready', '1')
-      }
-
-      if (cancelled) return
-
-      if (!healthy) {
-        setHealthStatus('failed')
-        setLoading(false)
-        return
-      }
-
-      setHealthStatus('ready')
-      getAgentStatus()
-        .then((d) => { if (!cancelled) { setAgents(d.length ? d : activeMockAgents); setLoading(false) } })
-        .catch(() => { if (!cancelled) { setAgents(activeMockAgents); setLoading(false) } })
+      setRunStatus(statusMap)
+      setLastRanAt(ranAtMap)
     }
 
-    init()
+    // Background upgrade to live agent status. The pipeline already renders from
+    // demo data, so a sleeping backend must never gate or replace it — backend
+    // trouble surfaces only when the user actually clicks Run (see handleRun).
+    async function loadLiveStatus() {
+      if (sessionStorage.getItem('veloquity_health_ready') !== '1') {
+        const healthy = await checkHealth(2500)
+        if (cancelled || !healthy) return
+        sessionStorage.setItem('veloquity_health_ready', '1')
+      }
+      try {
+        const d = await getAgentStatus()
+        if (!cancelled && d.length) setAgents(d)
+      } catch { /* keep demo data */ }
+    }
+
+    loadLiveStatus()
     return () => { cancelled = true }
-  }, [retryKey])
+  }, [])
 
   function addToast(msg: string, ok: boolean) {
     const id = Date.now()
@@ -370,45 +345,9 @@ export default function Agents() {
     return 'Never'
   }
 
-  const agentMap = buildAgentMap(agents)
-
-  // Health check failed — show error state with Retry button
-  if (healthStatus === 'failed') {
-    return (
-      <div className="p-6 flex flex-col items-center justify-center h-64 gap-4 bg-background">
-        <XCircle className="w-8 h-8 text-red-500" />
-        <div className="text-center">
-          <p className="text-foreground font-medium">Could not reach the intelligence engine</p>
-          <p className="text-muted-foreground text-sm mt-1">Backend did not respond after 8 attempts.</p>
-        </div>
-        <Button
-          onClick={() => setRetryKey(k => k + 1)}
-          className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white"
-        >
-          <RefreshCw className="w-4 h-4 mr-2" />Retry
-        </Button>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="p-6 space-y-6 bg-background">
-        {healthStatus === 'checking' && healthAttempt >= 3 && (
-          <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/8">
-            <Loader2 className="w-4 h-4 text-amber-500 shrink-0 animate-spin" />
-            <p className="text-sm text-amber-600 dark:text-amber-400">
-              Waking up inference engine… (attempt {healthAttempt}/8)
-            </p>
-          </div>
-        )}
-        <div className="flex items-center justify-center h-48">
-          <Loader2 className="w-6 h-6 animate-spin text-violet-500 mr-2" />
-          <span className="text-muted-foreground">Loading agents…</span>
-        </div>
-      </div>
-    )
-  }
+  // Live status when the backend has answered, demo data otherwise — the page
+  // always has something to render, so there is no loading or failure gate.
+  const agentMap = buildAgentMap(agents.length ? agents : activeMockAgents)
 
   return (
     // FIX: bg-background instead of bg-[#080D1A]

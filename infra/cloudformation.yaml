@@ -275,6 +275,31 @@ Resources:
           Value: !Ref Env
 
   # ------------------------------------------------------------
+  # Lambda Layer — ML stack for the Evidence Lambda.
+  # numpy/scipy/scikit-learn/hdbscan/joblib live here rather than inside
+  # evidence.zip, which keeps evidence.zip ~3MB so routine code deploys upload
+  # 3MB instead of 81MB. NOTE: a layer does NOT get its own 250MB budget — AWS
+  # counts function code + all attached layers against the SAME 250MB unzipped
+  # quota, so this is a deploy-speed win, not extra headroom.
+  # NOTE: CloudFormation only publishes a new LayerVersion when a property here
+  # changes. Since S3Key is a constant string, deploy.sh publishes a fresh
+  # version via `aws lambda publish-layer-version` on every deploy and attaches
+  # it — same force-update reason as the function code (see deploy.sh step 5).
+  # ------------------------------------------------------------
+  VeloquityMLLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub veloquity-ml-layer-${Env}
+      Description: ML stack for Evidence Lambda (numpy/scipy/sklearn/hdbscan)
+      Content:
+        S3Bucket: !Ref DeployBucket
+        S3Key: lambda/layer_ml.zip
+      CompatibleRuntimes:
+        - python3.12
+      CompatibleArchitectures:
+        - x86_64
+
+  # ------------------------------------------------------------
   # Lambda — Evidence Intelligence (Section 4)
   # Triggered after ingestion writes to S3.
   # ------------------------------------------------------------
@@ -288,6 +313,8 @@ Resources:
       Code:
         S3Bucket: !Ref DeployBucket
         S3Key: lambda/evidence.zip
+      Layers:
+        - !Ref VeloquityMLLayer
       Timeout: 600
       MemorySize: 1024
       # No VpcConfig — Lambda runs outside VPC so it can reach S3, Bedrock,

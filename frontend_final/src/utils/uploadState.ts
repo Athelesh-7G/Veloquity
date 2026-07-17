@@ -1,9 +1,21 @@
+import { setAgentsDone } from '@/utils/agentRunState'
+
+export type SourceId = 'appstore' | 'support_tickets' | 'patient_portal' | 'hospital_survey_ticket'
+
 export type UploadedSource = {
-  source: 'appstore' | 'support_tickets' | 'patient_portal' | 'hospital_survey_ticket'
+  source: SourceId
   filename: string
   rowCount: number
   uploadedAt: string
   dataset: 'app_product' | 'hospital_survey'
+}
+
+// Maps UI SourceId → pipeline source_type string used in S3 keys / active sources.
+export const PIPELINE_SOURCE_TYPES: Record<SourceId, string> = {
+  appstore:               'app_store',
+  support_tickets:        'zendesk',
+  patient_portal:         'patient_portal',
+  hospital_survey_ticket: 'hospital_survey',
 }
 
 const KEY = 'veloquity_uploaded_sources'
@@ -54,6 +66,40 @@ export function getActiveDataset(): 'app_product' | 'hospital_survey' | null {
 
 export function clearAll(): void {
   try { localStorage.removeItem(KEY) } catch {}
+}
+
+// ── First-load defaults ───────────────────────────────────────────────────────
+
+const INIT_KEY = 'veloquity_sources_initialized'
+
+// The App Product dataset ships pre-connected so a first-time visitor lands on a
+// populated Dashboard/Evidence Grid instead of an upload gate. Patient Portal and
+// Hospital Survey stay disconnected — connecting them is the domain-switch demo.
+const DEFAULT_SOURCES: Omit<UploadedSource, 'uploadedAt'>[] = [
+  { source: 'appstore',        filename: 'app_store_reviews.csv', rowCount: 275, dataset: 'app_product' },
+  { source: 'support_tickets', filename: 'support_tickets.csv',   rowCount: 272, dataset: 'app_product' },
+]
+
+/**
+ * Seeds App Store + Support Tickets as connected on a visitor's very first load.
+ * Runs once ever (guarded by INIT_KEY), so a user who later disconnects a source
+ * keeps it disconnected across reloads. Must run before React mounts — every page
+ * reads hasUploadedData()/getActiveDataset() synchronously during render.
+ */
+export function initializeDefaultSources(): void {
+  try {
+    if (localStorage.getItem(INIT_KEY)) return
+    localStorage.setItem(INIT_KEY, '1')
+
+    // Respect any pre-existing state (returning user from before this flag existed).
+    if (getUploadedSources().length > 0) return
+
+    const uploadedAt = new Date().toISOString()
+    const seeded: UploadedSource[] = DEFAULT_SOURCES.map(s => ({ ...s, uploadedAt }))
+    localStorage.setItem(KEY, JSON.stringify(seeded))
+    setActiveSources(seeded.map(s => PIPELINE_SOURCE_TYPES[s.source]))
+    setAgentsDone(uploadedAt)
+  } catch {}
 }
 
 // ── Active pipeline sources (source_type strings sent to evidence Lambda) ────
