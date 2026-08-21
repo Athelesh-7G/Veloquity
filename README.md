@@ -262,11 +262,3 @@ Veloquity won the **AWS 10,000 AIdeas Asia Pacific & Japan (APJC) Regional Champ
 
 ---
 
-<div align="center">
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:24243e,50:302b63,100:0f0c29&height=100&section=footer" width="100%"/>
-</div>
-
-
-Upload App Store or Support Tickets feedback and watch the full pipeline run. Explore evidence clusters, get AI recommendations with source traceability, and drill down to individual feedback items from the chat interface.
-
-Switch to Patient Portal and Hospital Survey data to see the same pipeline process a completely different domain with zero code changes.
