@@ -236,7 +236,6 @@ test_evidence_item_map.py  39 tests  S3 keys, lineage, quotes, write operations
 test_governance.py         25 tests  Audit log, stale detection, promotion, cost monitor
 test_reasoning_agent.py    28 tests  Fetch, priority scoring, prompt, write, full run
 
-Zero AWS or DB calls in test suite — fully mocked
 ```
 
 ---
