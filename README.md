@@ -20,7 +20,7 @@
 
 ## What Veloquity Does
 
-Veloquity is a fully serverless agentic pipeline that transforms raw user feedback into prioritized, evidence-backed product decisions. Feedback enters through ingestion, gets embedded via Amazon Titan Embed V2, clustered with pgvector HNSW similarity search, scored by a mathematical confidence formula, and reasoned over by a Nova Pro ReAct loop — producing ranked recommendations that trace back to every original source item. 
+Veloquity is a fully serverless & domain-agnostic multi agent evidence intelligence platform that transforms massive, fragmented customer feedback into prioritized, evidence-backed product decisions for the enterprises. Feedback enters through ingestion, gets embedded via Amazon Titan Embed V2, clustered with pgvector HNSW similarity search, scored by a mathematical confidence formula, and reasoned over by a Nova Pro ReAct loop — producing ranked recommendations that trace back to every original source item. 
 
 Every recommendation links through confidence-scored clusters to individual raw feedback items via the `evidence_item_map` table, providing full source-to-decision traceability with an immutable governance audit log. The same pipeline processes SaaS product crash reports and hospital patient experience surveys without a single line of code changed.
 
