@@ -216,15 +216,11 @@ veloquity/
 
 **Nova Pro over Claude** — AISPL accounts cannot access Anthropic models on Bedrock; Nova Pro is first-party AWS and available universally
 
-**Regex PII over Comprehend** — deterministic, zero latency, zero cost, sufficient for email, phone, and name patterns at this scale
-
 **Append-only governance log** — immutable audit trail means recommendations are traceable across time with no delete risk
 
 **Embedding cache** — re-runs on unchanged corpus cost near zero; cache hit rate monitored with configurable alert threshold
 
 **Domain-agnostic pipeline** — zero hardcoded product or domain vocabulary; same Lambda code handles SaaS feedback and hospital patient surveys
-
-**Single default experience** — the V1 live-pipeline mode toggle was removed due to bugs and reliability issues.
 
 ---
 
