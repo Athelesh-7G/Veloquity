@@ -27,7 +27,7 @@ Veloquity won the **Global AWS 10,000 AIdeas Competition 2026 - Asia Pacific & J
 - 🏆 **AWS APJC Regional Champion** — $15,000 prize support · $1,500 AWS credits · AWS re:Invent Las Vegas invitation
 - 📰 Full technical write-up: [AWS Builder Center Article](https://builder.aws.com/content/3AzrKpJbhJwEP6EZbm87vdxufgi/aideas-finalist-veloquity-the-agentic-evidence-intelligent-platform-turning-raw-feedback-into-evidence-driven-decisions)
 - 🎥 Demo video: [Watch on YouTube](https://youtu.be/wEG5jTQxlJ4?si=l1tH72icmjTMdh_H)
-- 📰 Featured in **Business Today** alongside **Jeff Barr** *(VP & Chief Evangelist, AWS)*
+- 📰 Featured in **Business Today** alongside **Jeff Barr** *(Vice President & Chief Evangelist, AWS)*
 
 ---
 
