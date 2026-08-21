@@ -31,6 +31,125 @@ Veloquity won the **Global AWS 10,000 AIdeas Competition 2026 - Asia Pacific & J
 
 ---
 
+## The Problem
+
+**Organizations today are not lacking feedback. They are lacking clarity.**
+
+Feedback arrives continuously across product teams, hospitals, and public systems — support tickets, app reviews, survey responses, and user complaints. Each signal seems small in isolation. Collectively, they form a pattern. But that pattern is hard to see.
+
+The same underlying issue may arrive described in completely different ways:
+- a crash report
+- a vague complaint  
+- a frustrated review
+- a detailed support ticket
+
+Most teams still rely on manual interpretation — reading feedback, scanning tickets, prioritizing based on intuition. At small scale, this works. At large scale, it fails. Organizations may process thousands of inputs yet still miss the single issue affecting the most users.
+
+**Veloquity was built to close that gap.**
+
+---
+
+## What Was Built
+
+A fully serverless, agentic pipeline that transforms raw, unstructured feedback into prioritized, evidence-backed decisions — with every recommendation traceable back to the exact source item that produced it.
+
+```mermaid
+flowchart TD
+    SRC["📥 Feedback Sources\nApp Reviews · Support Tickets · Surveys · Portal Data"]
+
+    SRC --> ING
+
+    subgraph ING["① Ingestion Agent"]
+        I1["Normalize · Deduplicate · PII-redact · Source-tag"]
+    end
+
+    ING --> EVI
+
+    subgraph EVI["② Evidence Intelligence Agent"]
+        E1["Embed semantically — 1024 dimensions"]
+        E2["Cluster by meaning, not keywords"]
+        E3["Score confidence per cluster"]
+        E1 --> E2 --> E3
+    end
+
+    EVI --> STORE
+
+    STORE[("③ Evidence Store\nConfidence-scored clusters\nFull lineage preserved")]
+
+    STORE --> REA
+
+    subgraph REA["④ Reasoning Agent"]
+        R1["Rank evidence · Generate explainable recommendations"]
+    end
+
+    REA --> OUT["✅ Evidence-Backed Decisions\nEvery recommendation traceable to source"]
+
+    GOV["🛡️ Governance Agent\nRuns independently on a schedule\nStaleness detection · Audit log"]
+
+    GOV -.->|"Monitors"| STORE
+    GOV -.->|"Audits"| OUT
+```
+
+| Stage | Job | Core AWS Technology |
+|---|---|---|
+| Ingestion | Normalize, protect, and deduplicate raw feedback | AWS Lambda · Amazon S3 |
+| Evidence Intelligence | Embed and cluster feedback into confidence-scored evidence | Amazon Titan Embed V2 · RDS PostgreSQL (pgvector, HNSW) |
+| Reasoning | Reason over evidence into ranked, source-linked recommendations | Amazon Bedrock (Nova Pro) |
+| Governance | Detect staleness, promote signals, maintain audit trail | AWS Lambda · Amazon EventBridge |
+
+---
+
+## How It's Different
+
+### Traceability, not a black box
+
+Every recommendation Veloquity produces links back through its evidence to the exact original feedback items — source, timestamp, and context, not just a generated paragraph. If a recommendation can't be traced to real evidence, it isn't surfaced.
+
+```
+Raw Feedback  →  Evidence Cluster  →  Confidence Score  →  Reasoning  →  Decision
+     ↑______________________________________________↑
+                    Full lineage preserved
+```
+
+### Confidence scoring, not keyword counting
+
+Evidence isn't ranked by how often a word appears. Related feedback is embedded and grouped semantically, then scored on how tightly the group actually agrees with itself.
+
+```mermaid
+flowchart LR
+    A["50 people saying\n'crash' loosely"] -->|Low confidence\nLoose cluster| B["🚫 Rejected"]
+    C["5 engineers reporting\nthe same bug precisely"] -->|High confidence\nTight cluster| D["✅ Drives recommendation"]
+```
+
+Volume doesn't win. Coherence does.
+
+### Agentic reasoning, not static rules
+
+The recommendation step isn't a fixed rulebook. A reasoning agent retrieves the relevant evidence, weighs it against multiple factors — confidence, user count, cross-source corroboration, recency — and generates a structured, explainable recommendation. Consistent across every run. Not hardcoded to any domain.
+
+---
+
+## Validated On
+
+Veloquity's core claim is domain-agnostic intelligence. The same code, unmodified, processes meaningful evidence and recommendations regardless of what kind of feedback it receives.
+
+| Domain | Volume | Result |
+|---|---|---|
+| SaaS product feedback (app reviews + support tickets) | 547 items | Coherent evidence clusters, ranked recommendations |
+| Healthcare patient experience (portal + survey data) | 310 items | Same pipeline, zero code changes |
+| **Combined** | **857 items** | **One pipeline. Two unrelated domains.** |
+
+**Performance and cost, measured end-to-end:**
+
+| Metric | Result |
+|---|---|
+| Full pipeline runtime | ~91 seconds |
+| Cost per full run | $0.029 |
+| Automated test suite | 158 tests, 100% passing |
+| Test suite runtime | 0.72 seconds (fully mocked) |
+
+---
+
 ## What Veloquity Does
 
 Veloquity is a fully serverless & domain-agnostic multi agent evidence intelligence platform that transforms massive, fragmented customer feedback into prioritized, evidence-backed product decisions. Feedback enters through ingestion, gets embedded via Amazon Titan Embed V2, clustered with pgvector HNSW similarity search, scored by a mathematical confidence formula, and reasoned over by a Amazon Nova Pro ReAct loop — producing ranked recommendations that trace back to every original source item. 
