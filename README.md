@@ -22,7 +22,7 @@
 
 <a name="recognition"></a>
 
-Veloquity won the **AWS 10,000 AIdeas Asia Pacific & Japan (APJC) Regional Championship 2026**, selected from 10,000+ teams across 115 countries.
+Veloquity won the **Global AWS 10,000 AIdeas Competition 2026 - Asia Pacific & Japan (APJC) Regional Championship**, selected from 10,000+ teams across 115 countries.
 
 - 🏆 **AWS APJC Regional Champion** — $15,000 prize support · $1,500 AWS credits · AWS re:Invent Las Vegas invitation
 - 📰 Full technical write-up: [AWS Builder Center Article](https://builder.aws.com/content/3AzrKpJbhJwEP6EZbm87vdxufgi/aideas-finalist-veloquity-the-agentic-evidence-intelligent-platform-turning-raw-feedback-into-evidence-driven-decisions)
