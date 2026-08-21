@@ -1,15 +1,18 @@
 <div align="center">
 
-# VELOQUITY
+![Veloquity Banner](https://capsule-render.vercel.app/api?type=waving&color=0:0f0c29,50:302b63,100:24243e&height=200&section=header&text=VELOQUITY&fontSize=70&fontColor=ffffff&animation=fadeIn&fontAlignY=35&desc=Agentic%20Evidence%20Intelligence%20%E2%80%94%20Raw%20Feedback%20to%20Evidence-Driven%20Decisions&descAlignY=55&descSize=18)
 
-### The Agentic Evidence Intelligence Platform Turning Raw Feedback into Evidence-Driven Decisions
+[![AWS APJC Regional Champion](https://img.shields.io/badge/AWS%2010%2C000%20AIdeas-APJC%20Regional%20Champion%20%F0%9F%8F%86-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)](#recognition)
+[![Demo Video](https://img.shields.io/badge/Demo%20Video-Watch%20on%20YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/wEG5jTQxlJ4?si=l1tH72icmjTMdh_H)
+[![AWS Builder Center Article](https://img.shields.io/badge/Full%20Technical%20Write--up-AWS%20Builder%20Center-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)](https://builder.aws.com/content/3AzrKpJbhJwEP6EZbm87vdxufgi/aideas-finalist-veloquity-the-agentic-evidence-intelligent-platform-turning-raw-feedback-into-evidence-driven-decisions)
 
-[Live Demo](https://veloquity1.vercel.app) · [AWS Bedrock](https://aws.amazon.com/bedrock/) · [Nova Pro](https://aws.amazon.com/bedrock/nova/)
+<br/>
 
-![Tests](https://img.shields.io/badge/tests-158%20passing-brightgreen)
-![Cost](https://img.shields.io/badge/pipeline%20cost-%240.029%2Frun-blue)
-![Lambda](https://img.shields.io/badge/AWS%20Lambda-4%20agents-orange)
-![pgvector](https://img.shields.io/badge/pgvector-1024--dim%20HNSW-purple)
+![Tests](https://img.shields.io/badge/tests-158%20passing-brightgreen?style=flat-square)
+![Cost](https://img.shields.io/badge/pipeline%20cost-%240.029%2Frun-blue?style=flat-square)
+![Runtime](https://img.shields.io/badge/end--to--end-91s-informational?style=flat-square)
+![Agents](https://img.shields.io/badge/agentic%20pipeline-4%20stages-orange?style=flat-square)
+![Domains](https://img.shields.io/badge/validated%20on-2%20domains-9cf?style=flat-square)
 
 </div>
 
