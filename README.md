@@ -255,7 +255,6 @@ Every production failure below was real, encountered during build, and resolved:
 Veloquity won the **AWS 10,000 AIdeas Asia Pacific & Japan (APJC) Regional Championship 2026**, selected from 10,000+ teams across 115 countries.
 
 - 🏆 **AWS APJC Regional Champion** — $15,000 prize support · $1,500 AWS credits · AWS re:Invent Las Vegas invitation
-- 📋 Official winners list: [`assets/aws-apjc-winners-list.png`](assets/aws-apjc-winners-list.png)
 - 📰 Full technical write-up: [AWS Builder Center Article](https://builder.aws.com/content/3AzrKpJbhJwEP6EZbm87vdxufgi/aideas-finalist-veloquity-the-agentic-evidence-intelligent-platform-turning-raw-feedback-into-evidence-driven-decisions)
 - 🎥 Demo video: [Watch on YouTube](https://youtu.be/wEG5jTQxlJ4?si=l1tH72icmjTMdh_H)
 - 📰 Featured in **Business Today** alongside **Jeff Barr** *(VP & Chief Evangelist, AWS)*
