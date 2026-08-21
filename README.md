@@ -326,7 +326,7 @@ veloquity/
 
 ---
 
-## Validation
+## Validation Details
 
 ```
 158 automated tests · 0 failures · 0.72s runtime
