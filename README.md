@@ -177,6 +177,21 @@ React 18 · TypeScript · Vite · Tailwind CSS · Framer Motion · Recharts · R
 
 ---
 
+## AWS Services
+
+| Service | Role in Veloquity |
+|---|---|
+| AWS Lambda | Hosts all four pipeline agents |
+| Amazon Bedrock — Nova Pro | Reasoning and recommendation generation |
+| Amazon Bedrock — Titan Embed V2 | 1024-dimensional semantic embeddings |
+| Amazon RDS (PostgreSQL + pgvector) | HNSW vector search and relational storage |
+| Amazon S3 | Feedback storage and reasoning run archival |
+| Amazon EventBridge | Scheduled governance triggers |
+| AWS IAM | Access control across all services |
+| AWS Secrets Manager | Credential management — nothing hardcoded |
+
+---
+
 ## Project Structure
 
 ```
@@ -243,21 +258,6 @@ Every production failure below was real, encountered during build, and resolved:
 **Missing python-multipart** — FastAPI file upload returned HTTP 422 silently. Added to requirements.txt.
 
 **Lambda Cold Start Latency** — Evidence Lambda loaded a 254MB ML dependency stack (numpy/scipy/scikit-learn/hdbscan) at module init on every cold start. Fixed with lazy imports (loaded only when clustering runs), `is_warmup` guards on all 4 Lambda handlers, and 8 EventBridge keep-warm rules pinging every 5 minutes. `deploy.sh` now force-updates Lambda code after every CloudFormation deploy.
-
----
-
-## AWS Services
-
-| Service | Role in Veloquity |
-|---|---|
-| AWS Lambda | Hosts all four pipeline agents |
-| Amazon Bedrock — Nova Pro | Reasoning and recommendation generation |
-| Amazon Bedrock — Titan Embed V2 | 1024-dimensional semantic embeddings |
-| Amazon RDS (PostgreSQL + pgvector) | HNSW vector search and relational storage |
-| Amazon S3 | Feedback storage and reasoning run archival |
-| Amazon EventBridge | Scheduled governance triggers |
-| AWS IAM | Access control across all services |
-| AWS Secrets Manager | Credential management — nothing hardcoded |
 
 ---
 
