@@ -233,9 +233,39 @@ Every production failure below was real, encountered during build, and resolved:
 
 ---
 
-## Live Demo
+## AWS Services
 
-[veloquity1.vercel.app](https://veloquity1.vercel.app)
+| Service | Role in Veloquity |
+|---|---|
+| AWS Lambda | Hosts all four pipeline agents |
+| Amazon Bedrock — Nova Pro | Reasoning and recommendation generation |
+| Amazon Bedrock — Titan Embed V2 | 1024-dimensional semantic embeddings |
+| Amazon RDS (PostgreSQL + pgvector) | HNSW vector search and relational storage |
+| Amazon S3 | Feedback storage and reasoning run archival |
+| Amazon EventBridge | Scheduled governance triggers |
+| AWS IAM | Access control across all services |
+| AWS Secrets Manager | Credential management — nothing hardcoded |
+
+---
+
+## Recognition
+
+<a name="recognition"></a>
+
+Veloquity won the **AWS 10,000 AIdeas Asia Pacific & Japan (APJC) Regional Championship 2026**, selected from 10,000+ teams across 115 countries.
+
+- 🏆 **AWS APJC Regional Champion** — $15,000 prize support · $1,500 AWS credits · AWS re:Invent Las Vegas invitation
+- 📋 Official winners list: [`assets/aws-apjc-winners-list.png`](assets/aws-apjc-winners-list.png)
+- 📰 Full technical write-up: [AWS Builder Center Article](https://builder.aws.com/content/3AzrKpJbhJwEP6EZbm87vdxufgi/aideas-finalist-veloquity-the-agentic-evidence-intelligent-platform-turning-raw-feedback-into-evidence-driven-decisions)
+- 🎥 Demo video: [Watch on YouTube](https://youtu.be/wEG5jTQxlJ4?si=l1tH72icmjTMdh_H)
+- 📰 Featured in **Business Today** alongside **Jeff Barr** *(VP & Chief Evangelist, AWS)*
+
+---
+
+<div align="center">
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:24243e,50:302b63,100:0f0c29&height=100&section=footer" width="100%"/>
+</div>
+
 
 Upload App Store or Support Tickets feedback and watch the full pipeline run. Explore evidence clusters, get AI recommendations with source traceability, and drill down to individual feedback items from the chat interface.
 
