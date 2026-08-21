@@ -150,8 +150,6 @@ Veloquity's core claim is domain-agnostic intelligence. The same code, unmodifie
 
 ---
 
-## What Veloquity Does
-
 Veloquity is a fully serverless & domain-agnostic multi agent evidence intelligence platform that transforms massive, fragmented customer feedback into prioritized, evidence-backed product decisions. Feedback enters through ingestion, gets embedded via Amazon Titan Embed V2, clustered with pgvector HNSW similarity search, scored by a mathematical confidence formula, and reasoned over by a Amazon Nova Pro ReAct loop — producing ranked recommendations that trace back to every original source item. 
 
 Every recommendation links through confidence-scored clusters to individual raw feedback items via the `evidence_item_map` table, providing full source-to-decision traceability with an immutable governance audit log. The same pipeline processes SaaS product crash reports and hospital patient experience surveys without a single line of code changed.
@@ -219,21 +217,6 @@ FastAPI on Render
         ↕
 React on Vercel
 ```
-
----
-
-## Agent Pipeline
-
-| Agent | Trigger | Key Technology | Avg Runtime |
-|-------|---------|---------------|-------------|
-| Ingestion | Manual or CSV upload | SHA-256 dedup, PII regex, S3 | 18s |
-| Evidence Intelligence | Post-ingestion | Titan Embed V2, HNSW clustering, confidence scoring | 34s |
-| Reasoning | Post-evidence | Nova Pro, ReAct loop, priority formula | 27s |
-| Governance | EventBridge daily | Stale detection, signal promotion, audit log | 12s |
-| Chat | Real-time | Nova Pro, evidence context, guided recommendation flow | under 3s |
-
-Full pipeline: 91 seconds total · $0.029 per run
-
 ---
 
 ## Confidence Scoring
