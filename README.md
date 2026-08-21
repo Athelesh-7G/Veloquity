@@ -67,7 +67,7 @@ Raw User Feedback
      │
      ▼
 ┌─────────────────────┐
-│  Reasoning Agent    │  Priority formula · Amazon Nova Pro ReAct · ranked recommendations with sourc-to-decision traceability
+│  Reasoning Agent    │  Priority formula · Amazon Nova Pro ReAct · ranked recommendations with full source-to-decision traceability
 └─────────────────────┘
      │
      ▼
