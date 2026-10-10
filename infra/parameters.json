@@ -9,7 +9,7 @@
   },
   {
     "ParameterKey": "DBPassword",
-    "ParameterValue": "Dool_Dul_123E"
+    "ParameterValue": "REPLACE_AT_DEPLOY_TIME"
   },
   {
     "ParameterKey": "DBInstanceClass",

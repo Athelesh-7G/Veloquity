@@ -16,6 +16,35 @@ echo "=================================================="
 echo " Veloquity Deploy — ENV=${ENV}  REGION=${REGION}"
 echo "=================================================="
 
+# 0. Resolve the DB password (never stored in infra/parameters.json).
+#    - DB_PASSWORD env var wins: required for the first deploy of a new stack and
+#      the way to rotate the password (the stack updates RDS + the secret together).
+#    - Otherwise reuse the password from the existing stack's Secrets Manager secret,
+#      so a routine redeploy leaves the RDS master password unchanged.
+#    The value is never printed.
+echo "[0/6] Resolving DB password..."
+DB_PASSWORD_RESOLVED="${DB_PASSWORD:-}"
+if [ -z "${DB_PASSWORD_RESOLVED}" ]; then
+  EXISTING_SECRET_ARN=$(aws cloudformation describe-stacks \
+    --stack-name ${STACK_NAME} \
+    --query "Stacks[0].Outputs[?OutputKey=='DBSecretArn'].OutputValue" \
+    --output text \
+    --region ${REGION} 2>/dev/null || true)
+  if [ -n "${EXISTING_SECRET_ARN}" ] && [ "${EXISTING_SECRET_ARN}" != "None" ]; then
+    DB_PASSWORD_RESOLVED=$(aws secretsmanager get-secret-value \
+      --secret-id "${EXISTING_SECRET_ARN}" \
+      --query SecretString \
+      --output text \
+      --region ${REGION} | python3 -c "import sys,json; print(json.load(sys.stdin)['password'])")
+  fi
+fi
+if [ -z "${DB_PASSWORD_RESOLVED}" ]; then
+  echo "ERROR: no DB password available. Stack ${STACK_NAME} has no existing DB secret;" >&2
+  echo "       set DB_PASSWORD in the environment for the first deploy (or to rotate)." >&2
+  exit 1
+fi
+echo "  DB password resolved."
+
 # 1. Package Lambda code — all 4 Lambdas import api.db (Secrets Manager + psycopg2)
 #    so every zip must bundle: the Lambda's own package(s) + api/ + psycopg2-binary (Linux).
 echo "[1/6] Packaging Lambda functions..."
@@ -121,17 +150,25 @@ echo "  Template valid."
 # 4. Deploy CloudFormation stack
 echo "[4/6] Deploying CloudFormation stack: ${STACK_NAME}..."
 
-# Convert parameters.json array to Key=Value pairs for `aws cloudformation deploy`
-PARAM_OVERRIDES=$(python3 -c "
-import json, sys
+# Convert parameters.json array to Key=Value pairs for `aws cloudformation deploy`.
+# DBPassword in the file is only a placeholder; the real value is injected from
+# DB_PASSWORD_RESOLVED (step 0). Built as a bash array so values containing
+# spaces or shell metacharacters stay intact.
+PARAM_OVERRIDES=()
+while IFS= read -r line; do
+  PARAM_OVERRIDES+=("$line")
+done < <(DB_PASSWORD_RESOLVED="${DB_PASSWORD_RESOLVED}" python3 -c "
+import json, os
 params = json.load(open('${PARAMS}'))
-print(' '.join(p['ParameterKey']+'='+p['ParameterValue'] for p in params))
+for p in params:
+    value = os.environ['DB_PASSWORD_RESOLVED'] if p['ParameterKey'] == 'DBPassword' else p['ParameterValue']
+    print(p['ParameterKey'] + '=' + value)
 ")
 
 aws cloudformation deploy \
   --stack-name ${STACK_NAME} \
   --template-file ${TEMPLATE} \
-  --parameter-overrides ${PARAM_OVERRIDES} DeployBucket=${DEPLOY_BUCKET} \
+  --parameter-overrides "${PARAM_OVERRIDES[@]}" DeployBucket=${DEPLOY_BUCKET} \
   --capabilities CAPABILITY_NAMED_IAM \
   --region ${REGION} \
   --tags Project=Veloquity Env=${ENV}
