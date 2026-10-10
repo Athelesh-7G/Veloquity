@@ -9,7 +9,7 @@
   },
   {
     "ParameterKey": "DBPassword",
-    "ParameterValue": "REDACTED_DB_PASSWORD"
+    "ParameterValue": "REPLACE_AT_DEPLOY_TIME"
   },
   {
     "ParameterKey": "DBInstanceClass",
