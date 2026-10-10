@@ -8,36 +8,29 @@ cycle and HTML report generation, then prints the Phase 4 Verification
 block to stdout.
 
 Usage: python db/seed/run_phase4.py
+Requires env: DB_SECRET_ARN, REPORT_BUCKET (optional: AWS_REGION_NAME).
 """
 
 import os
 import sys
 
 import boto3
-import psycopg2
 
 # Allow imports from project root.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from governance import stale_detection, signal_promotion, cost_monitor
 from output import html_report
+from seed_config import get_db_credentials, get_direct_conn, get_region, require_env
 
-REGION      = "us-east-1"
-BUCKET      = "veloquity-reports-dev-082228066878"
-DB_HOST     = "REDACTED_RDS_HOST"
-DB_PORT     = 5432
-DB_NAME     = "veloquity"
-DB_USER     = "veloquity_user"
-DB_PASSWORD = "REDACTED_DB_PASSWORD"
+REGION = get_region()
+BUCKET = require_env("REPORT_BUCKET", "DB_SECRET_ARN")["REPORT_BUCKET"]
+DB_CREDS = get_db_credentials()
 
 
-def get_direct_conn():
-    """Open a direct psycopg2 connection to RDS (bypasses Secrets Manager)."""
-    return psycopg2.connect(
-        host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
-        user=DB_USER, password=DB_PASSWORD,
-        connect_timeout=15,
-    )
+def get_conn():
+    """Open a direct psycopg2 connection to RDS using Secrets Manager credentials."""
+    return get_direct_conn(DB_CREDS)
 
 
 def main() -> None:
@@ -46,7 +39,7 @@ def main() -> None:
     print("  Veloquity — Phase 4 Governance Agent (local run)")
     print("=" * 62)
 
-    conn = get_direct_conn()
+    conn = get_conn()
     s3 = boto3.client("s3", region_name=REGION)
 
     try:
@@ -63,7 +56,7 @@ def main() -> None:
         conn.close()
 
     # Count governance_log rows written this session (approximation: total rows)
-    conn2 = get_direct_conn()
+    conn2 = get_conn()
     try:
         with conn2.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM governance_log")

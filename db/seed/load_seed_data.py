@@ -2,6 +2,9 @@
 # =============================================================
 # db/seed/load_seed_data.py
 #
+# Requires env: AWS_REGION_NAME, S3_RAW_BUCKET, S3_DEPLOY_BUCKET, DB_SECRET_ARN
+# (optional: INGESTION_LAMBDA_NAME).
+#
 # Loads test seed data through the Veloquity ingestion pipeline
 # by importing and calling lambda_handler.handler() directly
 # (not via AWS Lambda.invoke for the core pipeline).
@@ -35,31 +38,24 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # ---------------------------------------------------------------------------
-# Required env vars (must be set before any ingestion module is imported)
+# Required env vars (the ingestion modules read these at import time, so they
+# must be present before anything from ingestion/ is imported)
 # ---------------------------------------------------------------------------
-os.environ["AWS_REGION_NAME"] = "us-east-1"
-os.environ["S3_RAW_BUCKET"]   = "veloquity-raw-dev-082228066878"
-os.environ["DB_SECRET_ARN"]   = (
-    "arn:aws:secretsmanager:us-east-1:082228066878:"
-    "secret:veloquity/dev/db-credentials-uL04M5"
-)
+from seed_config import get_db_credentials, get_region, require_env  # noqa: E402
+
+_env = require_env("AWS_REGION_NAME", "S3_RAW_BUCKET", "DB_SECRET_ARN", "S3_DEPLOY_BUCKET")
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-REGION        = "us-east-1"
-DEPLOY_BUCKET = "veloquity-deploy-dev-082228066878"
-FUNCTION_NAME = "veloquity-ingestion-dev"
-RAW_BUCKET    = "veloquity-raw-dev-082228066878"
+REGION        = _env["AWS_REGION_NAME"]
+DEPLOY_BUCKET = _env["S3_DEPLOY_BUCKET"]
+FUNCTION_NAME = os.environ.get("INGESTION_LAMBDA_NAME", "veloquity-ingestion-dev")
+RAW_BUCKET    = _env["S3_RAW_BUCKET"]
 SEED_DIR      = os.path.dirname(os.path.abspath(__file__))
 
-DB_CREDS = {
-    "host":     "REDACTED_RDS_HOST",
-    "port":     "5432",
-    "dbname":   "veloquity",
-    "username": "veloquity_user",
-    "password": "REDACTED_DB_PASSWORD",
-}
+# Fetched from Secrets Manager via DB_SECRET_ARN; never printed or logged.
+DB_CREDS = get_db_credentials()
 
 lambda_client = boto3.client("lambda", region_name=REGION)
 s3_client     = boto3.client("s3",     region_name=REGION)
