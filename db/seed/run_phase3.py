@@ -7,6 +7,7 @@ Connects directly to RDS (no Lambda invoke), calls run_reasoning_agent()
 and prints the full structured output to stdout.
 
 Usage: python db/seed/run_phase3.py
+Requires env: DB_SECRET_ARN, REPORT_BUCKET (optional: AWS_REGION_NAME).
 """
 
 import json
@@ -14,29 +15,21 @@ import os
 import sys
 
 import boto3
-import psycopg2
 
 # Allow imports from project root.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from reasoning.agent import run_reasoning_agent
+from seed_config import get_db_credentials, get_direct_conn, get_region, require_env
 
-REGION      = "us-east-1"
-BUCKET      = "veloquity-reports-dev-082228066878"
-DB_HOST     = "veloquity-dev.ckh6ce2aesni.us-east-1.rds.amazonaws.com"
-DB_PORT     = 5432
-DB_NAME     = "veloquity"
-DB_USER     = "veloquity_user"
-DB_PASSWORD = "Dool_Dul_123E"
+REGION = get_region()
+BUCKET = require_env("REPORT_BUCKET", "DB_SECRET_ARN")["REPORT_BUCKET"]
+DB_CREDS = get_db_credentials()
 
 
-def get_direct_conn():
-    """Open a direct psycopg2 connection to RDS (bypasses Secrets Manager)."""
-    return psycopg2.connect(
-        host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
-        user=DB_USER, password=DB_PASSWORD,
-        connect_timeout=15,
-    )
+def get_conn():
+    """Open a direct psycopg2 connection to RDS using Secrets Manager credentials."""
+    return get_direct_conn(DB_CREDS)
 
 
 def main() -> None:
@@ -45,7 +38,7 @@ def main() -> None:
     print("  Veloquity — Phase 3 Reasoning Agent (local run)")
     print("=" * 62)
 
-    conn = get_direct_conn()
+    conn = get_conn()
     bedrock = boto3.client("bedrock-runtime", region_name=REGION)
     s3 = boto3.client("s3", region_name=REGION)
 
