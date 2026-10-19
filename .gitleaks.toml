@@ -1,0 +1,20 @@
+title = "Veloquity gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "veloquity-hardcoded-db-password"
+description = "Hardcoded database password assignment"
+regex = '''(?i)\b(db_?pass(word)?|pg_?password)\b\s*[:=]\s*["'][^"'\s]{4,}["']'''
+keywords = ["pass", "pgpassword"]
+
+[[allowlists]]
+description = "Placeholder-only example file"
+paths = ['''(^|/)\.env\.example$''']
+
+[[allowlists]]
+description = "S3 bucket name in render.yaml (contains an account ID; an identifier, not a credential)"
+targetRules = ["generic-api-key"]
+paths = ['''^render\.yaml$''']
+regexes = ['''S3_RAW_BUCKET''']

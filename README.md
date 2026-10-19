@@ -294,6 +294,13 @@ React 18 · TypeScript · Vite · Tailwind CSS · Framer Motion · Recharts · R
 
 ---
 
+## Configuration & secrets
+
+- Database credentials are never stored in the repo. Services and scripts read them from AWS Secrets Manager using the `DB_SECRET_ARN` environment variable.
+- Copy `.env.example` to `.env` (gitignored) and fill in the variable values for local runs.
+- Never commit credentials, keys or `.env` files. For deploys, `infra/deploy.sh` takes the DB password from `DB_PASSWORD` or the existing stack secret, not from `infra/parameters.json`.
+- Run `pre-commit install` once after cloning; a gitleaks hook then scans every commit, and CI scans every push and pull request.
+
 ## Project Structure
 
 ```

@@ -77,3 +77,11 @@ Veloquity_Full_Guide_White.md
 VELOQUITY_COMPLETE_GUIDE.md
 .claude/
 frontend/
+
+*.pyc
+# Secrets / local config — never commit
+.env.*
+!.env.example
+*.key
+secrets/
+*.tfstate*
