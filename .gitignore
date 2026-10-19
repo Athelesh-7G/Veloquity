@@ -85,3 +85,5 @@ frontend/
 *.key
 secrets/
 *.tfstate*
+
+.git_disabled/
